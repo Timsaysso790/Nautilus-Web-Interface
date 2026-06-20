@@ -14,9 +14,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# Load .env before any other module reads environment variables
+load_dotenv()
 
 # Ensure backend dir is on the path so routers can import sibling modules
 sys.path.insert(0, str(Path(__file__).parent))

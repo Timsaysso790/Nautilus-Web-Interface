@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
@@ -18,6 +19,14 @@ from data_sources.manager import DataSourceManager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/data-lake", tags=["data-lake"])
+
+# Load .env so NAUTILUS_CATALOG_PATH is available even when running locally
+load_dotenv()
+
+
+def _browse_base() -> Path:
+    """Resolve the catalog root at call time (not import time)."""
+    return Path(os.getenv("NAUTILUS_CATALOG_PATH", "./data_lake")).resolve()
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -169,8 +178,9 @@ async def delete_job(job_id: str):
 @router.post("/convert", dependencies=[Depends(require_admin)])
 async def convert_data(req: ConvertRequest):
     try:
-        full_path = (_BROWSE_BASE / req.source_path).resolve()
-        full_path.relative_to(_BROWSE_BASE)  # safety check
+        base = _browse_base()
+        full_path = (base / req.source_path).resolve()
+        full_path.relative_to(base)  # safety check
         stats = convert_theta_data(
             source_path=str(full_path),
             instrument_id_template=req.instrument_id_template,
@@ -218,20 +228,18 @@ async def delete_catalog_entry(data_type: str, instrument_id: str):
 
 # ── Folder browse ──────────────────────────────────────────────────────────────
 
-_BROWSE_BASE = Path(os.getenv("NAUTILUS_CATALOG_PATH", "./data_lake")).resolve()
-
-
 @router.get("/browse")
 async def browse_folder(path: str = Query("", alias="path")):
     """
     List subdirectories and parquet files at the given path relative to the
     catalog root.  Returns the directory tree for the folder browser UI.
     """
+    base = _browse_base()
 
     # Resolve the requested path, ensuring it stays within the base
     try:
-        resolved = (_BROWSE_BASE / path).resolve()
-        resolved.relative_to(_BROWSE_BASE)
+        resolved = (base / path).resolve()
+        resolved.relative_to(base)
     except (ValueError, RuntimeError):
         raise HTTPException(status_code=400, detail="Path outside allowed directory")
 
@@ -245,7 +253,7 @@ async def browse_folder(path: str = Query("", alias="path")):
     try:
         for entry in sorted(resolved.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
             if entry.is_dir():
-                subdirs.append({"name": entry.name, "path": str(entry.relative_to(_BROWSE_BASE))})
+                subdirs.append({"name": entry.name, "path": str(entry.relative_to(base))})
             elif entry.suffix.lower() == ".parquet":
                 parquet_count += 1
                 if len(parquet_files) < 50:
@@ -259,8 +267,8 @@ async def browse_folder(path: str = Query("", alias="path")):
     parent_path = ""
     try:
         parent = resolved.parent
-        if parent != _BROWSE_BASE:
-            parent_path = str(parent.relative_to(_BROWSE_BASE))
+        if parent != base:
+            parent_path = str(parent.relative_to(base))
     except ValueError:
         parent_path = ""
 
@@ -268,7 +276,7 @@ async def browse_folder(path: str = Query("", alias="path")):
     total_parquet = sum(1 for _ in resolved.rglob("*.parquet"))
 
     return {
-        "current_path": str(resolved.relative_to(_BROWSE_BASE)) if resolved != _BROWSE_BASE else "",
+        "current_path": str(resolved.relative_to(base)) if resolved != base else "",
         "subdirectories": subdirs,
         "parquet_files": parquet_files,
         "parquet_count": parquet_count,
@@ -279,8 +287,9 @@ async def browse_folder(path: str = Query("", alias="path")):
 @router.post("/import", dependencies=[Depends(require_admin)])
 async def import_existing_data(req: ConvertRequest):
     try:
-        full_path = (_BROWSE_BASE / req.source_path).resolve()
-        full_path.relative_to(_BROWSE_BASE)
+        base = _browse_base()
+        full_path = (base / req.source_path).resolve()
+        full_path.relative_to(base)
         stats = convert_theta_data(
             source_path=str(full_path),
             instrument_id_template=req.instrument_id_template,
