@@ -12,3 +12,7 @@ data/
 tests/
 .git/
 *.md
+nautilus_data/
+deploy_to_vps.sh
+docker-compose.yml
+docker-compose.dev.yml
