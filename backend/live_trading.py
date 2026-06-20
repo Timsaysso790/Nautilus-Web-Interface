@@ -35,6 +35,14 @@ class BybitAuthError(ConnectionError):
     """Raised when Bybit explicitly rejects credentials (HTTP 401/403)."""
 
 
+class TastytradeAuthError(ConnectionError):
+    """Raised when Tastytrade rejects credentials."""
+
+
+class RobinhoodAuthError(ConnectionError):
+    """Raised when Robinhood rejects credentials."""
+
+
 @dataclass
 class AdapterConnection:
     adapter_id: str
@@ -44,6 +52,9 @@ class AdapterConnection:
     # NautilusTrader HTTP API objects (set after successful connect)
     binance_spot_api: Any = None   # BinanceSpotAccountHttpAPI
     bybit_account_api: Any = None  # BybitAccountHttpAPI
+    # Broker SDK sessions
+    tastytrade_session: Any = None  # tastytrade Session
+    robinhood_session: Any = None   # robin_stocks login result
 
 
 # ── Nautilus clock singleton (reused across connections) ──────────────────────
@@ -96,6 +107,10 @@ class LiveTradingManager:
                 for k, v in self._connections.items()
             },
         }
+
+    def get_connections(self) -> Dict[str, AdapterConnection]:
+        """Return the current connection dictionary (public read access)."""
+        return dict(self._connections)
 
     # ── Adapter connections ───────────────────────────────────────────────────
 
@@ -270,6 +285,91 @@ class LiveTradingManager:
                 self._is_active = False
             return {"success": True}
 
+    # ── Tastytrade ────────────────────────────────────────────────────────────
+
+    async def connect_tastytrade(self, username: str, password: str) -> Dict[str, Any]:
+        async with self._lock:
+            if not username or not password:
+                raise ConnectionError("username and password are required")
+
+            session = None
+            verified = False
+            account_info: Dict[str, Any] = {}
+
+            try:
+                import tastytrade
+                session = tastytrade.Session(username, password)
+                verified = True
+                account_info = {"account_type": "tastytrade", "username": username}
+            except Exception as exc:
+                err_msg = str(exc).lower()
+                if any(k in err_msg for k in ("401", "403", "invalid", "unauthorized")):
+                    raise TastytradeAuthError(f"Tastytrade rejected credentials: {exc}") from exc
+                raise ConnectionError(f"Tastytrade unreachable: {exc}") from exc
+
+            connection_id = f"CONN-TASTYTRADE-{uuid.uuid4().hex[:8].upper()}"
+            self._connections["tastytrade"] = AdapterConnection(
+                adapter_id="tastytrade",
+                connection_id=connection_id,
+                status="connected" if verified else "connected_offline",
+                tastytrade_session=session,
+            )
+            self._is_active = True
+            return {
+                "success": True,
+                "connection_id": connection_id,
+                "verified": verified,
+                "account_info": account_info,
+            }
+
+    # ── Robinhood ─────────────────────────────────────────────────────────────
+
+    async def connect_robinhood(
+        self, username: str, password: str, totp_seed: str = ""
+    ) -> Dict[str, Any]:
+        async with self._lock:
+            if not username or not password:
+                raise ConnectionError("username and password are required")
+
+            verified = False
+            account_info: Dict[str, Any] = {}
+
+            try:
+                import robin_stocks.robinhood as r
+                if totp_seed:
+                    import pyotp
+                    totp = pyotp.TOTP(totp_seed).now()
+                    r.login(username, password, mfa_code=totp)
+                else:
+                    r.login(username, password)
+                verified = True
+                profile = r.profiles.load_account_profile()
+                account_info = {
+                    "account_type": "robinhood",
+                    "username": username,
+                    "account_number": profile.get("account_number", "") if profile else "",
+                }
+            except Exception as exc:
+                err_msg = str(exc).lower()
+                if any(k in err_msg for k in ("401", "403", "invalid", "mfa", "unauthorized")):
+                    raise RobinhoodAuthError(f"Robinhood rejected credentials: {exc}") from exc
+                raise ConnectionError(f"Robinhood unreachable: {exc}") from exc
+
+            connection_id = f"CONN-ROBINHOOD-{uuid.uuid4().hex[:8].upper()}"
+            self._connections["robinhood"] = AdapterConnection(
+                adapter_id="robinhood",
+                connection_id=connection_id,
+                status="connected" if verified else "connected_offline",
+                robinhood_session=True,
+            )
+            self._is_active = True
+            return {
+                "success": True,
+                "connection_id": connection_id,
+                "verified": verified,
+                "account_info": account_info,
+            }
+
     # ── Order management (via Nautilus adapter HTTP APIs) ─────────────────────
 
     async def submit_order(self, order: Dict[str, Any]) -> Dict[str, Any]:
@@ -288,6 +388,10 @@ class LiveTradingManager:
                     return await self._submit_binance_order(conn, order)
                 elif adapter_id == "bybit" and conn.bybit_account_api:
                     return await self._submit_bybit_order(conn, order)
+                elif adapter_id == "tastytrade" and conn.tastytrade_session:
+                    return await self._submit_tastytrade_order(conn, order)
+                elif adapter_id == "robinhood" and conn.robinhood_session:
+                    return await self._submit_robinhood_order(conn, order)
             except Exception as exc:
                 logger.warning("Exchange order submission failed (%s): %s", adapter_id, exc)
                 raise RuntimeError(str(exc)) from exc
@@ -366,6 +470,73 @@ class LiveTradingManager:
             "exchange": "BYBIT",
         }
 
+    async def _submit_tastytrade_order(
+        self, conn: AdapterConnection, order: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        try:
+            from tastytrade import Order as TastyOrder, InstrumentType, OrderType, PriceEffect, OrderStatus
+            session = conn.tastytrade_session
+            symbol = order.get("instrument", "").split(".")[0]
+            side = order.get("side", "BUY").upper()
+            qty = int(float(order.get("quantity", 1)))
+            price = order.get("price")
+            order_type = order.get("type", "MARKET").upper()
+
+            tasty_order = TastyOrder(
+                instrument_type=InstrumentType.EQUITY,
+                symbol=symbol,
+                side=side,
+                quantity=qty,
+                order_type=OrderType.MARKET if order_type == "MARKET" else OrderType.LIMIT,
+                price=price,
+                price_effect=PriceEffect.OPENING,
+                time_in_force="DAY",
+            )
+            accounts = session.get_accounts()
+            if not accounts:
+                raise RuntimeError("No Tastytrade accounts found")
+            account = accounts[0]
+            result = account.place_order(tasty_order)
+            order_id = str(getattr(result, "id", "") or "")
+            return {
+                "success": True,
+                "order_id": order_id,
+                "exchange_order_id": order_id,
+                "status": str(getattr(result, "status", "PENDING")).lower(),
+                "exchange": "TASTYTRADE",
+            }
+        except Exception as exc:
+            logger.warning("Tastytrade order failed: %s", exc)
+            raise RuntimeError(str(exc)) from exc
+
+    async def _submit_robinhood_order(
+        self, conn: AdapterConnection, order: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        try:
+            import robin_stocks.robinhood as r
+            symbol = order.get("instrument", "").split(".")[0]
+            side = order.get("side", "BUY").upper()
+            qty = int(float(order.get("quantity", 1)))
+            order_type = order.get("type", "MARKET").upper()
+            price = order.get("price")
+
+            if order_type == "MARKET":
+                result = r.orders.order_buy_market(symbol, qty) if side == "BUY" else r.orders.order_sell_market(symbol, qty)
+            else:
+                result = r.orders.order_buy_limit(symbol, qty, price) if side == "BUY" else r.orders.order_sell_limit(symbol, qty, price)
+
+            order_id = str(result.get("id", ""))
+            return {
+                "success": True,
+                "order_id": order_id,
+                "exchange_order_id": order_id,
+                "status": str(result.get("state", "pending")).lower(),
+                "exchange": "ROBINHOOD",
+            }
+        except Exception as exc:
+            logger.warning("Robinhood order failed: %s", exc)
+            raise RuntimeError(str(exc)) from exc
+
     async def cancel_order(self, order_id: str, symbol: str = "BTCUSDT") -> Dict[str, Any]:
         """Cancel an order on the connected exchange via Nautilus HTTP API."""
         if not self.is_connected():
@@ -416,6 +587,10 @@ class LiveTradingManager:
                     positions = await self._fetch_binance_positions(conn)
                 elif adapter_id == "bybit" and conn.bybit_account_api:
                     positions = await self._fetch_bybit_positions(conn)
+                elif adapter_id == "tastytrade" and conn.tastytrade_session:
+                    positions = await self._fetch_tastytrade_positions(conn)
+                elif adapter_id == "robinhood" and conn.robinhood_session:
+                    positions = await self._fetch_robinhood_positions(conn)
                 else:
                     positions = []
                 all_positions.extend(positions)
@@ -463,6 +638,52 @@ class LiveTradingManager:
                         "exchange": "BYBIT",
                     })
         return positions
+
+    async def _fetch_tastytrade_positions(self, conn: AdapterConnection) -> List[Dict[str, Any]]:
+        try:
+            session = conn.tastytrade_session
+            accounts = session.get_accounts()
+            if not accounts:
+                return []
+            account = accounts[0]
+            positions = account.get_positions()
+            result = []
+            for pos in positions:
+                result.append({
+                    "instrument": str(getattr(pos, "symbol", "")),
+                    "side": "LONG" if getattr(pos, "quantity", 0) > 0 else "SHORT",
+                    "quantity": abs(float(getattr(pos, "quantity", 0))),
+                    "avg_price": float(getattr(pos, "avg_price", 0) or 0),
+                    "pnl": float(getattr(pos, "pnl", 0) or 0),
+                    "source": "live",
+                    "exchange": "TASTYTRADE",
+                })
+            return result
+        except Exception as exc:
+            logger.warning("Tastytrade position sync failed: %s", exc)
+            return []
+
+    async def _fetch_robinhood_positions(self, conn: AdapterConnection) -> List[Dict[str, Any]]:
+        try:
+            import robin_stocks.robinhood as r
+            positions = r.account.build_holdings()
+            result = []
+            for symbol, data in (positions or {}).items():
+                qty = float(data.get("quantity", 0))
+                if qty > 0:
+                    result.append({
+                        "instrument": symbol,
+                        "side": "LONG",
+                        "quantity": qty,
+                        "avg_price": float(data.get("average_buy_price", 0)),
+                        "pnl": float(data.get("equity_change", 0)),
+                        "source": "live",
+                        "exchange": "ROBINHOOD",
+                    })
+            return result
+        except Exception as exc:
+            logger.warning("Robinhood position sync failed: %s", exc)
+            return []
 
     # ── Market data WebSocket ─────────────────────────────────────────────────
 

@@ -5,6 +5,7 @@ import { DataSourceCard } from "@/components/DataSourceCard";
 import { DownloadJobForm } from "@/components/DownloadJobForm";
 import { JobProgressCard } from "@/components/JobProgressCard";
 import { CatalogTreeView } from "@/components/CatalogTreeView";
+import { FolderBrowser } from "@/components/FolderBrowser";
 import { dataLakeService, type DataSource, type DownloadJob } from "@/services/dataLakeService";
 import { useNotification } from "@/contexts/NotificationContext";
 
@@ -24,6 +25,9 @@ export default function DataLakePage() {
   const [sources, setSources] = useState<DataSource[]>([]);
   const [jobs, setJobs] = useState<DownloadJob[]>([]);
   const [importPath, setImportPath] = useState("");
+  const [instrumentFilter, setInstrumentFilter] = useState("");
+  const [selectedPath, setSelectedPath] = useState("");
+  const [converting, setConverting] = useState(false);
 
   const notify = useCallback((msg: string, type: "success" | "error" | "info" = "info") => {
     addNotification(type, msg);
@@ -82,19 +86,33 @@ export default function DataLakePage() {
   const handleImport = async () => {
     if (!importPath.trim()) return;
     try {
-      const res = await dataLakeService.importData(importPath.trim());
+      const res = await dataLakeService.importData(importPath.trim(), instrumentFilter.trim() || undefined);
       notify(`Imported: ${res.stats.converted} files, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
       setImportPath("");
+      setInstrumentFilter("");
     } catch { notify("Import failed", "error"); }
   };
 
   const handleConvertPath = async () => {
     if (!importPath.trim()) return;
     try {
-      const res = await dataLakeService.convertData(importPath.trim());
+      const res = await dataLakeService.convertData(importPath.trim(), instrumentFilter.trim() || undefined);
       notify(`Converted: ${res.stats.converted} files, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
       setImportPath("");
+      setInstrumentFilter("");
     } catch { notify("Conversion failed", "error"); }
+  };
+
+  const handleFolderConvert = async (path: string, instrument: string) => {
+    setConverting(true);
+    try {
+      const res = await dataLakeService.convertData(path, instrument);
+      notify(`Converted ${instrument}: ${res.stats.converted} files, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
+    } catch {
+      notify("Conversion failed", "error");
+    } finally {
+      setConverting(false);
+    }
   };
 
   return (
@@ -169,22 +187,45 @@ export default function DataLakePage() {
       {tab === "convert" && (
         <div className="space-y-6">
           <div className="bg-card border rounded-lg p-4 space-y-3">
-            <h3 className="font-semibold text-foreground">Import Existing Data</h3>
+            <h3 className="font-semibold text-foreground">Browse & Convert</h3>
             <p className="text-xs text-muted-foreground">
-              Point to a directory containing ThetaData parquet files (38-column format).
-              Files are imported directly into the catalog.
+              Navigate to a ticker folder containing ThetaData parquet files, then click Convert.
+              Files are recursively found and converted into the Nautilus catalog format.
             </p>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 bg-background border rounded px-3 py-2 text-sm text-foreground"
-                value={importPath}
-                onChange={e => setImportPath(e.target.value)}
-                placeholder="/path/to/theta/data"
-              />
-              <Button variant="outline" onClick={handleImport}>Import Direct</Button>
-              <Button variant="outline" onClick={handleConvertPath}>Convert to Catalog</Button>
-            </div>
+            <FolderBrowser
+              onSelect={setSelectedPath}
+              onConvert={handleFolderConvert}
+              converting={converting}
+            />
           </div>
+
+          {/* Collapsible manual path entry for advanced use */}
+          <details className="bg-card border rounded-lg p-4">
+            <summary className="text-sm font-semibold text-muted-foreground cursor-pointer">
+              Manual path entry (advanced)
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-background border rounded px-3 py-2 text-sm text-foreground"
+                  value={importPath}
+                  onChange={e => setImportPath(e.target.value)}
+                  placeholder="Relative path (e.g. ETF_Core_Indices/SPY)"
+                />
+                <input
+                  className="w-32 bg-background border rounded px-3 py-2 text-sm text-foreground"
+                  value={instrumentFilter}
+                  onChange={e => setInstrumentFilter(e.target.value)}
+                  placeholder="Filter symbol"
+                />
+                <Button variant="outline" onClick={handleImport}>Import Direct</Button>
+                <Button variant="outline" onClick={handleConvertPath}>Convert</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Paths are relative to your catalog mount. Filter can be left empty to convert all symbols.
+              </p>
+            </div>
+          </details>
 
           <div className="space-y-2">
             <h3 className="font-semibold text-foreground">Completed Downloads</h3>

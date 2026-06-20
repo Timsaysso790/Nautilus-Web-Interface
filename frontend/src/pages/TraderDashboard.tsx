@@ -230,6 +230,21 @@ export default function TraderDashboard() {
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
+              <CardTitle>🏦 Broker Orders</CardTitle>
+              <CardDescription>Live orders on Tastytrade & Robinhood</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                View, submit, and manage live orders on connected broker accounts.
+              </p>
+              <Button className="w-full" variant="secondary" onClick={() => window.location.href = '/trader/broker-orders'}>
+                Broker Orders
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
               <CardTitle>📊 Strategy Backtest</CardTitle>
               <CardDescription>Multi-leg option strategy backtesting</CardDescription>
             </CardHeader>

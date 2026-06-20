@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/AdminDashboard";
 import TraderDashboard from "./pages/TraderDashboard";
+import BrokerOrdersPage from "./pages/BrokerOrdersPage";
 import DatabasePage from "./pages/DatabasePage";
 import ComponentsPage from "./pages/ComponentsPage";
 import FeaturesPage from "./pages/FeaturesPage";
@@ -65,6 +66,7 @@ function Router() {
       <Route path="/trader/risk" component={RiskPage} />
       <Route path="/trader/option-backtest" component={OptionBacktestPage} />
       <Route path="/trader/options" component={OptionsPage} />
+      <Route path="/trader/broker-orders" component={BrokerOrdersPage} />
       <Route path="/trader/stocks" component={StocksPage} />
       <Route path="/trader/market-data" component={MarketDataPage} />
       <Route path="/trader/performance" component={PerformancePage} />

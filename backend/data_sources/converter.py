@@ -39,6 +39,7 @@ def convert_theta_data(
     source_path: str,
     target_type: str = "bar",
     instrument_id_template: Optional[str] = None,
+    instrument_filter: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Convert ThetaData-format parquet files (38-col with OHLCV + greeks) into
@@ -48,6 +49,9 @@ def convert_theta_data(
       data/bar/{instrument_id}/{ts_range}.parquet
       data/option_greeks/{instrument_id}/{ts_range}.parquet
       data/quote_tick/{instrument_id}/{ts_range}.parquet
+
+    If instrument_filter is set (e.g. "SPY"), only files whose symbol matches
+    are processed.
     """
     src = Path(source_path)
     if not src.is_dir():
@@ -59,7 +63,7 @@ def convert_theta_data(
 
     stats = {"converted": 0, "skipped": 0, "errors": 0}
 
-    for fpath in sorted(src.glob("*.parquet")):
+    for fpath in sorted(src.rglob("*.parquet")):
         try:
             df = pd.read_parquet(fpath)
             if df.empty:
@@ -70,6 +74,11 @@ def convert_theta_data(
             expiry = str(df["expiration"].iloc[0]) if "expiration" in df.columns else ""
             strike = df["strike_price"].iloc[0] if "strike_price" in df.columns else 0.0
             right = df["right"].iloc[0] if "right" in df.columns else ""
+
+            # Skip if instrument filter is set and symbol doesn't match
+            if instrument_filter and instrument_filter.upper() != str(symbol).upper():
+                stats["skipped"] += 1
+                continue
 
             if expiry and strike and right:
                 raw_sym = f"{symbol}{expiry}{right}{int(strike*1000):08d}"

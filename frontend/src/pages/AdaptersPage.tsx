@@ -12,12 +12,16 @@ interface Adapter {
   docs_url: string;
   supports_live: boolean;
   supports_backtest: boolean;
+  credential_fields: string[];
 }
 
 interface AdapterState {
   connected: boolean;
   apiKey: string;
   apiSecret: string;
+  username: string;
+  password: string;
+  totpSeed: string;
   endpoint: string;
   testnet: boolean;
 }
@@ -25,6 +29,7 @@ interface AdapterState {
 const CATEGORY_COLORS: Record<string, string> = {
   Crypto: 'bg-yellow-100 text-yellow-700',
   'Stocks & Futures': 'bg-blue-100 text-blue-700',
+  'Stocks & Options': 'bg-teal-100 text-teal-700',
   Data: 'bg-purple-100 text-purple-700',
   DeFi: 'bg-indigo-100 text-indigo-700',
   Betting: 'bg-pink-100 text-pink-700',
@@ -33,10 +38,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 const CATEGORY_ICONS: Record<string, string> = {
   Crypto: '₿',
   'Stocks & Futures': '📈',
+  'Stocks & Options': '🏦',
   Data: '🗄️',
   DeFi: '🔗',
   Betting: '🎰',
 };
+
+const BROKER_IDS = ['tastytrade', 'robinhood'];
 
 export default function AdaptersPage() {
   const { success, info, error: notifyError } = useNotification();
@@ -54,11 +62,14 @@ export default function AdaptersPage() {
         setAdapters(list);
         const initial: Record<string, AdapterState> = {};
         list.forEach(a => {
-          // Restore connected status and credential hint from backend
+          const isBroker = BROKER_IDS.includes(a.id);
           initial[a.id] = {
             connected: a.status === 'connected',
-            apiKey: a.has_credentials ? '••••••••' : '',
+            apiKey: !isBroker && (a as any).has_credentials ? '••••••••' : '',
             apiSecret: '',
+            username: isBroker && (a as any).username_masked ? (a as any).username_masked : '',
+            password: '',
+            totpSeed: isBroker && (a as any).totp_seed_configured ? '••••••••' : '',
             endpoint: '',
             testnet: false,
           };
@@ -86,9 +97,12 @@ export default function AdaptersPage() {
     } else {
       // If no credentials saved yet, open config panel instead
       const state = states[adapter.id];
-      if (!state?.apiKey || state.apiKey === '••••••••') {
+      const hasSavedCreds = BROKER_IDS.includes(adapter.id)
+        ? (state?.username && state.username !== '••••••••')
+        : (state?.apiKey && state.apiKey !== '••••••••');
+      if (!hasSavedCreds) {
         setConfigOpen(adapter.id);
-        info(`Enter API credentials for ${adapter.name} first`);
+        info(`Enter credentials for ${adapter.name} first`);
       } else {
         // Credentials already in form — connect directly
         await saveConfig(adapter.id);
@@ -115,6 +129,38 @@ export default function AdaptersPage() {
 
   const saveConfig = async (adapterId: string) => {
     const state = states[adapterId];
+    const isBroker = BROKER_IDS.includes(adapterId);
+
+    if (isBroker) {
+      const username = state?.username || undefined;
+      const password = state?.password || undefined;
+      const totpSeed = state?.totpSeed || undefined;
+
+      if (!username || !password) {
+        notifyError('Enter username and password before connecting');
+        return;
+      }
+
+      info('Connecting…');
+      try {
+        await api.post(`/api/adapters/${adapterId}/connect`, {
+          username,
+          password,
+          totp_seed: totpSeed || null,
+        });
+        setStates(prev => ({
+          ...prev,
+          [adapterId]: { ...prev[adapterId], connected: true, username: '••••••••', password: '', totpSeed: state.totpSeed ? '••••••••' : '' },
+        }));
+        setConfigOpen(null);
+        success('Adapter connected and credentials saved');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Connection failed';
+        notifyError(msg);
+      }
+      return;
+    }
+
     const apiKey = state?.apiKey && state.apiKey !== '••••••••' ? state.apiKey : undefined;
     const apiSecret = state?.apiSecret || undefined;
 
@@ -283,42 +329,88 @@ export default function AdaptersPage() {
                   {/* Inline config panel */}
                   {configOpen === adapter.id && (
                     <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
-                      <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1">API Key</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••••••••••"
-                          value={states[adapter.id]?.apiKey ?? ''}
-                          onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], apiKey: e.target.value } }))}
-                          className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1">API Secret</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••••••••••"
-                          value={states[adapter.id]?.apiSecret ?? ''}
-                          onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], apiSecret: e.target.value } }))}
-                          className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`testnet-${adapter.id}`}
-                          checked={states[adapter.id]?.testnet ?? false}
-                          onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], testnet: e.target.checked } }))}
-                          className="rounded"
-                        />
-                        <label htmlFor={`testnet-${adapter.id}`} className="text-xs text-muted-foreground">Use testnet/paper trading</label>
-                      </div>
-                      <button
-                        onClick={() => void saveConfig(adapter.id)}
-                        className="w-full py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700"
-                      >
-                        Connect &amp; Save
-                      </button>
+                      {BROKER_IDS.includes(adapter.id) ? (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1">Username</label>
+                            <input
+                              type="text"
+                              placeholder="your@email.com"
+                              value={states[adapter.id]?.username ?? ''}
+                              onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], username: e.target.value } }))}
+                              className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1">Password</label>
+                            <input
+                              type="password"
+                              placeholder="••••••••"
+                              value={states[adapter.id]?.password ?? ''}
+                              onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], password: e.target.value } }))}
+                              className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
+                            />
+                          </div>
+                          {adapter.id === 'robinhood' && (
+                            <div>
+                              <label className="block text-xs font-semibold text-muted-foreground mb-1">TOTP MFA Seed</label>
+                              <input
+                                type="password"
+                                placeholder="Base32 secret from Robinhood 2FA setup"
+                                value={states[adapter.id]?.totpSeed ?? ''}
+                                onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], totpSeed: e.target.value } }))}
+                                className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">Required for Robinhood login. Generate in Robinhood Security → 2FA → Set up Authenticator App.</p>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => void saveConfig(adapter.id)}
+                            className="w-full py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700"
+                          >
+                            Connect &amp; Save
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1">API Key</label>
+                            <input
+                              type="password"
+                              placeholder="••••••••••••••••"
+                              value={states[adapter.id]?.apiKey ?? ''}
+                              onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], apiKey: e.target.value } }))}
+                              className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1">API Secret</label>
+                            <input
+                              type="password"
+                              placeholder="••••••••••••••••"
+                              value={states[adapter.id]?.apiSecret ?? ''}
+                              onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], apiSecret: e.target.value } }))}
+                              className="w-full px-3 py-1.5 border border-input rounded-lg text-xs focus:outline-none focus:border-cyan-400"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`testnet-${adapter.id}`}
+                              checked={states[adapter.id]?.testnet ?? false}
+                              onChange={e => setStates(prev => ({ ...prev, [adapter.id]: { ...prev[adapter.id], testnet: e.target.checked } }))}
+                              className="rounded"
+                            />
+                            <label htmlFor={`testnet-${adapter.id}`} className="text-xs text-muted-foreground">Use testnet/paper trading</label>
+                          </div>
+                          <button
+                            onClick={() => void saveConfig(adapter.id)}
+                            className="w-full py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700"
+                          >
+                            Connect &amp; Save
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

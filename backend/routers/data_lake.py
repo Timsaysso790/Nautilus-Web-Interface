@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -43,6 +44,7 @@ class CreateJobRequest(BaseModel):
 class ConvertRequest(BaseModel):
     source_path: str
     instrument_id_template: Optional[str] = None
+    instrument_filter: Optional[str] = None
 
 
 # ── Sources ───────────────────────────────────────────────────────────────────
@@ -167,9 +169,12 @@ async def delete_job(job_id: str):
 @router.post("/convert", dependencies=[Depends(require_admin)])
 async def convert_data(req: ConvertRequest):
     try:
+        full_path = (_BROWSE_BASE / req.source_path).resolve()
+        full_path.relative_to(_BROWSE_BASE)  # safety check
         stats = convert_theta_data(
-            source_path=req.source_path,
+            source_path=str(full_path),
             instrument_id_template=req.instrument_id_template,
+            instrument_filter=req.instrument_filter,
         )
         return {"success": True, "stats": stats}
     except Exception as e:
@@ -211,14 +216,75 @@ async def delete_catalog_entry(data_type: str, instrument_id: str):
     return {"success": True}
 
 
-# ── Import existing files ──────────────────────────────────────────────────────
+# ── Folder browse ──────────────────────────────────────────────────────────────
+
+_BROWSE_BASE = Path(os.getenv("NAUTILUS_CATALOG_PATH", "./data_lake")).resolve()
+
+
+@router.get("/browse")
+async def browse_folder(path: str = Query("", alias="path")):
+    """
+    List subdirectories and parquet files at the given path relative to the
+    catalog root.  Returns the directory tree for the folder browser UI.
+    """
+
+    # Resolve the requested path, ensuring it stays within the base
+    try:
+        resolved = (_BROWSE_BASE / path).resolve()
+        resolved.relative_to(_BROWSE_BASE)
+    except (ValueError, RuntimeError):
+        raise HTTPException(status_code=400, detail="Path outside allowed directory")
+
+    if not resolved.is_dir():
+        raise HTTPException(status_code=404, detail="Directory not found")
+
+    subdirs: List[Dict[str, Any]] = []
+    parquet_files: List[Dict[str, Any]] = []
+    parquet_count = 0
+
+    try:
+        for entry in sorted(resolved.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+            if entry.is_dir():
+                subdirs.append({"name": entry.name, "path": str(entry.relative_to(_BROWSE_BASE))})
+            elif entry.suffix.lower() == ".parquet":
+                parquet_count += 1
+                if len(parquet_files) < 50:
+                    parquet_files.append({
+                        "name": entry.name,
+                        "size_bytes": entry.stat().st_size,
+                    })
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    parent_path = ""
+    try:
+        parent = resolved.parent
+        if parent != _BROWSE_BASE:
+            parent_path = str(parent.relative_to(_BROWSE_BASE))
+    except ValueError:
+        parent_path = ""
+
+    # Count total parquet files recursively in this directory
+    total_parquet = sum(1 for _ in resolved.rglob("*.parquet"))
+
+    return {
+        "current_path": str(resolved.relative_to(_BROWSE_BASE)) if resolved != _BROWSE_BASE else "",
+        "subdirectories": subdirs,
+        "parquet_files": parquet_files,
+        "parquet_count": parquet_count,
+        "total_parquet_recursive": total_parquet,
+        "parent_path": parent_path,
+    }
 
 @router.post("/import", dependencies=[Depends(require_admin)])
 async def import_existing_data(req: ConvertRequest):
     try:
+        full_path = (_BROWSE_BASE / req.source_path).resolve()
+        full_path.relative_to(_BROWSE_BASE)
         stats = convert_theta_data(
-            source_path=req.source_path,
+            source_path=str(full_path),
             instrument_id_template=req.instrument_id_template,
+            instrument_filter=req.instrument_filter,
         )
         return {"success": True, "stats": stats}
     except Exception as e:

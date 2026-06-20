@@ -48,6 +48,25 @@ export interface ConvertStats {
   errors: number;
 }
 
+export interface BrowseEntry {
+  name: string;
+  path: string;
+}
+
+export interface ParquetFileEntry {
+  name: string;
+  size_bytes: number;
+}
+
+export interface BrowseResult {
+  current_path: string;
+  subdirectories: BrowseEntry[];
+  parquet_files: ParquetFileEntry[];
+  parquet_count: number;
+  total_parquet_recursive: number;
+  parent_path: string;
+}
+
 export const dataLakeService = {
   // Sources
   async listSources() {
@@ -95,10 +114,20 @@ export const dataLakeService = {
   },
 
   // Import / Convert
-  async convertData(sourcePath: string) {
-    return api.post<{ success: boolean; stats: ConvertStats }>('/api/data-lake/convert', { source_path: sourcePath });
+  async browseFolder(path?: string) {
+    const params = path ? `?path=${encodeURIComponent(path)}` : '';
+    return api.get<BrowseResult>(`/api/data-lake/browse${params}`);
   },
-  async importData(sourcePath: string) {
-    return api.post<{ success: boolean; stats: ConvertStats }>('/api/data-lake/import', { source_path: sourcePath });
+  async convertData(sourcePath: string, instrumentFilter?: string) {
+    return api.post<{ success: boolean; stats: ConvertStats }>('/api/data-lake/convert', {
+      source_path: sourcePath,
+      instrument_filter: instrumentFilter || null,
+    });
+  },
+  async importData(sourcePath: string, instrumentFilter?: string) {
+    return api.post<{ success: boolean; stats: ConvertStats }>('/api/data-lake/import', {
+      source_path: sourcePath,
+      instrument_filter: instrumentFilter || null,
+    });
   },
 };

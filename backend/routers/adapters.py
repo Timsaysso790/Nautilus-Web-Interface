@@ -9,7 +9,7 @@ status so the UI reflects the correct state across restarts.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -112,6 +112,22 @@ _ADAPTERS: list[dict] = [
         "supports_live": False, "supports_backtest": True,
         "credential_fields": ["api_key"],
     },
+    {
+        "id": "tastytrade", "name": "Tastytrade", "type": "Traditional Broker",
+        "category": "Stocks & Options",
+        "description": "Options-focused brokerage with professional-grade trading API",
+        "docs_url": "https://developer.tastytrade.com/",
+        "supports_live": True, "supports_backtest": False,
+        "credential_fields": ["username", "password"],
+    },
+    {
+        "id": "robinhood", "name": "Robinhood", "type": "Traditional Broker",
+        "category": "Stocks & Options",
+        "description": "Commission-free stock, ETF, and options trading platform",
+        "docs_url": "https://robin-stocks.readthedocs.io/",
+        "supports_live": True, "supports_backtest": False,
+        "credential_fields": ["username", "password", "totp_seed"],
+    },
 ]
 
 _ADAPTER_BY_ID = {a["id"]: a for a in _ADAPTERS}
@@ -122,6 +138,10 @@ _ADAPTER_BY_ID = {a["id"]: a for a in _ADAPTERS}
 class AdapterConnectRequest(BaseModel):
     api_key: Optional[str] = None
     api_secret: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    totp_seed: Optional[str] = None
+    extra_config: Optional[Dict[str, Any]] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -135,10 +155,12 @@ async def _enrich(adapter: dict) -> dict:
 
     # Masked key: show last 4 chars only — never expose plaintext
     api_key_masked = ""
+    username_masked = ""
     if cfg and cfg.get("api_key"):
         from credential_utils import decrypt_credential, mask_credential
         decrypted = decrypt_credential(cfg["api_key"])
         api_key_masked = mask_credential(decrypted) if decrypted else "****"
+        username_masked = api_key_masked  # for broker adapters, api_key holds username
 
     # Connection ID from extra_config
     extra = {}
@@ -154,6 +176,8 @@ async def _enrich(adapter: dict) -> dict:
         "last_connected": last_connected,
         "has_credentials": has_credentials,
         "api_key_masked": api_key_masked,
+        "username_masked": username_masked,
+        "totp_seed_configured": bool(extra.get("totp_seed")),
         "connection_id": extra.get("connection_id"),
     }
 
@@ -177,7 +201,8 @@ async def get_adapter(adapter_id: str):
 async def connect_adapter(adapter_id: str, req: AdapterConnectRequest, _admin: dict = Depends(require_admin)):
     """
     Validate credentials, encrypt, and connect adapter.
-    For Binance: activates LiveTradingNode via live_manager.
+    For Binance/Bybit: activates LiveTradingNode via live_manager.
+    For Tastytrade/Robinhood: connects via broker SDKs.
     """
     if adapter_id not in _ADAPTER_BY_ID:
         raise HTTPException(status_code=404, detail=f"Adapter '{adapter_id}' not found")
@@ -194,30 +219,60 @@ async def connect_adapter(adapter_id: str, req: AdapterConnectRequest, _admin: d
         )
 
     import re as _re
-    api_key = (req.api_key or "").strip().replace("\x00", "")
-    api_secret = (req.api_secret or "").strip().replace("\x00", "")
-
-    # Reject oversized credentials
-    if len(api_key) > 512 or len(api_secret) > 512:
-        raise HTTPException(status_code=400, detail="Credential too long (max 512 chars)")
-
-    # Minimum-length guard (real exchange keys are always >= 8 chars)
-    if api_key and len(api_key) < 8:
-        raise HTTPException(status_code=400, detail="api_key too short (min 8 chars)")
-    if api_secret and len(api_secret) < 8:
-        raise HTTPException(status_code=400, detail="api_secret too short (min 8 chars)")
-
-    # Allow only printable ASCII (no control characters beyond what was already stripped)
     _safe_re = _re.compile(r'^[\x20-\x7E]+$')
-    if api_key and not _safe_re.match(api_key):
-        raise HTTPException(status_code=400, detail="api_key contains invalid characters")
-    if api_secret and not _safe_re.match(api_secret):
-        raise HTTPException(status_code=400, detail="api_secret contains invalid characters")
 
-    # Encrypt credentials before storing
-    from credential_utils import encrypt_credential
-    encrypted_key = encrypt_credential(api_key) if api_key else ""
-    encrypted_secret = encrypt_credential(api_secret) if api_secret else ""
+    # Determine which fields to use based on credential_fields
+    is_broker = adapter_id in ("tastytrade", "robinhood")
+    username = password = totp_seed = ""
+    api_key = api_secret = ""
+
+    if is_broker:
+        username = (req.username or "").strip().replace("\x00", "")
+        password = (req.password or "").strip().replace("\x00", "")
+        totp_seed = (req.totp_seed or "").strip().replace("\x00", "")
+
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="username and password are required")
+        if len(username) > 256 or len(password) > 256:
+            raise HTTPException(status_code=400, detail="Credential too long (max 256 chars)")
+
+        if not _safe_re.match(username) or not _safe_re.match(password):
+            raise HTTPException(status_code=400, detail="Credentials contain invalid characters")
+
+        # Store username as api_key, password as api_secret (encrypted)
+        from credential_utils import encrypt_credential
+        encrypted_key = encrypt_credential(username)
+        encrypted_secret = encrypt_credential(password)
+
+        extra = {}
+        if adapter_id == "robinhood":
+            if totp_seed:
+                extra["totp_seed"] = encrypt_credential(totp_seed)
+            else:
+                extra["totp_seed"] = ""
+    else:
+        api_key = (req.api_key or "").strip().replace("\x00", "")
+        api_secret = (req.api_secret or "").strip().replace("\x00", "")
+
+        if len(api_key) > 512 or len(api_secret) > 512:
+            raise HTTPException(status_code=400, detail="Credential too long (max 512 chars)")
+        if api_key and len(api_key) < 8:
+            raise HTTPException(status_code=400, detail="api_key too short (min 8 chars)")
+        if api_secret and len(api_secret) < 8:
+            raise HTTPException(status_code=400, detail="api_secret too short (min 8 chars)")
+        if api_key and not _safe_re.match(api_key):
+            raise HTTPException(status_code=400, detail="api_key contains invalid characters")
+        if api_secret and not _safe_re.match(api_secret):
+            raise HTTPException(status_code=400, detail="api_secret contains invalid characters")
+
+        from credential_utils import encrypt_credential
+        encrypted_key = encrypt_credential(api_key) if api_key else ""
+        encrypted_secret = encrypt_credential(api_secret) if api_secret else ""
+        extra = {}
+
+    # Merge in any extra_config from request
+    if req.extra_config:
+        extra.update(req.extra_config)
 
     # Mark as "connecting" before attempting real connection
     await database.upsert_adapter_config(
@@ -225,6 +280,7 @@ async def connect_adapter(adapter_id: str, req: AdapterConnectRequest, _admin: d
         status="connecting",
         api_key=encrypted_key,
         api_secret=encrypted_secret,
+        extra_config=extra,
     )
 
     # Try to activate live trading node
@@ -236,10 +292,14 @@ async def connect_adapter(adapter_id: str, req: AdapterConnectRequest, _admin: d
         elif adapter_id == "bybit":
             result = await live_manager.connect_bybit(api_key, api_secret)
             connection_id = result.get("connection_id")
-        # Other adapters: store credentials only (no live node yet)
+        elif adapter_id == "tastytrade":
+            result = await live_manager.connect_tastytrade(username, password)
+            connection_id = result.get("connection_id")
+        elif adapter_id == "robinhood":
+            result = await live_manager.connect_robinhood(username, password, totp_seed)
+            connection_id = result.get("connection_id")
 
-        import json
-        extra = {"connection_id": connection_id} if connection_id else {}
+        extra["connection_id"] = connection_id
         await database.upsert_adapter_config(
             adapter_id=adapter_id,
             status="connected",
@@ -261,6 +321,7 @@ async def connect_adapter(adapter_id: str, req: AdapterConnectRequest, _admin: d
             status="error",
             api_key=encrypted_key,
             api_secret=encrypted_secret,
+            extra_config=extra,
         )
         raise HTTPException(status_code=502, detail=f"Connection failed: {str(exc)}")
 

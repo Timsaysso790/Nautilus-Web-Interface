@@ -30,6 +30,7 @@ from routers import (
     alerts,
     auth as auth_router_module,
     backtest,
+    broker_orders,
     components,
     data_lake,
     database_ops,
@@ -277,6 +278,7 @@ app.include_router(alerts.router)
 app.include_router(system.router)
 app.include_router(backtest.router)
 app.include_router(adapters.router)
+app.include_router(broker_orders.router)
 app.include_router(database_ops.router)
 app.include_router(components.router)
 app.include_router(users.router)
