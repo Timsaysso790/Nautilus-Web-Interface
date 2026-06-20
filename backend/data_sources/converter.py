@@ -70,7 +70,12 @@ def convert_theta_data(
                 stats["skipped"] += 1
                 continue
 
-            symbol = df.get("root", df.get("symbol", [fpath.stem])).iloc[0]
+            if "root" in df.columns:
+                symbol = df["root"].iloc[0]
+            elif "symbol" in df.columns:
+                symbol = df["symbol"].iloc[0]
+            else:
+                symbol = fpath.stem
             expiry = str(df["expiration"].iloc[0]) if "expiration" in df.columns else ""
             strike = df["strike_price"].iloc[0] if "strike_price" in df.columns else 0.0
             right = df["right"].iloc[0] if "right" in df.columns else ""
