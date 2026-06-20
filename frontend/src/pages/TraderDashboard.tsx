@@ -200,6 +200,21 @@ export default function TraderDashboard() {
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
+              <CardTitle>📈 Stocks</CardTitle>
+              <CardDescription>Real-time stock quotes & charts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Search stocks, view live quotes, historical charts, and manage your watchlist.
+              </p>
+              <Button className="w-full" variant="secondary" onClick={() => window.location.href = '/trader/stocks'}>
+                Open Stocks
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
               <CardTitle>📊 Market Data</CardTitle>
               <CardDescription>Real-time market feeds</CardDescription>
             </CardHeader>

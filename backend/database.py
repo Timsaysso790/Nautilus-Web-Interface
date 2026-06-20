@@ -186,6 +186,13 @@ async def init_db() -> None:
                 completed_at  TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS watchlist (
+                symbol      TEXT NOT NULL,
+                added_at    TEXT NOT NULL,
+                notes       TEXT DEFAULT '',
+                PRIMARY KEY (symbol)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at);
 
             CREATE INDEX IF NOT EXISTS idx_orders_status    ON orders(status);
@@ -1134,3 +1141,46 @@ async def purge_expired_revoked_tokens() -> int:
         )
         await db.commit()
         return cur.rowcount
+
+
+# ── Watchlist ────────────────────────────────────────────────────────────────
+
+async def add_to_watchlist(symbol: str, notes: str = "") -> bool:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute(
+                "INSERT INTO watchlist (symbol, added_at, notes) VALUES (?, ?, ?)",
+                (symbol.upper(), now, notes),
+            )
+            await db.commit()
+            return True
+        except Exception:
+            return False
+
+
+async def remove_from_watchlist(symbol: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "DELETE FROM watchlist WHERE symbol = ?", (symbol.upper(),)
+        )
+        await db.commit()
+    return cur.rowcount > 0
+
+
+async def get_watchlist() -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT symbol, added_at, notes FROM watchlist ORDER BY added_at DESC"
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def is_in_watchlist(symbol: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT 1 FROM watchlist WHERE symbol = ?", (symbol.upper(),)
+        ) as cur:
+            return await cur.fetchone() is not None
