@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
@@ -20,8 +19,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/data-lake", tags=["data-lake"])
 
-# Load .env so NAUTILUS_CATALOG_PATH is available even when running locally
-load_dotenv()
+# Load .env as a fallback (main load happens in nautilus_fastapi.py)
+try:
+    from dotenv import load_dotenv
+    dotenv_path = Path(__file__).parent.parent.parent / ".env"
+    if dotenv_path.exists():
+        load_dotenv(dotenv_path)
+except ImportError:
+    pass
 
 
 def _browse_base() -> Path:
