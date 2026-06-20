@@ -18,8 +18,8 @@ export default function TraderDashboard() {
 
   useEffect(() => {
     loadDashboardData();
-    // Full refresh every 30s; WebSocket keeps counts fresh in between
-    const interval = setInterval(loadDashboardData, 30_000);
+    // Full refresh every 120s; WebSocket keeps counts fresh in between
+    const interval = setInterval(loadDashboardData, 120_000);
     return () => clearInterval(interval);
   }, []);
 

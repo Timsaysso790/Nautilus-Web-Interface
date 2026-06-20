@@ -48,6 +48,17 @@ export interface ConvertStats {
   errors: number;
 }
 
+export interface ConvertTaskStatus {
+  status: "pending" | "running" | "completed" | "error";
+  total_files: number;
+  processed: number;
+  current_file: string;
+  converted: number;
+  skipped: number;
+  errors: number;
+  error_detail?: string;
+}
+
 export interface BrowseEntry {
   name: string;
   path: string;
@@ -119,10 +130,13 @@ export const dataLakeService = {
     return api.get<BrowseResult>(`/api/data-lake/browse${params}`);
   },
   async convertData(sourcePath: string, instrumentFilter?: string) {
-    return api.post<{ success: boolean; stats: ConvertStats }>('/api/data-lake/convert', {
+    return api.post<{ task_id: string }>('/api/data-lake/convert', {
       source_path: sourcePath,
       instrument_filter: instrumentFilter || null,
     });
+  },
+  async getConvertStatus(taskId: string) {
+    return api.get<ConvertTaskStatus>(`/api/data-lake/convert/status/${taskId}`);
   },
   async importData(sourcePath: string, instrumentFilter?: string) {
     return api.post<{ success: boolean; stats: ConvertStats }>('/api/data-lake/import', {

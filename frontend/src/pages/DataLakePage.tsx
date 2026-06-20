@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DataSourceCard } from "@/components/DataSourceCard";
@@ -6,7 +6,7 @@ import { DownloadJobForm } from "@/components/DownloadJobForm";
 import { JobProgressCard } from "@/components/JobProgressCard";
 import { CatalogTreeView } from "@/components/CatalogTreeView";
 import { FolderBrowser } from "@/components/FolderBrowser";
-import { dataLakeService, type DataSource, type DownloadJob } from "@/services/dataLakeService";
+import { dataLakeService, type ConvertTaskStatus, type DataSource, type DownloadJob } from "@/services/dataLakeService";
 import { useNotification } from "@/contexts/NotificationContext";
 
 type Tab = "sources" | "download" | "convert" | "catalog";
@@ -28,6 +28,8 @@ export default function DataLakePage() {
   const [instrumentFilter, setInstrumentFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState("");
   const [converting, setConverting] = useState(false);
+  const [convertProgress, setConvertProgress] = useState<ConvertTaskStatus | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const notify = useCallback((msg: string, type: "success" | "error" | "info" = "info") => {
     addNotification(type, msg);
@@ -103,17 +105,49 @@ export default function DataLakePage() {
     } catch { notify("Conversion failed", "error"); }
   };
 
+  const startPolling = useCallback((taskId: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const status = await dataLakeService.getConvertStatus(taskId);
+        setConvertProgress(status);
+        if (status.status === "completed") {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setConverting(false);
+          setConvertProgress(null);
+          notify(`Converted: ${status.converted} files, ${status.skipped} skipped, ${status.errors} errors`, status.errors > 0 ? "error" : "success");
+          loadJobs();
+        } else if (status.status === "error") {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setConverting(false);
+          setConvertProgress(null);
+          notify(`Conversion failed: ${status.error_detail || "Unknown error"}`, "error");
+        }
+      } catch {
+        // polling — just keep trying
+      }
+    }, 1000);
+  }, [notify, loadJobs]);
+
   const handleFolderConvert = async (path: string, instrument: string) => {
     setConverting(true);
+    setConvertProgress({ status: "pending", total_files: 0, processed: 0, current_file: "", converted: 0, skipped: 0, errors: 0 });
     try {
       const res = await dataLakeService.convertData(path, instrument);
-      notify(`Converted ${instrument}: ${res.stats.converted} files, ${res.stats.skipped} skipped, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
+      startPolling(res.task_id);
     } catch {
-      notify("Conversion failed", "error");
-    } finally {
+      notify("Failed to start conversion", "error");
       setConverting(false);
+      setConvertProgress(null);
     }
   };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -196,6 +230,7 @@ export default function DataLakePage() {
               onSelect={setSelectedPath}
               onConvert={handleFolderConvert}
               converting={converting}
+              convertProgress={convertProgress}
             />
           </div>
 

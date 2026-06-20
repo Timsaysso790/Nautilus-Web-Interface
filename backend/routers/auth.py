@@ -67,7 +67,7 @@ async def login(body: LoginRequest, request: Request):
 
     # ── Issue token ────────────────────────────────────────────────────────────
     settings = await database.get_settings()
-    session_minutes = settings.get("security", {}).get("session_timeout", 0)
+    session_minutes = settings.get("security", {}).get("session_timeout", 1440)
     expires = timedelta(minutes=int(session_minutes)) if session_minutes else None
 
     token = create_access_token({"sub": user["username"], "role": user["role"]}, expires_delta=expires)

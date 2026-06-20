@@ -1,11 +1,12 @@
 import json
 import logging
 import os
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 import database
@@ -18,6 +19,37 @@ from data_sources.manager import DataSourceManager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/data-lake", tags=["data-lake"])
+
+# In-memory conversion task progress (volatile — fine for background tasks)
+_convert_tasks: Dict[str, Dict[str, Any]] = {}
+
+def _run_conversion(task_id: str, source_path: str, instrument_filter: Optional[str] = None):
+    """Run conversion in background, updating _convert_tasks with progress."""
+    try:
+        src_path = Path(source_path)
+        total = len(list(src_path.rglob("*.parquet")))
+        _convert_tasks[task_id].update({"total_files": total, "status": "running"})
+
+        def progress_callback(fpath: str, idx: int, converted: int, skipped: int, errors: int, total: int):
+            _convert_tasks[task_id].update({
+                "current_file": Path(fpath).name,
+                "processed": idx + 1,
+                "converted": converted,
+                "skipped": skipped,
+                "errors": errors,
+                "total_files": total,
+            })
+
+        stats = convert_theta_data(
+            source_path=source_path,
+            instrument_filter=instrument_filter,
+            progress_callback=progress_callback,
+        )
+        _convert_tasks[task_id].update({"status": "completed", **stats})
+    except Exception as e:
+        logging.exception("Background conversion failed: %s", e)
+        _convert_tasks[task_id].update({"status": "error", "error_detail": str(e)})
+
 
 # Load .env as a fallback (main load happens in nautilus_fastapi.py)
 try:
@@ -181,19 +213,33 @@ async def delete_job(job_id: str):
 # ── Conversion ─────────────────────────────────────────────────────────────────
 
 @router.post("/convert", dependencies=[Depends(require_admin)])
-async def convert_data(req: ConvertRequest):
+async def convert_data(req: ConvertRequest, background_tasks: BackgroundTasks):
     try:
         base = _browse_base()
         full_path = (base / req.source_path).resolve()
         full_path.relative_to(base)  # safety check
-        stats = convert_theta_data(
-            source_path=str(full_path),
-            instrument_id_template=req.instrument_id_template,
-            instrument_filter=req.instrument_filter,
+
+        task_id = str(uuid.uuid4())
+        _convert_tasks[task_id] = {
+            "status": "pending", "total_files": 0, "processed": 0,
+            "current_file": "", "converted": 0, "skipped": 0, "errors": 0,
+        }
+
+        background_tasks.add_task(
+            _run_conversion, task_id, str(full_path), req.instrument_filter
         )
-        return {"success": True, "stats": stats}
+
+        return {"task_id": task_id}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/convert/status/{task_id}")
+async def convert_task_status(task_id: str):
+    task = _convert_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
 
 
 @router.post("/jobs/{job_id}/convert", dependencies=[Depends(require_admin)])

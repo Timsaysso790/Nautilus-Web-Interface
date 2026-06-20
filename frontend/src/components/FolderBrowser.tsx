@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { dataLakeService, type BrowseResult } from "@/services/dataLakeService";
+import { dataLakeService, type BrowseResult, type ConvertTaskStatus } from "@/services/dataLakeService";
 
 interface Props {
   onSelect: (path: string) => void;
   onConvert: (path: string, instrument: string) => void;
   converting?: boolean;
+  convertProgress?: ConvertTaskStatus | null;
 }
 
-export function FolderBrowser({ onSelect, onConvert, converting }: Props) {
+export function FolderBrowser({ onSelect, onConvert, converting, convertProgress }: Props) {
   const [browse, setBrowse] = useState<BrowseResult | null>(null);
   const [currentPath, setCurrentPath] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -117,6 +118,35 @@ export function FolderBrowser({ onSelect, onConvert, converting }: Props) {
           </>
         )}
       </div>
+
+      {/* Conversion progress */}
+      {convertProgress && convertProgress.status !== "completed" && convertProgress.status !== "error" && (
+        <div className="px-3 py-3 border-t border-border space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {convertProgress.status === "pending" ? "Starting..." :
+               `Converting ${convertProgress.current_file || "..."}`
+              }
+            </span>
+            <span>{convertProgress.processed} / {convertProgress.total_files || "?"} files</span>
+          </div>
+          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{
+                width: convertProgress.total_files > 0
+                  ? `${Math.round((convertProgress.processed / convertProgress.total_files) * 100)}%`
+                  : "0%"
+              }}
+            />
+          </div>
+          <div className="flex gap-3 text-xs text-muted-foreground">
+            <span className="text-green-600">{convertProgress.converted} converted</span>
+            <span className="text-yellow-600">{convertProgress.skipped} skipped</span>
+            {convertProgress.errors > 0 && <span className="text-red-600">{convertProgress.errors} errors</span>}
+          </div>
+        </div>
+      )}
 
       {/* Convert action */}
       {currentPath && browse && browse.total_parquet_recursive > 0 && (

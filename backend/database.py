@@ -44,7 +44,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "sms_enabled": False,
     },
     "security": {
-        "session_timeout": 30,
+        "session_timeout": 1440,
         "two_factor_auth": False,
     },
     "performance": {
@@ -248,6 +248,24 @@ async def _seed_defaults(db: aiosqlite.Connection) -> None:
                 "INSERT INTO kv_store (namespace, key, value) VALUES ('settings', ?, ?)",
                 (section, json.dumps(values)),
             )
+    else:
+        # Migration: upgrade old 30-minute session timeout to 24h
+        async with db.execute(
+            "SELECT value FROM kv_store WHERE namespace='settings' AND key='security'"
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            try:
+                security = json.loads(row[0])
+            except (json.JSONDecodeError, TypeError):
+                security = {}
+            old_val = security.get("session_timeout")
+            if old_val is not None and int(old_val) == 30:
+                security["session_timeout"] = 1440
+                await db.execute(
+                    "INSERT OR REPLACE INTO kv_store (namespace, key, value) VALUES ('settings', 'security', ?)",
+                    (json.dumps(security),),
+                )
 
     await db.commit()
 

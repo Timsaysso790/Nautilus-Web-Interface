@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 import pyarrow as pa
@@ -40,6 +40,7 @@ def convert_theta_data(
     target_type: str = "bar",
     instrument_id_template: Optional[str] = None,
     instrument_filter: Optional[str] = None,
+    progress_callback: Optional[Callable[[str, int, int, int, int, int], None]] = None,
 ) -> Dict[str, Any]:
     """
     Convert ThetaData-format parquet files (38-col with OHLCV + greeks) into
@@ -62,8 +63,9 @@ def convert_theta_data(
     quote_dir = NAUTILUS_CATALOG_PATH / "data" / "quote_tick"
 
     stats = {"converted": 0, "skipped": 0, "errors": 0}
+    all_files = sorted(src.rglob("*.parquet"))
 
-    for fpath in sorted(src.rglob("*.parquet")):
+    for idx, fpath in enumerate(all_files):
         try:
             df = pd.read_parquet(fpath)
             if df.empty:
@@ -127,6 +129,9 @@ def convert_theta_data(
         except Exception as e:
             logger.exception("Error converting %s: %s", fpath, e)
             stats["errors"] += 1
+
+        if progress_callback:
+            progress_callback(str(fpath), idx, stats["converted"], stats["skipped"], stats["errors"], len(all_files))
 
     return stats
 

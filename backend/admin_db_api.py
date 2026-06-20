@@ -128,7 +128,7 @@ def _init_db() -> None:
             ("timezone",         "UTC",           "general",      "System timezone"),
             ("log_level",        "INFO",          "system",       "Logging verbosity"),
             ("max_connections",  "100",           "performance",  "Max DB connections"),
-            ("session_timeout",  "30",            "security",     "Session timeout (min)"),
+            ("session_timeout",  "1440",          "security",     "Session timeout (min)"),
         ]
         c.executemany(
             "INSERT OR IGNORE INTO settings (key, value, category, description) VALUES (?, ?, ?, ?)",
