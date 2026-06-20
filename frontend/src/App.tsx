@@ -31,6 +31,7 @@ import PerformancePage from "./pages/PerformancePage";
 import AlertsPage from "./pages/AlertsPage";
 import BacktestingPage from "./pages/BacktestingPage";
 import UsersPage from "./pages/UsersPage";
+import DataLakePage from "./pages/DataLakePage";
 import LoginPage from "./pages/LoginPage";
 import { API_CONFIG } from "./config";
 
@@ -52,6 +53,7 @@ function Router() {
       <Route path="/admin/database-management" component={AdminDBPage} />
       <Route path="/admin/api-config" component={ApiConfigPage} />
       <Route path="/admin/db-management" component={DatabaseManagementPage} />
+      <Route path="/admin/data-lake" component={DataLakePage} />
       <Route path="/admin/users" component={UsersPage} />
       <Route path="/trader" component={TraderDashboard} />
       <Route path="/trader/strategies" component={StrategiesPage} />

@@ -234,6 +234,21 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader>
+              <CardTitle>🌊 Data Lake</CardTitle>
+              <CardDescription>Data sources, downloads, and catalog</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Manage ThetaData, Yahoo Finance, FRED sources. Download, convert, and browse the catalog.
+              </p>
+              <Button className="w-full" onClick={() => window.location.href = '/admin/data-lake'}>
+                Open Data Lake
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>👥 User Management</CardTitle>
               <CardDescription>Manage user accounts and roles</CardDescription>
             </CardHeader>
