@@ -18,12 +18,14 @@ RUN printf 'server {\n\
         proxy_pass http://admin_db_api:8001;\n\
         proxy_http_version 1.1;\n\
         proxy_set_header Host $host;\n\
+        proxy_read_timeout 600s;\n\
     }\n\
     location /api/ {\n\
         proxy_pass http://backend:8000;\n\
         proxy_http_version 1.1;\n\
         proxy_set_header Host $host;\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_read_timeout 600s;\n\
     }\n\
     location /ws {\n\
         proxy_pass http://backend:8000;\n\
