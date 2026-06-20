@@ -107,7 +107,7 @@ export default function DataLakePage() {
     setConverting(true);
     try {
       const res = await dataLakeService.convertData(path, instrument);
-      notify(`Converted ${instrument}: ${res.stats.converted} files, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
+      notify(`Converted ${instrument}: ${res.stats.converted} files, ${res.stats.skipped} skipped, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
     } catch {
       notify("Conversion failed", "error");
     } finally {
