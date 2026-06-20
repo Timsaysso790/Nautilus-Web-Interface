@@ -1,11 +1,17 @@
 import re
+import logging
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 import database
+import option_backtest_service as obs
 from auth_jwt import get_current_user
+from option_strategies import StrategyConfig, OptionLeg, STRATEGY_DEFINITIONS, get_default_config
 from state import nautilus_system, manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/nautilus", tags=["backtest"])
 
@@ -242,3 +248,82 @@ async def initialize_system(_user: dict = Depends(get_current_user)):
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result["message"])
     return result
+
+
+# ── Option Strategy Backtest ─────────────────────────────────────────────────
+
+class OptionLegRequest(BaseModel):
+    strike: float
+    right: str = "put"
+    quantity: int = 1
+    action: str = "sell"
+
+
+class OptionBacktestRequest(BaseModel):
+    symbol: str = "SPY"
+    strategy_type: str = "credit_spread"
+    legs: List[OptionLegRequest] = []
+    entry_dte: int = Field(45, ge=7, le=365)
+    hold_until_dte: int = Field(21, ge=0, le=365)
+    entry_frequency_days: int = Field(7, ge=1, le=90)
+    start_date: str = "2023-01-01"
+    end_date: str = ""
+    starting_balance: float = Field(50_000, gt=0)
+    commission_per_contract: float = 0.65
+    risk_free_rate: float = 0.05
+
+
+@router.get("/option-strategies")
+async def list_option_strategies():
+    types_list = [
+        {"id": k, "label": v["label"], "description": v["description"], "margin_rule": v["margin_rule"]}
+        for k, v in STRATEGY_DEFINITIONS.items()
+    ]
+    return {"strategies": types_list, "count": len(types_list)}
+
+
+@router.get("/option-strategies/{strategy_type}/defaults")
+async def get_option_strategy_defaults(strategy_type: str, symbol: str = "SPY"):
+    if strategy_type not in STRATEGY_DEFINITIONS:
+        raise HTTPException(status_code=404, detail=f"Unknown strategy type: {strategy_type}")
+    cfg = get_default_config(strategy_type, symbol)
+    if not cfg:
+        raise HTTPException(status_code=500, detail="Failed to generate default config")
+    return {
+        "strategy_type": strategy_type,
+        "config": cfg.model_dump(),
+    }
+
+
+@router.post("/option-backtest")
+async def run_option_backtest(request: OptionBacktestRequest, _user: dict = Depends(get_current_user)):
+    if request.strategy_type not in STRATEGY_DEFINITIONS:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy type: {request.strategy_type}")
+
+    if not request.legs:
+        default = get_default_config(request.strategy_type, request.symbol)
+        if default:
+            request.legs = [OptionLegRequest(**l.model_dump()) for l in default.legs]
+
+    config = StrategyConfig(
+        symbol=request.symbol,
+        strategy_type=request.strategy_type,
+        legs=[OptionLeg(**l.model_dump()) for l in request.legs],
+        entry_dte=request.entry_dte,
+        hold_until_dte=request.hold_until_dte,
+        entry_frequency_days=request.entry_frequency_days,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        starting_balance=request.starting_balance,
+        commission_per_contract=request.commission_per_contract,
+        risk_free_rate=request.risk_free_rate,
+    )
+
+    try:
+        result = await obs.run_option_backtest(config)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Option backtest failed"))
+        return result
+    except Exception as e:
+        logger.exception("Option backtest error")
+        raise HTTPException(status_code=500, detail=str(e))

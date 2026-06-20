@@ -230,6 +230,21 @@ export default function TraderDashboard() {
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
+              <CardTitle>📊 Strategy Backtest</CardTitle>
+              <CardDescription>Multi-leg option strategy backtesting</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Backtest credit spreads, iron condors, calendar spreads, and more on historical data with margin & commission simulation.
+              </p>
+              <Button className="w-full" variant="secondary" onClick={() => window.location.href = '/trader/option-backtest'}>
+                Run Backtest
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
               <CardTitle>📊 Market Data</CardTitle>
               <CardDescription>Real-time market feeds</CardDescription>
             </CardHeader>

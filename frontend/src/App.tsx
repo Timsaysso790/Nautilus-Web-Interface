@@ -31,6 +31,7 @@ import PerformancePage from "./pages/PerformancePage";
 import AlertsPage from "./pages/AlertsPage";
 import BacktestingPage from "./pages/BacktestingPage";
 import UsersPage from "./pages/UsersPage";
+import OptionBacktestPage from "./pages/OptionBacktestPage";
 import OptionsPage from "./pages/OptionsPage";
 import DataLakePage from "./pages/DataLakePage";
 import StocksPage from "./pages/StocksPage";
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/trader/orders" component={OrdersPage} />
       <Route path="/trader/positions" component={PositionsPage} />
       <Route path="/trader/risk" component={RiskPage} />
+      <Route path="/trader/option-backtest" component={OptionBacktestPage} />
       <Route path="/trader/options" component={OptionsPage} />
       <Route path="/trader/stocks" component={StocksPage} />
       <Route path="/trader/market-data" component={MarketDataPage} />
