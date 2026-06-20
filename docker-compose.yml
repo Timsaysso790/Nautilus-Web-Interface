@@ -14,8 +14,12 @@ services:
       NAUTILUS_API_PORT: "8000"
       RATE_LIMIT_PER_MINUTE: "${RATE_LIMIT_PER_MINUTE:-200}"
       LOGIN_RATE_LIMIT_PER_MINUTE: "${LOGIN_RATE_LIMIT_PER_MINUTE:-5}"
+      THETADATA_API_KEY: "${THETADATA_API_KEY:-}"
+      FRED_API_KEY: "${FRED_API_KEY:-}"
+      NAUTILUS_CATALOG_PATH: /app/catalog
     volumes:
       - "${NAUTILUS_DATA_DIR:-./data}/backend:/app/data"
+      - "${NAUTILUS_CATALOG_PATH:-./data_lake}:/app/catalog"
     restart: unless-stopped
     mem_limit: 512m
     cpus: "1.0"

@@ -163,6 +163,29 @@ async def init_db() -> None:
                 expires_at  TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS data_sources (
+                id                TEXT PRIMARY KEY,
+                source_type       TEXT NOT NULL,
+                api_key_encrypted TEXT,
+                label             TEXT NOT NULL DEFAULT '',
+                config            TEXT DEFAULT '{}',
+                created_at        TEXT NOT NULL,
+                updated_at        TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS download_jobs (
+                id            TEXT PRIMARY KEY,
+                source_id     TEXT,
+                source_type   TEXT NOT NULL,
+                config        TEXT NOT NULL DEFAULT '{}',
+                status        TEXT NOT NULL DEFAULT 'pending',
+                progress      REAL NOT NULL DEFAULT 0.0,
+                error         TEXT,
+                download_path TEXT,
+                created_at    TEXT NOT NULL,
+                completed_at  TEXT
+            );
+
             CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at);
 
             CREATE INDEX IF NOT EXISTS idx_orders_status    ON orders(status);
@@ -910,6 +933,173 @@ async def get_audit_logs(
         ) as cur:
             rows = await cur.fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Data Sources ──────────────────────────────────────────────────────────────
+
+async def list_data_sources() -> List[Dict[str, Any]]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, source_type, label, created_at, updated_at FROM data_sources ORDER BY created_at"
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_data_source(source_id: str) -> Optional[Dict[str, Any]]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM data_sources WHERE id = ?", (source_id,)
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def create_data_source(
+    source_type: str,
+    api_key_encrypted: str,
+    label: str,
+    config: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    source_id = f"SRC-{uuid.uuid4().hex[:8].upper()}"
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO data_sources (id, source_type, api_key_encrypted, label, config, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (source_id, source_type, api_key_encrypted, label, json.dumps(config or {}), now, now),
+        )
+        await db.commit()
+    return {
+        "id": source_id,
+        "source_type": source_type,
+        "label": label,
+        "created_at": now,
+    }
+
+
+async def update_data_source(source_id: str, updates: Dict[str, Any]) -> bool:
+    now = datetime.now(timezone.utc).isoformat()
+    sets = ["updated_at = ?"]
+    params: list = [now]
+    if "api_key_encrypted" in updates:
+        sets.append("api_key_encrypted = ?")
+        params.append(updates["api_key_encrypted"])
+    if "label" in updates:
+        sets.append("label = ?")
+        params.append(updates["label"])
+    if "config" in updates:
+        sets.append("config = ?")
+        params.append(json.dumps(updates["config"]))
+    params.append(source_id)
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f"UPDATE data_sources SET {', '.join(sets)} WHERE id = ?", params
+        )
+        await db.commit()
+    return cur.rowcount > 0
+
+
+async def delete_data_source(source_id: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("DELETE FROM data_sources WHERE id = ?", (source_id,))
+        await db.commit()
+    return cur.rowcount > 0
+
+
+# ── Download Jobs ──────────────────────────────────────────────────────────────
+
+async def create_download_job(
+    id: str,
+    source_id: Optional[str],
+    source_type: str,
+    config: dict,
+) -> Dict[str, Any]:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO download_jobs (id, source_id, source_type, config, status, progress, created_at)
+            VALUES (?, ?, ?, ?, 'pending', 0.0, ?)
+            """,
+            (id, source_id, source_type, json.dumps(config), now),
+        )
+        await db.commit()
+    return {
+        "id": id,
+        "source_id": source_id,
+        "source_type": source_type,
+        "status": "pending",
+        "progress": 0.0,
+        "created_at": now,
+    }
+
+
+async def get_download_job(job_id: str) -> Optional[Dict[str, Any]]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM download_jobs WHERE id = ?", (job_id,)
+        ) as cur:
+            row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def list_download_jobs() -> List[Dict[str, Any]]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, source_id, source_type, status, progress, error, created_at, completed_at "
+            "FROM download_jobs ORDER BY created_at DESC"
+        ) as cur:
+            rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def update_download_job(
+    job_id: str,
+    status: Optional[str] = None,
+    progress: Optional[float] = None,
+    error: Optional[str] = None,
+    download_path: Optional[str] = None,
+) -> bool:
+    sets = []
+    params: list = []
+    if status is not None:
+        sets.append("status = ?")
+        params.append(status)
+        if status in ("completed", "failed"):
+            sets.append("completed_at = ?")
+            params.append(datetime.now(timezone.utc).isoformat())
+    if progress is not None:
+        sets.append("progress = ?")
+        params.append(progress)
+    if error is not None:
+        sets.append("error = ?")
+        params.append(error)
+    if download_path is not None:
+        sets.append("download_path = ?")
+        params.append(download_path)
+    if not sets:
+        return False
+    params.append(job_id)
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            f"UPDATE download_jobs SET {', '.join(sets)} WHERE id = ?", params
+        )
+        await db.commit()
+    return cur.rowcount > 0
+
+
+async def delete_download_job(job_id: str) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("DELETE FROM download_jobs WHERE id = ?", (job_id,))
+        await db.commit()
+    return cur.rowcount > 0
 
 
 # ── Token revocation (persistent blacklist) ───────────────────────────────────

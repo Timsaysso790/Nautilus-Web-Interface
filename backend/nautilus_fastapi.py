@@ -31,6 +31,7 @@ from routers import (
     auth as auth_router_module,
     backtest,
     components,
+    data_lake,
     database_ops,
     market_data,
     orders,
@@ -277,6 +278,7 @@ app.include_router(adapters.router)
 app.include_router(database_ops.router)
 app.include_router(components.router)
 app.include_router(users.router)
+app.include_router(data_lake.router)
 
 
 # ── Root endpoint ─────────────────────────────────────────────────────────────
