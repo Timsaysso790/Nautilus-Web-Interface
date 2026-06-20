@@ -247,14 +247,14 @@ export default function ApiConfigPage() {
       'GET': 'bg-blue-100 text-blue-700',
       'POST': 'bg-green-100 text-green-700',
       'PUT': 'bg-yellow-100 text-yellow-700',
-      'DELETE': 'bg-red-100 text-red-700',
+      'DELETE': 'bg-red-100 text-destructive',
       'PATCH': 'bg-purple-100 text-purple-700'
     };
-    return colors[method] || 'bg-gray-100 text-gray-700';
+    return colors[method] || 'bg-muted text-foreground';
   };
 
   const getStatusBadge = (health: ApiHealth | undefined) => {
-    if (!health) return <span className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-600">Unknown</span>;
+    if (!health) return <span className="px-2 py-1 text-xs rounded bg-muted text-muted-foreground">Unknown</span>;
     
     switch (health.status) {
       case 'healthy':
@@ -265,7 +265,7 @@ export default function ApiConfigPage() {
         );
       case 'unhealthy':
         return (
-          <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-700">
+          <span className="px-2 py-1 text-xs rounded bg-red-100 text-destructive">
             ✗ Unhealthy {health.error && `(${health.error})`}
           </span>
         );
@@ -275,14 +275,14 @@ export default function ApiConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted/50">
       {/* Header */}
-      <header className="bg-white border-b">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">⚙️ API Configuration & Routes</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-foreground">⚙️ API Configuration & Routes</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 Manage backend API endpoints and their routes
               </p>
             </div>
@@ -301,7 +301,7 @@ export default function ApiConfigPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading...</div>
+          <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: API Endpoints List */}
@@ -318,8 +318,8 @@ export default function ApiConfigPage() {
                         key={endpoint.id}
                         className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                           selectedEndpoint === endpoint.id 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-primary bg-blue-50' 
+                            : 'border-border hover:border-input'
                         }`}
                         onClick={() => setSelectedEndpoint(endpoint.id)}
                       >
@@ -327,9 +327,9 @@ export default function ApiConfigPage() {
                           <div className="font-semibold text-sm">{endpoint.name}</div>
                           {getStatusBadge(healthStatus[endpoint.name])}
                         </div>
-                        <div className="text-xs text-gray-600 mb-2">{endpoint.description}</div>
-                        <div className="text-xs font-mono text-gray-500 break-all">{endpoint.url}</div>
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground mb-2">{endpoint.description}</div>
+                        <div className="text-xs font-mono text-muted-foreground break-all">{endpoint.url}</div>
+                        <div className="mt-2 text-xs text-muted-foreground">
                           {routes[endpoint.id]?.length || 0} routes
                         </div>
                       </div>
@@ -484,7 +484,7 @@ export default function ApiConfigPage() {
                                   </span>
                                   <span className="font-mono text-sm">{route.path}</span>
                                   {route.is_active === 0 && (
-                                    <span className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-600">
+                                    <span className="px-2 py-1 text-xs rounded bg-muted text-muted-foreground">
                                       Disabled
                                     </span>
                                   )}
@@ -496,12 +496,12 @@ export default function ApiConfigPage() {
                                 </div>
                               </div>
                               
-                              <div className="text-sm text-gray-600 mb-3">{route.description}</div>
+                              <div className="text-sm text-muted-foreground mb-3">{route.description}</div>
                               
                               {route.parameters !== '{}' && (
                                 <div className="mb-3">
-                                  <div className="text-xs font-medium text-gray-700 mb-1">Parameters:</div>
-                                  <pre className="text-xs bg-gray-100 p-2 rounded font-mono overflow-x-auto">
+                                  <div className="text-xs font-medium text-foreground mb-1">Parameters:</div>
+                                  <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto">
                                     {route.parameters}
                                   </pre>
                                 </div>
@@ -516,7 +516,7 @@ export default function ApiConfigPage() {
                                     {testResults[route.id].response_time && ` (${testResults[route.id].response_time.toFixed(0)}ms)`}
                                   </div>
                                   {testResults[route.id].error && (
-                                    <div className="text-red-700">{testResults[route.id].error}</div>
+                                    <div className="text-destructive">{testResults[route.id].error}</div>
                                   )}
                                 </div>
                               )}
@@ -544,7 +544,7 @@ export default function ApiConfigPage() {
                                   onClick={() => handleDeleteRoute(route.id)} 
                                   size="sm" 
                                   variant="outline"
-                                  className="text-red-600 hover:text-red-700"
+                                  className="text-red-600 dark:text-red-400 hover:text-destructive"
                                 >
                                   🗑️ Delete
                                 </Button>
@@ -555,7 +555,7 @@ export default function ApiConfigPage() {
                       ))}
                       
                       {routes[selectedEndpoint]?.length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
+                        <div className="text-center py-8 text-muted-foreground">
                           No routes configured for this API
                         </div>
                       )}
@@ -565,7 +565,7 @@ export default function ApiConfigPage() {
               ) : (
                 <Card>
                   <CardContent className="py-12">
-                    <div className="text-center text-gray-500">
+                    <div className="text-center text-muted-foreground">
                       <div className="text-4xl mb-4">👈</div>
                       <div>Select an API service to manage its routes</div>
                     </div>

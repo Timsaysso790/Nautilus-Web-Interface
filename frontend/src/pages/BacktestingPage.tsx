@@ -69,10 +69,10 @@ interface SweepResponse {
 type Mode = 'demo' | 'real' | 'sweep';
 
 const METRIC = (label: string, value: string, sub?: string, color?: string) => (
-  <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-    <div className="text-xs text-gray-500 mb-1">{label}</div>
-    <div className={`text-2xl font-bold ${color ?? 'text-gray-900'}`}>{value}</div>
-    {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+  <div className="bg-card rounded-xl p-4 shadow-sm border border-border/50">
+    <div className="text-xs text-muted-foreground mb-1">{label}</div>
+    <div className={`text-2xl font-bold ${color ?? 'text-foreground'}`}>{value}</div>
+    {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
   </div>
 );
 
@@ -188,25 +188,25 @@ export default function BacktestingPage() {
     }
   };
 
-  const pnlColor = (v: number) => (v >= 0 ? 'text-green-600' : 'text-red-600');
+  const pnlColor = (v: number) => (v >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400');
   const pnlBg = (v: number) => (v >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
 
   const equityCurve = result?.equity_curve ?? [];
   const startingBalance = result?.starting_balance ?? 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-cyan-50 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Backtesting</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Run strategy simulations on historical or synthetic data</p>
+            <h1 className="text-3xl font-bold text-foreground">Backtesting</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">Run strategy simulations on historical or synthetic data</p>
           </div>
           <button
             onClick={() => window.location.href = '/trader'}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+            className="px-4 py-2 bg-card border border-input text-foreground rounded-lg hover:bg-muted/50 font-medium text-sm"
           >
             ← Back
           </button>
@@ -215,10 +215,10 @@ export default function BacktestingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
           {/* ── Config Panel ──────────────────────────────────────── */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 self-start">
+          <div className="lg:col-span-2 bg-card rounded-2xl shadow-sm border border-border/50 p-6 self-start">
 
             {/* Mode tabs */}
-            <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-5">
+            <div className="flex rounded-xl overflow-hidden border border-border mb-5">
               {([
                 { key: 'demo', label: '🧪 Demo' },
                 { key: 'real', label: '📊 Real Data' },
@@ -230,7 +230,7 @@ export default function BacktestingPage() {
                   className={`flex-1 py-2 text-sm font-semibold transition-colors ${
                     mode === key
                       ? 'bg-cyan-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                      : 'bg-card text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
                   {label}
@@ -240,37 +240,37 @@ export default function BacktestingPage() {
 
             {mode === 'demo' && (
               <div className="space-y-4">
-                <p className="text-xs text-gray-400 bg-cyan-50 rounded-lg px-3 py-2">
+                <p className="text-xs text-muted-foreground bg-cyan-50 rounded-lg px-3 py-2">
                   Demo mode generates synthetic EUR/USD price data and runs a real SMA Crossover strategy through the NautilusTrader BacktestEngine.
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Fast SMA Period</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast SMA Period</label>
                     <input
                       type="number" min={2} max={50}
                       value={fastPeriod}
                       onChange={e => setFastPeriod(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Slow SMA Period</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow SMA Period</label>
                     <input
                       type="number" min={3} max={200}
                       value={slowPeriod}
                       onChange={e => setSlowPeriod(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Number of 1-min Bars</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Number of 1-min Bars</label>
                   <select
                     value={numBars}
                     onChange={e => setNumBars(Number(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                    className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                   >
                     <option value={200}>200 bars (~3 hours)</option>
                     <option value={500}>500 bars (~8 hours)</option>
@@ -280,12 +280,12 @@ export default function BacktestingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Starting Balance ($)</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Starting Balance ($)</label>
                   <input
                     type="number" min={1000} step={1000}
                     value={demoBalance}
                     onChange={e => setDemoBalance(Number(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                    className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                   />
                 </div>
               </div>
@@ -294,9 +294,9 @@ export default function BacktestingPage() {
             {mode === 'real' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Strategy</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Strategy</label>
                   {strategies.length === 0 ? (
-                    <div className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
                       No strategies yet.{' '}
                       <a href="/trader/strategies" className="text-cyan-600 hover:underline">Create one →</a>
                     </div>
@@ -304,7 +304,7 @@ export default function BacktestingPage() {
                     <select
                       value={selectedStrategy}
                       onChange={e => setSelectedStrategy(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                     >
                       {strategies.map(s => (
                         <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
@@ -315,27 +315,27 @@ export default function BacktestingPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Start Date</label>
                     <input type="date" value={startDate}
                       onChange={e => setStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">End Date</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">End Date</label>
                     <input type="date" value={endDate}
                       onChange={e => setEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Starting Balance ($)</label>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Starting Balance ($)</label>
                   <input type="number" min={1000} step={1000}
                     value={realBalance}
                     onChange={e => setRealBalance(Number(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
+                    className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
                   />
                 </div>
               </div>
@@ -343,60 +343,60 @@ export default function BacktestingPage() {
 
             {mode === 'sweep' && (
               <div className="space-y-4">
-                <p className="text-xs text-gray-400 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                   Grid search: tests all (fast, slow) SMA combinations. Ranked by P&L. Max 25 combinations.
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Fast Min</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast Min</label>
                     <input type="number" min={2} max={100} value={sweepFastMin}
                       onChange={e => setSweepFastMin(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Fast Max</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast Max</label>
                     <input type="number" min={2} max={100} value={sweepFastMax}
                       onChange={e => setSweepFastMax(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Fast Step</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast Step</label>
                     <input type="number" min={1} max={50} value={sweepFastStep}
                       onChange={e => setSweepFastStep(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Slow Min</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow Min</label>
                     <input type="number" min={3} max={500} value={sweepSlowMin}
                       onChange={e => setSweepSlowMin(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Slow Max</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow Max</label>
                     <input type="number" min={3} max={500} value={sweepSlowMax}
                       onChange={e => setSweepSlowMax(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Slow Step</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow Step</label>
                     <input type="number" min={1} max={100} value={sweepSlowStep}
                       onChange={e => setSweepSlowStep(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Starting Balance ($)</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Starting Balance ($)</label>
                     <input type="number" min={1000} step={1000} value={sweepBalance}
                       onChange={e => setSweepBalance(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Num Bars</label>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Num Bars</label>
                     <select value={sweepBars} onChange={e => setSweepBars(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-cyan-400 focus:outline-none">
+                      className="w-full px-3 py-2 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none">
                       <option value={200}>200 bars</option>
                       <option value={500}>500 bars</option>
                       <option value={1000}>1 000 bars</option>
@@ -407,7 +407,7 @@ export default function BacktestingPage() {
             )}
 
             {error && (
-              <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+              <div className="mt-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">
                 {error}
               </div>
             )}
@@ -448,10 +448,10 @@ export default function BacktestingPage() {
             )}
 
             {!running && !result && !sweepResult && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center flex flex-col items-center justify-center">
+              <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-12 text-center flex flex-col items-center justify-center">
                 <div className="text-5xl mb-3">🔬</div>
-                <div className="text-xl font-bold text-gray-900 mb-1">No Results Yet</div>
-                <div className="text-gray-500 text-sm">Configure parameters and click Run Backtest</div>
+                <div className="text-xl font-bold text-foreground mb-1">No Results Yet</div>
+                <div className="text-muted-foreground text-sm">Configure parameters and click Run Backtest</div>
               </div>
             )}
 
@@ -459,20 +459,20 @@ export default function BacktestingPage() {
             {sweepResult && !running && mode === 'sweep' && (
               <div className="space-y-4">
                 {/* Summary */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-gray-700">Parameter Sweep Results</h3>
+                    <h3 className="text-sm font-bold text-foreground">Parameter Sweep Results</h3>
                     <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full font-semibold">
                       {sweepResult.combinations_tested} tested
                     </span>
                   </div>
                   {sweepResult.best && (
                     <div className={`rounded-xl p-4 mb-3 ${sweepResult.best.total_pnl >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                      <div className="text-xs text-gray-500 mb-1">Best Configuration</div>
-                      <div className={`text-2xl font-bold ${sweepResult.best.total_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <div className="text-xs text-muted-foreground mb-1">Best Configuration</div>
+                      <div className={`text-2xl font-bold ${sweepResult.best.total_pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {sweepResult.best.total_pnl >= 0 ? '+' : ''}${sweepResult.best.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         SMA({sweepResult.best.fast_period}, {sweepResult.best.slow_period}) &nbsp;·&nbsp;
                         Win rate: {sweepResult.best.win_rate.toFixed(1)}% &nbsp;·&nbsp;
                         {sweepResult.best.total_trades} trades
@@ -482,36 +482,36 @@ export default function BacktestingPage() {
                 </div>
 
                 {/* Rankings table */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                  <div className="px-5 py-3 border-b border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-700">All Combinations (ranked by P&L)</h3>
+                <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 border-b border-border/50">
+                    <h3 className="text-sm font-bold text-foreground">All Combinations (ranked by P&L)</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-muted/50">
                         <tr>
                           {['Rank', 'Fast', 'Slow', 'Total P&L', 'Win Rate', 'Trades', 'Max DD', 'Sharpe'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase tracking-wide">{h}</th>
+                            <th key={h} className="px-3 py-2 text-left text-muted-foreground font-semibold uppercase tracking-wide">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {sweepResult.results.map((r, i) => (
-                          <tr key={i} className={`hover:bg-gray-50 ${i === 0 ? 'bg-amber-50' : ''}`}>
-                            <td className="px-3 py-2 font-bold text-gray-500">
+                          <tr key={i} className={`hover:bg-muted/50 ${i === 0 ? 'bg-amber-50' : ''}`}>
+                            <td className="px-3 py-2 font-bold text-muted-foreground">
                               {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
                             </td>
-                            <td className="px-3 py-2 font-mono text-gray-700">{r.fast_period}</td>
-                            <td className="px-3 py-2 font-mono text-gray-700">{r.slow_period}</td>
-                            <td className={`px-3 py-2 font-bold ${r.total_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <td className="px-3 py-2 font-mono text-foreground">{r.fast_period}</td>
+                            <td className="px-3 py-2 font-mono text-foreground">{r.slow_period}</td>
+                            <td className={`px-3 py-2 font-bold ${r.total_pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 py-2 font-semibold ${r.win_rate >= 50 ? 'text-green-600' : 'text-gray-600'}`}>
+                            <td className={`px-3 py-2 font-semibold ${r.win_rate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
                               {r.win_rate.toFixed(1)}%
                             </td>
-                            <td className="px-3 py-2 text-gray-700">{r.total_trades}</td>
+                            <td className="px-3 py-2 text-foreground">{r.total_trades}</td>
                             <td className="px-3 py-2 text-orange-600">{r.max_drawdown.toFixed(2)}%</td>
-                            <td className="px-3 py-2 text-gray-700">
+                            <td className="px-3 py-2 text-foreground">
                               {r.sharpe_ratio != null ? r.sharpe_ratio.toFixed(2) : '-'}
                             </td>
                           </tr>
@@ -529,18 +529,18 @@ export default function BacktestingPage() {
                 <div className={`rounded-2xl border p-5 ${pnlBg(result.total_pnl)}`}>
                   <div className="flex items-end justify-between">
                     <div>
-                      <div className="text-xs text-gray-500 mb-0.5">Total P&L</div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Total P&L</div>
                       <div className={`text-4xl font-bold ${pnlColor(result.total_pnl)}`}>
                         {result.total_pnl >= 0 ? '+' : ''}${result.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         {((result.total_pnl / result.starting_balance) * 100).toFixed(2)}% return
                         &nbsp;·&nbsp;
                         ${result.starting_balance.toLocaleString()} → ${result.ending_balance.toLocaleString()}
                       </div>
                     </div>
-                    <div className="text-right text-xs text-gray-400">
-                      {result.strategy_name && <div className="font-medium text-gray-700 mb-0.5">{result.strategy_name}</div>}
+                    <div className="text-right text-xs text-muted-foreground">
+                      {result.strategy_name && <div className="font-medium text-foreground mb-0.5">{result.strategy_name}</div>}
                       <div>{result.start_date} → {result.end_date}</div>
                       <div>Completed: {new Date(result.completed_at).toLocaleString()}</div>
                     </div>
@@ -550,22 +550,22 @@ export default function BacktestingPage() {
                 {/* Metrics */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {METRIC('Total Trades', String(result.total_trades))}
-                  {METRIC('Win Rate', `${result.win_rate.toFixed(1)}%`, undefined, result.win_rate >= 50 ? 'text-green-600' : 'text-red-600')}
+                  {METRIC('Win Rate', `${result.win_rate.toFixed(1)}%`, undefined, result.win_rate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}
                   {METRIC('Max Drawdown', result.max_drawdown != null ? `${result.max_drawdown.toFixed(2)}%` : '-', undefined, 'text-orange-600')}
-                  {METRIC('Sharpe Ratio', result.sharpe_ratio != null ? result.sharpe_ratio.toFixed(2) : '-', undefined, result.sharpe_ratio && result.sharpe_ratio >= 1 ? 'text-green-600' : 'text-gray-700')}
+                  {METRIC('Sharpe Ratio', result.sharpe_ratio != null ? result.sharpe_ratio.toFixed(2) : '-', undefined, result.sharpe_ratio && result.sharpe_ratio >= 1 ? 'text-green-600 dark:text-green-400' : 'text-foreground')}
                 </div>
                 {result.winning_trades != null && (
                   <div className="grid grid-cols-3 gap-3">
-                    {METRIC('Winning Trades', String(result.winning_trades), undefined, 'text-green-600')}
-                    {METRIC('Losing Trades', String(result.losing_trades ?? 0), undefined, 'text-red-600')}
+                    {METRIC('Winning Trades', String(result.winning_trades), undefined, 'text-green-600 dark:text-green-400')}
+                    {METRIC('Losing Trades', String(result.losing_trades ?? 0), undefined, 'text-red-600 dark:text-red-400')}
                     {METRIC('Total Orders', String(result.total_orders ?? 0))}
                   </div>
                 )}
 
                 {/* Equity curve */}
                 {equityCurve.length > 1 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <h3 className="text-sm font-bold text-gray-700 mb-3">Equity Curve</h3>
+                  <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5">
+                    <h3 className="text-sm font-bold text-foreground mb-3">Equity Curve</h3>
                     <ResponsiveContainer width="100%" height={220}>
                       <LineChart data={equityCurve} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -596,7 +596,7 @@ export default function BacktestingPage() {
                         />
                       </LineChart>
                     </ResponsiveContainer>
-                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
                       <span>Start: ${startingBalance.toLocaleString()}</span>
                       <span>End: ${result.ending_balance.toLocaleString()}</span>
                     </div>
@@ -605,10 +605,10 @@ export default function BacktestingPage() {
 
                 {/* Positions table (collapsible) */}
                 {result.positions && result.positions.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
                     <button
                       onClick={() => setShowPositions(v => !v)}
-                      className="w-full flex justify-between items-center px-5 py-4 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                      className="w-full flex justify-between items-center px-5 py-4 text-sm font-bold text-foreground hover:bg-muted/50"
                     >
                       <span>Positions ({result.positions.length})</span>
                       <span>{showPositions ? '▲' : '▼'}</span>
@@ -616,10 +616,10 @@ export default function BacktestingPage() {
                     {showPositions && (
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
-                          <thead className="bg-gray-50">
+                          <thead className="bg-muted/50">
                             <tr>
                               {['Instrument', 'Side', 'Qty', 'Avg Open', 'Avg Close', 'Realized P&L', 'Status'].map(h => (
-                                <th key={h} className="px-4 py-2 text-left text-gray-500 font-semibold uppercase tracking-wide">{h}</th>
+                                <th key={h} className="px-4 py-2 text-left text-muted-foreground font-semibold uppercase tracking-wide">{h}</th>
                               ))}
                             </tr>
                           </thead>
@@ -628,21 +628,21 @@ export default function BacktestingPage() {
                               const side = String(pos.side ?? '');
                               const isBuy = side.includes('LONG') || side.includes('BUY');
                               return (
-                                <tr key={i} className="hover:bg-gray-50">
-                                  <td className="px-4 py-2 font-mono text-gray-700">{pos.instrument_id}</td>
+                                <tr key={i} className="hover:bg-muted/50">
+                                  <td className="px-4 py-2 font-mono text-foreground">{pos.instrument_id}</td>
                                   <td className="px-4 py-2">
-                                    <span className={`font-bold ${isBuy ? 'text-green-600' : 'text-red-600'}`}>
+                                    <span className={`font-bold ${isBuy ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                       {isBuy ? 'LONG' : 'SHORT'}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-2 text-gray-700">{Number(pos.quantity).toLocaleString()}</td>
-                                  <td className="px-4 py-2 text-gray-700">{pos.avg_px_open?.toFixed(5) ?? '-'}</td>
-                                  <td className="px-4 py-2 text-gray-700">{pos.avg_px_close?.toFixed(5) ?? '-'}</td>
-                                  <td className={`px-4 py-2 font-semibold ${pos.realized_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  <td className="px-4 py-2 text-foreground">{Number(pos.quantity).toLocaleString()}</td>
+                                  <td className="px-4 py-2 text-foreground">{pos.avg_px_open?.toFixed(5) ?? '-'}</td>
+                                  <td className="px-4 py-2 text-foreground">{pos.avg_px_close?.toFixed(5) ?? '-'}</td>
+                                  <td className={`px-4 py-2 font-semibold ${pos.realized_pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                     {pos.realized_pnl >= 0 ? '+' : ''}{pos.realized_pnl?.toFixed(2) ?? '0.00'}
                                   </td>
                                   <td className="px-4 py-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${pos.is_closed ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${pos.is_closed ? 'bg-muted text-muted-foreground' : 'bg-green-100 text-green-700'}`}>
                                       {pos.is_closed ? 'CLOSED' : 'OPEN'}
                                     </span>
                                   </td>
@@ -652,7 +652,7 @@ export default function BacktestingPage() {
                           </tbody>
                         </table>
                         {result.positions.length > 50 && (
-                          <div className="text-center text-xs text-gray-400 py-2">Showing 50 of {result.positions.length} positions</div>
+                          <div className="text-center text-xs text-muted-foreground py-2">Showing 50 of {result.positions.length} positions</div>
                         )}
                       </div>
                     )}

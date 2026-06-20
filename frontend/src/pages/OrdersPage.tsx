@@ -84,50 +84,50 @@ export default function OrdersPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'FILLED': return 'bg-green-100 text-green-800';
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'CANCELLED': return 'bg-gray-100 text-gray-800';
-      case 'REJECTED': return 'bg-red-100 text-red-800';
-      default: return 'bg-blue-100 text-blue-800';
+      case 'FILLED': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'CANCELLED': return 'bg-muted text-foreground';
+      case 'REJECTED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      default: return 'bg-primary/10 text-primary';
     }
   };
 
   const getSideColor = (side: string) => {
-    return side === 'BUY' ? 'text-green-600' : 'text-red-600';
+    return side === 'BUY' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+      <div className="min-h-screen bg-background p-8">
         <div className="text-center">Loading orders...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {fetchError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+          <div className="mb-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm">
             {fetchError}
           </div>
         )}
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">📋 Order Management</h1>
-            <p className="text-gray-600">Monitor and manage your trading orders</p>
+            <h1 className="text-4xl font-bold text-foreground mb-2">📋 Order Management</h1>
+            <p className="text-muted-foreground">Monitor and manage your trading orders</p>
           </div>
           <div className="flex gap-4">
             <button
               onClick={() => window.location.href = '/trader'}
-              className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-semibold"
+              className="px-6 py-3 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 transition-all font-semibold"
             >
               ← Back to Dashboard
             </button>
             <button
               onClick={() => setShowNewOrderModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
             >
               + New Order
             </button>
@@ -136,48 +136,48 @@ export default function OrdersPage() {
 
         {/* Orders Table */}
         {orders.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+          <div className="bg-card rounded-xl shadow-sm border p-12 text-center">
             <div className="text-6xl mb-4">📋</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No Orders Yet</h3>
-            <p className="text-gray-600 mb-6">Create your first order to start trading</p>
+            <h3 className="text-2xl font-bold text-foreground mb-2">No Orders Yet</h3>
+            <p className="text-muted-foreground mb-6">Create your first order to start trading</p>
             <button
               onClick={() => setShowNewOrderModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
             >
               + New Order
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-card rounded-xl border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                <thead className="bg-muted/50 border-b border-border">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Order ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Instrument</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Side</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Quantity</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Price</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Filled</th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">Order ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">Instrument</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">Side</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase">Type</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase">Quantity</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase">Price</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-muted-foreground uppercase">Filled</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-muted-foreground uppercase">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-muted-foreground uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-border">
                   {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 text-sm font-mono text-gray-900">{order.id}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{order.instrument}</td>
+                    <tr key={order.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-mono text-foreground">{order.id}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-foreground">{order.instrument}</td>
                       <td className="px-6 py-4 text-sm">
                         <span className={`font-bold ${getSideColor(order.side)}`}>{order.side}</span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{order.type}</td>
-                      <td className="px-6 py-4 text-sm text-right text-gray-900">{order.quantity}</td>
-                      <td className="px-6 py-4 text-sm text-right text-gray-900">
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{order.type}</td>
+                      <td className="px-6 py-4 text-sm text-right text-foreground">{order.quantity}</td>
+                      <td className="px-6 py-4 text-sm text-right text-foreground">
                         {order.price ? `$${order.price.toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-right text-gray-600">
+                      <td className="px-6 py-4 text-sm text-right text-muted-foreground">
                         {order.filled_qty} / {order.quantity}
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -189,7 +189,7 @@ export default function OrdersPage() {
                         {order.status === 'PENDING' && (
                           <button
                             onClick={() => handleCancelOrder(order.id)}
-                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-all text-xs font-semibold"
+                            className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-all text-xs font-semibold"
                           >
                             Cancel
                           </button>
@@ -205,89 +205,89 @@ export default function OrdersPage() {
 
         {/* New Order Modal */}
         {showNewOrderModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Order</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-xl shadow-2xl p-8 max-w-md w-full">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Create New Order</h2>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Instrument</label>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Instrument</label>
                   <input
                     type="text"
                     value={newOrder.instrument}
                     onChange={(e) => setNewOrder({ ...newOrder, instrument: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                     placeholder="BTCUSDT"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Side</label>
+                    <label className="block text-sm font-semibold text-foreground mb-2">Side</label>
                     <select
                       value={newOrder.side}
                       onChange={(e) => setNewOrder({ ...newOrder, side: e.target.value as 'BUY' | 'SELL' })}
-                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="BUY">BUY</option>
-                      <option value="SELL">SELL</option>
-                    </select>
-                  </div>
+className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Type</label>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Type</label>
                     <select
                       value={newOrder.type}
                       onChange={(e) => setNewOrder({ ...newOrder, type: e.target.value as 'MARKET' | 'LIMIT' | 'STOP' })}
-                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="MARKET">MARKET</option>
-                      <option value="LIMIT">LIMIT</option>
-                      <option value="STOP">STOP</option>
+className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="MARKET">MARKET</option>
+                    <option value="LIMIT">LIMIT</option>
+                    <option value="STOP">STOP</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity</label>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Quantity</label>
                   <input
                     type="number"
                     step="0.001"
                     value={newOrder.quantity}
                     onChange={(e) => setNewOrder({ ...newOrder, quantity: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
 
                 {newOrder.type !== 'MARKET' && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Price</label>
+                    <label className="block text-sm font-semibold text-foreground mb-2">Price</label>
                     <input
                       type="number"
                       step="0.01"
                       value={newOrder.price}
                       onChange={(e) => setNewOrder({ ...newOrder, price: parseFloat(e.target.value) })}
-                      className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
                 )}
               </div>
 
               {orderError && (
-                <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+                <div className="mt-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">
                   {orderError}
                 </div>
               )}
               <div className="flex gap-4 mt-6">
                 <button
                   onClick={() => { setShowNewOrderModal(false); setOrderError(null); }}
-                  className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateOrder}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold"
+className="flex-1 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-all font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateOrder}
+                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
                 >
                   Create Order
                 </button>

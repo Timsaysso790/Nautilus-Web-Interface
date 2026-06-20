@@ -286,14 +286,14 @@ export default function DatabaseManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted/50">
       {/* Header */}
-      <header className="bg-white border-b">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">💾 Database Management</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-foreground">💾 Database Management</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 Comprehensive database administration system
               </p>
             </div>
@@ -328,8 +328,8 @@ export default function DatabaseManagementPage() {
                       key={conn.id}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         selectedConnection === conn.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-primary bg-blue-50'
+                          : 'border-border hover:border-input'
                       }`}
                       onClick={() => {
                         setSelectedConnection(conn.id);
@@ -340,9 +340,9 @@ export default function DatabaseManagementPage() {
                         <span className="text-lg">{getTypeIcon(conn.type)}</span>
                         <span className="font-semibold text-sm">{conn.name}</span>
                       </div>
-                      <div className="text-xs text-gray-600">{conn.type}</div>
+                      <div className="text-xs text-muted-foreground">{conn.type}</div>
                       {conn.is_active === 0 && (
-                        <span className="text-xs px-2 py-1 bg-gray-200 text-gray-600 rounded mt-1 inline-block">
+                        <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded mt-1 inline-block">
                           Inactive
                         </span>
                       )}
@@ -442,7 +442,7 @@ export default function DatabaseManagementPage() {
                               className={`p-2 rounded cursor-pointer text-sm ${
                                 selectedTable === table.name
                                   ? 'bg-blue-100 text-blue-700 font-semibold'
-                                  : 'hover:bg-gray-100'
+                                  : 'hover:bg-muted'
                               }`}
                               onClick={() => {
                                 setSelectedTable(table.name);
@@ -468,7 +468,7 @@ export default function DatabaseManagementPage() {
                             <CardContent>
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                  <thead className="bg-gray-100">
+                                  <thead className="bg-muted">
                                     <tr>
                                       <th className="px-3 py-2 text-left">Column</th>
                                       <th className="px-3 py-2 text-left">Type</th>
@@ -480,7 +480,7 @@ export default function DatabaseManagementPage() {
                                     {tableSchema.map(col => (
                                       <tr key={col.cid} className="border-t">
                                         <td className="px-3 py-2 font-mono">{col.name}</td>
-                                        <td className="px-3 py-2 text-gray-600">{col.type}</td>
+                                        <td className="px-3 py-2 text-muted-foreground">{col.type}</td>
                                         <td className="px-3 py-2">{col.notnull ? '❌' : '✅'}</td>
                                         <td className="px-3 py-2">{col.pk ? '🔑 PK' : ''}</td>
                                       </tr>
@@ -522,7 +522,7 @@ export default function DatabaseManagementPage() {
                             <CardContent>
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                  <thead className="bg-gray-100">
+                                  <thead className="bg-muted">
                                     <tr>
                                       {tableSchema.map(col => (
                                         <th key={col.name} className="px-3 py-2 text-left font-mono text-xs">
@@ -533,10 +533,10 @@ export default function DatabaseManagementPage() {
                                   </thead>
                                   <tbody>
                                     {tableData.map((row, idx) => (
-                                      <tr key={idx} className="border-t hover:bg-gray-50">
+                                      <tr key={idx} className="border-t hover:bg-muted/50">
                                         {tableSchema.map(col => (
                                           <td key={col.name} className="px-3 py-2 text-xs">
-                                            {row[col.name] !== null ? String(row[col.name]) : <span className="text-gray-400">NULL</span>}
+                                            {row[col.name] !== null ? String(row[col.name]) : <span className="text-muted-foreground">NULL</span>}
                                           </td>
                                         ))}
                                       </tr>
@@ -549,7 +549,7 @@ export default function DatabaseManagementPage() {
                         </>
                       ) : (
                         <Card>
-                          <CardContent className="py-12 text-center text-gray-500">
+                          <CardContent className="py-12 text-center text-muted-foreground">
                             Select a table to view its schema and data
                           </CardContent>
                         </Card>
@@ -594,14 +594,14 @@ export default function DatabaseManagementPage() {
                         <CardContent>
                           {queryResult.success ? (
                             <>
-                              <div className="text-sm text-gray-600 mb-3">
+                              <div className="text-sm text-muted-foreground mb-3">
                                 Execution time: {queryResult.execution_time.toFixed(3)}s | 
                                 Rows affected: {queryResult.rows_affected}
                               </div>
                               {queryResult.rows && (
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm border">
-                                    <thead className="bg-gray-100">
+                                    <thead className="bg-muted">
                                       <tr>
                                         {Object.keys(queryResult.rows[0] || {}).map(key => (
                                           <th key={key} className="px-3 py-2 text-left border">{key}</th>
@@ -613,7 +613,7 @@ export default function DatabaseManagementPage() {
                                         <tr key={idx} className="border-t">
                                           {Object.values(row).map((val: any, i: number) => (
                                             <td key={i} className="px-3 py-2 border text-xs">
-                                              {val !== null ? String(val) : <span className="text-gray-400">NULL</span>}
+                                              {val !== null ? String(val) : <span className="text-muted-foreground">NULL</span>}
                                             </td>
                                           ))}
                                         </tr>
@@ -627,7 +627,7 @@ export default function DatabaseManagementPage() {
                               )}
                             </>
                           ) : (
-                            <div className="text-sm text-red-700 bg-red-50 p-3 rounded">
+                            <div className="text-sm text-destructive bg-red-50 p-3 rounded">
                               {queryResult.error}
                             </div>
                           )}
@@ -646,19 +646,19 @@ export default function DatabaseManagementPage() {
                             <div key={item.id} className="p-3 border rounded">
                               <div className="flex items-center justify-between mb-2">
                                 <span className={`text-xs px-2 py-1 rounded ${
-                                  item.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                  item.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-destructive'
                                 }`}>
                                   {item.status}
                                 </span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   {new Date(item.executed_at).toLocaleString()} | {item.execution_time.toFixed(3)}s
                                 </span>
                               </div>
-                              <pre className="text-xs bg-gray-100 p-2 rounded font-mono overflow-x-auto">
+                              <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto">
                                 {item.query}
                               </pre>
                               {item.error_message && (
-                                <div className="text-xs text-red-600 mt-2">{item.error_message}</div>
+                                <div className="text-xs text-red-600 dark:text-red-400 mt-2">{item.error_message}</div>
                               )}
                             </div>
                           ))}
@@ -687,11 +687,11 @@ export default function DatabaseManagementPage() {
                               <div className="flex items-center justify-between mb-2">
                                 <div>
                                   <div className="font-semibold text-sm">{backup.backup_type} backup</div>
-                                  <div className="text-xs text-gray-600">{formatBytes(backup.backup_size)}</div>
+                                  <div className="text-xs text-muted-foreground">{formatBytes(backup.backup_size)}</div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className={`text-xs px-2 py-1 rounded ${
-                                    backup.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                    backup.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-destructive'
                                   }`}>
                                     {backup.status}
                                   </span>
@@ -702,14 +702,14 @@ export default function DatabaseManagementPage() {
                                   )}
                                 </div>
                               </div>
-                              <div className="text-xs font-mono text-gray-500 mb-2">{backup.backup_path}</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs font-mono text-muted-foreground mb-2">{backup.backup_path}</div>
+                              <div className="text-xs text-muted-foreground">
                                 {new Date(backup.created_at).toLocaleString()}
                               </div>
                             </div>
                           ))}
                           {backups.length === 0 && (
-                            <div className="text-center py-8 text-gray-500">
+                            <div className="text-center py-8 text-muted-foreground">
                               No backups yet. Create your first backup!
                             </div>
                           )}
@@ -721,7 +721,7 @@ export default function DatabaseManagementPage() {
               </>
             ) : (
               <Card>
-                <CardContent className="py-12 text-center text-gray-500">
+                <CardContent className="py-12 text-center text-muted-foreground">
                   <div className="text-4xl mb-4">👈</div>
                   <div>Select a database connection to start</div>
                 </CardContent>

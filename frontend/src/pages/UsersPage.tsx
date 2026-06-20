@@ -103,17 +103,17 @@ export default function UsersPage() {
     role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-1">👥 User Management</h1>
-            <p className="text-gray-500">Manage user accounts and access control</p>
+            <h1 className="text-4xl font-bold text-foreground mb-1">👥 User Management</h1>
+            <p className="text-muted-foreground">Manage user accounts and access control</p>
           </div>
           <button
             onClick={() => window.history.back()}
-            className="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+            className="px-5 py-2.5 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 font-semibold"
           >
             ← Back
           </button>
@@ -126,7 +126,7 @@ export default function UsersPage() {
           </div>
         )}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800">
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive">
             {error}
           </div>
         )}
@@ -134,44 +134,44 @@ export default function UsersPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Create User Form */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="font-bold text-gray-900 mb-4">Create User</h2>
+            <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+              <h2 className="font-bold text-foreground mb-4">Create User</h2>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Username</label>
                   <input
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="e.g. trader1"
                     autoComplete="off"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Password</label>
                   <input
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Min 8 characters"
                     autoComplete="new-password"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Role</label>
                   <select
                     value={form.role}
                     onChange={(e) => setForm({ ...form, role: e.target.value as "trader" | "admin" })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="trader">Trader</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
                 {formError && (
-                  <p className="text-sm text-red-600">{formError}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>
                 )}
                 <button
                   type="submit"
@@ -186,10 +186,10 @@ export default function UsersPage() {
 
           {/* User List */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="font-bold text-gray-900">
-                  Active Users <span className="text-gray-400 font-normal">({users.length})</span>
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="font-bold text-foreground">
+                  Active Users <span className="text-muted-foreground font-normal">({users.length})</span>
                 </h2>
                 <button
                   onClick={fetchUsers}
@@ -200,21 +200,21 @@ export default function UsersPage() {
               </div>
 
               {loading ? (
-                <div className="p-8 text-center text-gray-400">Loading...</div>
+                <div className="p-8 text-center text-muted-foreground">Loading...</div>
               ) : users.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">No users found</div>
+                <div className="p-8 text-center text-muted-foreground">No users found</div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-border">
                   {users.map((user) => (
                     <div key={user.id} className="px-5 py-4 flex items-center justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-900">{user.username}</span>
+                          <span className="font-semibold text-foreground">{user.username}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleColor(user.role)}`}>
                             {user.role}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-400 mt-0.5">
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           Created {new Date(user.created_at).toLocaleDateString()}
                         </div>
                       </div>
@@ -225,14 +225,14 @@ export default function UsersPage() {
                             setNewPw("");
                             setPwError(null);
                           }}
-                          className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+                          className="px-3 py-1.5 text-xs border border-input rounded-lg hover:bg-muted/50 text-muted-foreground transition-colors"
                         >
                           Change PW
                         </button>
                         {user.username !== "admin" && (
                           <button
                             onClick={() => handleDelete(user.id, user.username)}
-                            className="px-3 py-1.5 text-xs border border-red-200 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                            className="px-3 py-1.5 text-xs border border-red-200 rounded-lg hover:bg-red-50 text-red-600 dark:text-red-400 transition-colors"
                           >
                             Deactivate
                           </button>
@@ -249,22 +249,22 @@ export default function UsersPage() {
         {/* Change Password Modal */}
         {changePwUserId && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-xl p-6 w-80">
-              <h3 className="font-bold text-gray-900 mb-4">Change Password</h3>
+            <div className="bg-card rounded-xl shadow-xl p-6 w-80">
+              <h3 className="font-bold text-foreground mb-4">Change Password</h3>
               <form onSubmit={handleChangePassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">New Password</label>
                   <input
                     type="password"
                     value={newPw}
                     onChange={(e) => setNewPw(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="Min 8 characters"
                     autoFocus
                     autoComplete="new-password"
                   />
                 </div>
-                {pwError && <p className="text-sm text-red-600">{pwError}</p>}
+                {pwError && <p className="text-sm text-red-600 dark:text-red-400">{pwError}</p>}
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -275,7 +275,7 @@ export default function UsersPage() {
                   <button
                     type="button"
                     onClick={() => setChangePwUserId(null)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold text-sm transition-colors"
+                    className="flex-1 px-4 py-2 border border-input text-foreground rounded-lg hover:bg-muted/50 font-semibold text-sm transition-colors"
                   >
                     Cancel
                   </button>

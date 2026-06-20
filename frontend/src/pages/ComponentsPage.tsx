@@ -65,12 +65,12 @@ export default function ComponentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Components Management</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {loading ? "Loading…" : `${components.length} components · auto-refresh every 5s`}
             </p>
           </div>
@@ -106,11 +106,11 @@ export default function ComponentsPage() {
         </Card>
 
         {loading ? (
-          <div className="text-center py-16 text-gray-500 animate-pulse">Loading components…</div>
+          <div className="text-center py-16 text-muted-foreground animate-pulse">Loading components…</div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {components.map(comp => {
-              const statusStyle = STATUS_STYLE[comp.status] ?? "bg-gray-100 text-gray-600";
+              const statusStyle = STATUS_STYLE[comp.status] ?? "bg-muted text-muted-foreground";
               const isActing = acting === comp.id + "Restart" || acting === comp.id + "Stop";
               return (
                 <Card key={comp.id}>

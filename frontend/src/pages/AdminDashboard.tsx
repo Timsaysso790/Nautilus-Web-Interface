@@ -38,14 +38,13 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Nautilus Admin Panel</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-foreground">Nautilus Admin Panel</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 {loading ? '⏳ Connecting...' : engineInfo ? `✅ Connected: ${engineInfo.trader_id}` : '❌ Disconnected'}
               </p>
             </div>
@@ -61,14 +60,12 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h2>
-          <p className="text-gray-600">Welcome to Nautilus Trader Admin Interface</p>
+          <h2 className="text-3xl font-bold text-foreground mb-2">Dashboard</h2>
+          <p className="text-muted-foreground">Welcome to Nautilus Trader Admin Interface</p>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
@@ -94,12 +91,11 @@ export default function AdminDashboard() {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Status</CardDescription>
-              <CardTitle className="text-3xl text-green-600">Live</CardTitle>
+              <CardTitle className="text-3xl text-green-600 dark:text-green-400">Live</CardTitle>
             </CardHeader>
           </Card>
         </div>
 
-        {/* Feature Cards */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card>
             <CardHeader>
@@ -107,7 +103,7 @@ export default function AdminDashboard() {
               <CardDescription>PostgreSQL, Parquet, Redis management</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Manage database operations, backups, and cache optimization.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/database'}>
@@ -122,7 +118,7 @@ export default function AdminDashboard() {
               <CardDescription>Manage Nautilus components</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Control lifecycle of engines, adapters, and services.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/components'}>
@@ -137,7 +133,7 @@ export default function AdminDashboard() {
               <CardDescription>Feature flags and configuration</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Toggle features and configure system parameters.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/features'}>
@@ -146,13 +142,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-<Card>
+          <Card>
             <CardHeader>
               <CardTitle>🔌 Adapters</CardTitle>
               <CardDescription>Exchange/broker connections</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Manage connections to exchanges and brokers.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/adapters'}>
@@ -167,7 +163,7 @@ export default function AdminDashboard() {
               <CardDescription>System metrics and logs</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 View real-time metrics, logs, and alerts.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/monitoring'}>
@@ -182,7 +178,7 @@ export default function AdminDashboard() {
               <CardDescription>System configuration</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Configure system settings and preferences.
               </p>
               <Button onClick={() => window.location.href = '/admin/settings'}>
@@ -191,14 +187,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* API Configuration Card */}
           <Card>
             <CardHeader>
               <CardTitle>🔌 API Configuration</CardTitle>
               <CardDescription>Backend API management</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Configure and test backend API endpoints.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/api-config'}>
@@ -207,14 +202,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Database Management Card */}
           <Card>
             <CardHeader>
               <CardTitle>💾 Database Management</CardTitle>
               <CardDescription>Comprehensive database administration</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Manage database connections, execute queries, and create backups.
               </p>
               <Button onClick={() => window.location.href = '/admin/db-management'}>
@@ -223,14 +217,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-{/* Positions Card */}
           <Card>
             <CardHeader>
               <CardTitle>💼 Positions</CardTitle>
               <CardDescription>Position tracking</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Monitor open positions and P&L.
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/positions'}>
@@ -239,14 +232,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-{/* User Management Card */}
           <Card>
             <CardHeader>
               <CardTitle>👥 User Management</CardTitle>
               <CardDescription>Manage user accounts and roles</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Create, deactivate, and manage user accounts and access roles.
               </p>
               <Button onClick={() => window.location.href = '/admin/users'}>
@@ -255,14 +247,13 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-{/* Documentation Card */}
           <Card>
             <CardHeader>
               <CardTitle>📚 Documentation</CardTitle>
               <CardDescription>View project documentation</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Read the documentation for the Nautilus Web Interface.
               </p>
               <Button onClick={() => window.location.href = '/docs'}>
@@ -272,7 +263,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Test Notification */}
         <div className="mt-8">
           <Card>
             <CardHeader>
@@ -287,11 +277,10 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Info */}
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>Nautilus Web Interface v1.0.0</p>
           <p className="mt-2">
-            <a href="https://github.com/Black101081/Nautilus-Web-Interface" className="text-blue-600 hover:underline">
+            <a href="https://github.com/Black101081/Nautilus-Web-Interface" className="text-primary hover:underline">
               View on GitHub
             </a>
           </p>

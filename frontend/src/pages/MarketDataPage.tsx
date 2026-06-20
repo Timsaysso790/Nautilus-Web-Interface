@@ -77,25 +77,25 @@ export default function MarketDataPage() {
     setRefreshing(false);
   };
 
-  const getChangeColor = (change: number) => change >= 0 ? 'text-green-600' : 'text-red-600';
-  const getChangeBg = (change: number) => change >= 0 ? 'bg-green-100' : 'bg-red-100';
+  const getChangeColor = (change: number) => change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+  const getChangeBg = (change: number) => change >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30';
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-8 flex items-center justify-center">
-        <div className="text-gray-600 text-lg">Loading market data...</div>
+      <div className="min-h-screen bg-background p-8 flex items-center justify-center">
+        <div className="text-muted-foreground text-lg">Loading market data...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-1">📊 Market Data</h1>
-            <p className="text-gray-500">Real-time market feeds and quotes</p>
+            <h1 className="text-4xl font-bold text-foreground mb-1">📊 Market Data</h1>
+            <p className="text-muted-foreground">Real-time market feeds and quotes</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -107,7 +107,7 @@ export default function MarketDataPage() {
             </button>
             <button
               onClick={() => window.location.href = '/trader'}
-              className="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+              className="px-5 py-2.5 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 font-semibold"
             >
               ← Back
             </button>
@@ -117,11 +117,11 @@ export default function MarketDataPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Instrument List */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h2 className="font-bold text-gray-900">Instruments</h2>
+            <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="font-bold text-foreground">Instruments</h2>
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {instruments.map(inst => (
                   <button
                     key={inst.symbol}
@@ -131,11 +131,11 @@ export default function MarketDataPage() {
                     }`}
                   >
                     <div>
-                      <div className="font-bold text-gray-900">{inst.symbol}</div>
-                      <div className="text-xs text-gray-400">{inst.exchange}</div>
+                      <div className="font-bold text-foreground">{inst.symbol}</div>
+                      <div className="text-xs text-muted-foreground">{inst.exchange}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900">
+                      <div className="font-semibold text-foreground">
                         ${inst.price.toLocaleString()}
                       </div>
                       <div className={`text-xs font-semibold ${getChangeColor(inst.change_24h)}`}>
@@ -153,11 +153,11 @@ export default function MarketDataPage() {
             {quote ? (
               <div className="space-y-4">
                 {/* Main Quote */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="bg-card rounded-xl shadow-sm border p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h2 className="text-2xl font-bold text-gray-900">{quote.symbol}</h2>
-                      <div className="text-sm text-gray-400">
+                      <h2 className="text-2xl font-bold text-foreground">{quote.symbol}</h2>
+                      <div className="text-sm text-muted-foreground">
                         Last updated: {new Date(quote.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
@@ -166,20 +166,20 @@ export default function MarketDataPage() {
                     </span>
                   </div>
 
-                  <div className="text-5xl font-bold text-gray-900 mb-6">
+                  <div className="text-5xl font-bold text-foreground mb-6">
                     ${quote.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">Bid</div>
-                      <div className="text-xl font-bold text-green-600">
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                      <div className="text-xs text-muted-foreground mb-1">Bid</div>
+                      <div className="text-xl font-bold text-green-600 dark:text-green-400">
                         ${quote.bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
                     </div>
-                    <div className="bg-red-50 rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">Ask</div>
-                      <div className="text-xl font-bold text-red-600">
+                    <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+                      <div className="text-xs text-muted-foreground mb-1">Ask</div>
+                      <div className="text-xl font-bold text-red-600 dark:text-red-400">
                         ${quote.ask.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
                     </div>
@@ -188,28 +188,28 @@ export default function MarketDataPage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    <div className="text-sm text-gray-500 mb-2">Spread</div>
-                    <div className="text-2xl font-bold text-gray-900">
+                  <div className="bg-card rounded-xl shadow-sm border p-5">
+                    <div className="text-sm text-muted-foreground mb-2">Spread</div>
+                    <div className="text-2xl font-bold text-foreground">
                       ${(quote.ask - quote.bid).toFixed(4)}
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       {(((quote.ask - quote.bid) / quote.price) * 100).toFixed(4)}%
                     </div>
                   </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    <div className="text-sm text-gray-500 mb-2">Volume 24h</div>
-                    <div className="text-2xl font-bold text-gray-900">
+                  <div className="bg-card rounded-xl shadow-sm border p-5">
+                    <div className="text-sm text-muted-foreground mb-2">Volume 24h</div>
+                    <div className="text-2xl font-bold text-foreground">
                       ${(quote.volume_24h / 1_000_000).toFixed(2)}M
                     </div>
-                    <div className="text-xs text-gray-400">USD equivalent</div>
+                    <div className="text-xs text-muted-foreground">USD equivalent</div>
                   </div>
                 </div>
 
                 {/* Price History Chart */}
                 {priceHistory.length > 1 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    <div className="text-sm font-semibold text-gray-700 mb-3">Price History (live)</div>
+                  <div className="bg-card rounded-xl shadow-sm border p-5">
+                    <div className="text-sm font-semibold text-foreground mb-3">Price History (live)</div>
                     <ResponsiveContainer width="100%" height={160}>
                       <LineChart data={priceHistory} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -259,9 +259,9 @@ export default function MarketDataPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+              <div className="bg-card rounded-xl shadow-sm border p-12 text-center">
                 <div className="text-5xl mb-4">📊</div>
-                <div className="text-gray-500">Select an instrument to view market data</div>
+                <div className="text-muted-foreground">Select an instrument to view market data</div>
               </div>
             )}
           </div>

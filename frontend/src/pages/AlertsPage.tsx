@@ -98,43 +98,43 @@ export default function AlertsPage() {
   const getStatusBadge = (status: string) => {
     const classes: Record<string, string> = {
       active: 'bg-green-100 text-green-800',
-      triggered: 'bg-blue-100 text-blue-800',
-      dismissed: 'bg-gray-100 text-gray-600',
+      triggered: 'bg-blue-100 text-primary',
+      dismissed: 'bg-muted text-muted-foreground',
     };
-    return classes[status] || 'bg-gray-100 text-gray-800';
+    return classes[status] || 'bg-muted text-foreground';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-yellow-50 p-8 flex items-center justify-center">
-        <div className="text-gray-600 text-lg">Loading alerts...</div>
+      <div className="min-h-screen bg-background p-8 flex items-center justify-center">
+        <div className="text-muted-foreground text-lg">Loading alerts...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-yellow-50 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-5xl mx-auto">
         {triggeredNotice && (
-          <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-3 text-sm font-semibold">
+          <div className="mb-4 bg-primary/10 border border-primary/30 text-primary rounded-lg px-4 py-3 text-sm font-semibold">
             🔔 {triggeredNotice}
           </div>
         )}
         {fetchError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+          <div className="mb-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm">
             {fetchError}
           </div>
         )}
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-1">🔔 Alerts & Notifications</h1>
-            <p className="text-gray-500">Configure price alerts and system notifications</p>
+            <h1 className="text-4xl font-bold text-foreground mb-1">🔔 Alerts & Notifications</h1>
+            <p className="text-muted-foreground">Configure price alerts and system notifications</p>
           </div>
           <div className="flex gap-3">
             <button
               onClick={() => window.location.href = '/trader'}
-              className="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition-all"
+              className="px-5 py-2.5 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 font-semibold transition-all"
             >
               ← Back
             </button>
@@ -150,23 +150,23 @@ export default function AlertsPage() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Total Alerts', value: alerts.length, color: 'text-gray-900' },
-            { label: 'Active', value: alerts.filter(a => a.status === 'active').length, color: 'text-green-600' },
-            { label: 'Triggered', value: alerts.filter(a => a.status === 'triggered').length, color: 'text-blue-600' },
+            { label: 'Total Alerts', value: alerts.length, color: 'text-foreground' },
+            { label: 'Active', value: alerts.filter(a => a.status === 'active').length, color: 'text-green-600 dark:text-green-400' },
+            { label: 'Triggered', value: alerts.filter(a => a.status === 'triggered').length, color: 'text-primary' },
           ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-xl shadow p-5 text-center">
+            <div key={stat.label} className="bg-card rounded-xl shadow p-5 text-center">
               <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-              <div className="text-sm text-gray-500 mt-1">{stat.label}</div>
+              <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
             </div>
           ))}
         </div>
 
         {/* Alert List */}
         {alerts.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+          <div className="bg-card rounded-xl shadow-sm border p-12 text-center">
             <div className="text-6xl mb-4">🔔</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No Alerts Set</h3>
-            <p className="text-gray-500 mb-6">Create a price alert to get notified when the market moves</p>
+            <h3 className="text-2xl font-bold text-foreground mb-2">No Alerts Set</h3>
+            <p className="text-muted-foreground mb-6">Create a price alert to get notified when the market moves</p>
             <button
               onClick={() => setShowModal(true)}
               className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-semibold"
@@ -177,17 +177,17 @@ export default function AlertsPage() {
         ) : (
           <div className="space-y-3">
             {alerts.map(alert => (
-              <div key={alert.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center justify-between hover:shadow-md transition-shadow">
+              <div key={alert.id} className="bg-card rounded-xl shadow-sm border border-border/50 p-5 flex items-center justify-between hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center text-2xl">
                     {alert.condition === 'above' ? '📈' : '📉'}
                   </div>
                   <div>
-                    <div className="font-bold text-gray-900 text-lg">
+                    <div className="font-bold text-foreground text-lg">
                       {alert.symbol} {alert.condition === 'above' ? '▲' : '▼'} ${alert.price.toLocaleString()}
                     </div>
-                    <div className="text-sm text-gray-500">{alert.message}</div>
-                    <div className="text-xs text-gray-400 mt-1">
+                    <div className="text-sm text-muted-foreground">{alert.message}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
                       Created {new Date(alert.created_at).toLocaleString()}
                       {alert.triggered_at && ` · Triggered ${new Date(alert.triggered_at).toLocaleString()}`}
                     </div>
@@ -200,7 +200,7 @@ export default function AlertsPage() {
                   {alert.status === 'active' && (
                     <button
                       onClick={() => handleDismiss(alert.id)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+                      className="p-2 text-muted-foreground hover:text-muted-foreground hover:bg-muted rounded-lg transition-all"
                       title="Dismiss alert"
                     >
                       ✕
@@ -208,7 +208,7 @@ export default function AlertsPage() {
                   )}
                   <button
                     onClick={() => handleDelete(alert.id)}
-                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    className="p-2 text-red-400 hover:text-red-600 dark:text-red-400 hover:bg-red-50 rounded-lg transition-all"
                     title="Delete alert"
                   >
                     🗑️
@@ -222,61 +222,61 @@ export default function AlertsPage() {
         {/* Create Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Price Alert</h2>
+            <div className="bg-card rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Create Price Alert</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Symbol</label>
+                  <label className="block text-sm font-semibold text-foreground mb-1">Symbol</label>
                   <select
                     value={form.symbol}
                     onChange={e => setForm({ ...form, symbol: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-border rounded-lg focus:border-yellow-400 focus:outline-none"
                   >
                     {SYMBOLS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Condition</label>
+                  <label className="block text-sm font-semibold text-foreground mb-1">Condition</label>
                   <select
                     value={form.condition}
                     onChange={e => setForm({ ...form, condition: e.target.value as 'above' | 'below' })}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-border rounded-lg focus:border-yellow-400 focus:outline-none"
                   >
                     <option value="above">Price goes above</option>
                     <option value="below">Price goes below</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Price ($)</label>
+                  <label className="block text-sm font-semibold text-foreground mb-1">Price ($)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={form.price || ''}
                     onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-border rounded-lg focus:border-yellow-400 focus:outline-none"
                     placeholder="e.g. 65000"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Message (optional)</label>
+                  <label className="block text-sm font-semibold text-foreground mb-1">Message (optional)</label>
                   <input
                     type="text"
                     value={form.message}
                     onChange={e => setForm({ ...form, message: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-yellow-400 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-border rounded-lg focus:border-yellow-400 focus:outline-none"
                     placeholder="Alert description..."
                   />
                 </div>
               </div>
               {formError && (
-                <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+                <div className="mt-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">
                   {formError}
                 </div>
               )}
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => { setShowModal(false); setFormError(null); }}
-                  className="flex-1 px-5 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-semibold"
+                  className="flex-1 px-5 py-3 bg-muted text-foreground rounded-lg hover:bg-muted font-semibold"
                 >
                   Cancel
                 </button>

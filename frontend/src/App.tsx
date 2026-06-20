@@ -5,6 +5,7 @@ import { loadApiConfig } from "./config";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { NotificationContainer } from "./components/NotificationContainer";
 import Home from "./pages/Home";
@@ -73,7 +74,7 @@ function LogoutButton({ onLogout }: { onLogout: () => void }) {
     <button
       onClick={onLogout}
       title="Logout"
-      className="fixed bottom-4 right-4 z-50 px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg text-xs font-medium hover:bg-red-700 hover:text-white transition-colors shadow-lg opacity-60 hover:opacity-100"
+      className="fixed bottom-4 right-4 z-50 px-3 py-1.5 bg-card text-muted-foreground rounded-lg text-xs font-medium border hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-lg opacity-60 hover:opacity-100"
     >
       Logout
     </button>
@@ -160,11 +161,12 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider>
         <NotificationProvider>
           <TooltipProvider>
             <Toaster />
             <NotificationContainer />
+            <ThemeToggle />
             <Router />
             <LogoutButton onLogout={handleLogout} />
           </TooltipProvider>

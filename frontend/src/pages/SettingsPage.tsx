@@ -72,9 +72,9 @@ function TwoFactorCard() {
         {/* Status badge */}
         <div className="flex items-center gap-3">
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
-            enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            enabled ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
           }`}>
-            <span className={`w-2 h-2 rounded-full ${enabled ? "bg-green-500" : "bg-gray-400"}`} />
+            <span className={`w-2 h-2 rounded-full ${enabled ? "bg-green-500" : "bg-muted-foreground/50"}`} />
             {enabled === null ? "Checking…" : enabled ? "Enabled" : "Disabled"}
           </span>
         </div>
@@ -82,7 +82,7 @@ function TwoFactorCard() {
         {/* Idle — show action buttons */}
         {mode === "idle" && enabled !== null && (
           enabled
-            ? <Button variant="outline" onClick={startDisable} className="text-red-600 border-red-200 hover:bg-red-50">
+            ? <Button variant="outline" onClick={startDisable} className="text-red-600 dark:text-red-400 border-red-200 hover:bg-red-50">
                 Disable 2FA
               </Button>
             : <Button onClick={startSetup} disabled={busy}>
@@ -98,7 +98,7 @@ function TwoFactorCard() {
               <p className="text-xs text-amber-700 mb-3">
                 Scan the QR code or manually enter this secret key:
               </p>
-              <div className="font-mono text-sm bg-white border rounded px-3 py-2 break-all select-all mb-3">
+              <div className="font-mono text-sm bg-card border rounded px-3 py-2 break-all select-all mb-3">
                 {setupData.secret}
               </div>
               {/* QR code via Google Charts API — data URI approach */}
@@ -136,7 +136,7 @@ function TwoFactorCard() {
         {/* Disable: confirm with current TOTP code */}
         {mode === "disabling" && (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">Enter your current 2FA code to disable:</p>
+            <p className="text-sm text-muted-foreground">Enter your current 2FA code to disable:</p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -149,7 +149,7 @@ function TwoFactorCard() {
                 autoFocus
               />
               <Button variant="outline" onClick={confirmDisable} disabled={busy || code.length < 6}
-                className="text-red-600 border-red-200 hover:bg-red-50">
+className="text-red-600 dark:text-red-400 border-red-200 hover:bg-red-50">
                 {busy ? "Verifying…" : "Disable 2FA"}
               </Button>
               <Button variant="outline" onClick={cancel}>Cancel</Button>
@@ -220,15 +220,15 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500 animate-pulse">Loading settings…</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground animate-pulse">Loading settings…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">System Settings</h1>
@@ -312,7 +312,7 @@ export default function SettingsPage() {
                   value={settings.session_timeout}
                   onChange={e => set("session_timeout", parseInt(e.target.value) || 30)}
                 />
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Token expiry in minutes. 0 = use JWT_EXPIRE_HOURS env var (default 8h).
                 </p>
               </div>

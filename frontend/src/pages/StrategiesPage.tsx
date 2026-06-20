@@ -86,36 +86,36 @@ export default function StrategiesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+      <div className="min-h-screen bg-background p-8">
         <div className="text-center">Loading strategies...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {fetchError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+          <div className="mb-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm">
             {fetchError}
           </div>
         )}
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">📈 Strategy Management</h1>
-            <p className="text-gray-600">Manage and monitor your trading strategies</p>
+            <h1 className="text-4xl font-bold text-foreground mb-2">📈 Strategy Management</h1>
+            <p className="text-muted-foreground">Manage and monitor your trading strategies</p>
           </div>
           <div className="flex gap-4">
             <button
               onClick={() => window.location.href = '/trader'}
-              className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-semibold"
+              className="px-6 py-3 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 transition-all font-semibold"
             >
               ← Back to Dashboard
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
             >
               + Add Strategy
             </button>
@@ -124,13 +124,13 @@ export default function StrategiesPage() {
 
         {/* Strategies Grid */}
         {strategies.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+          <div className="bg-card rounded-xl shadow-sm border p-12 text-center">
             <div className="text-6xl mb-4">📊</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No Strategies Yet</h3>
-            <p className="text-gray-600 mb-6">Add your first trading strategy to get started</p>
+            <h3 className="text-2xl font-bold text-foreground mb-2">No Strategies Yet</h3>
+            <p className="text-muted-foreground mb-6">Add your first trading strategy to get started</p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
             >
               + Add Strategy
             </button>
@@ -138,39 +138,39 @@ export default function StrategiesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {strategies.map((strategy) => (
-              <div key={strategy.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+              <div key={strategy.id} className="bg-card rounded-xl border p-6 hover:shadow-lg transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{strategy.name}</h3>
-                    <p className="text-sm text-gray-500">{strategy.type}</p>
+                    <h3 className="text-xl font-bold text-foreground">{strategy.name}</h3>
+                    <p className="text-sm text-muted-foreground">{strategy.type}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                     strategy.status === 'running' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                      : 'bg-muted text-foreground'
                   }`}>
                     {strategy.status}
                   </span>
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4">{strategy.description || 'No description'}</p>
+                <p className="text-muted-foreground text-sm mb-4">{strategy.description || 'No description'}</p>
 
                 {/* Performance Metrics */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="bg-muted/50 rounded-lg p-4 mb-4">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <div className="text-xs text-gray-500">P&L</div>
-                      <div className={`font-bold ${(strategy.performance?.total_pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <div className="text-xs text-muted-foreground">P&L</div>
+                      <div className={`font-bold ${(strategy.performance?.total_pnl ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         ${(strategy.performance?.total_pnl ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500">Trades</div>
-                      <div className="font-bold text-gray-900">{strategy.performance?.total_trades ?? 0}</div>
+                      <div className="text-xs text-muted-foreground">Trades</div>
+                      <div className="font-bold text-foreground">{strategy.performance?.total_trades ?? 0}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500">Win Rate</div>
-                      <div className="font-bold text-blue-600">{((strategy.performance?.win_rate ?? 0) * 100).toFixed(1)}%</div>
+                      <div className="text-xs text-muted-foreground">Win Rate</div>
+                      <div className="font-bold text-primary">{((strategy.performance?.win_rate ?? 0) * 100).toFixed(1)}%</div>
                     </div>
                   </div>
                 </div>
@@ -194,7 +194,7 @@ export default function StrategiesPage() {
                   )}
                   <button
                     onClick={() => handleDeleteStrategy(strategy.id)}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-semibold text-sm"
+                    className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all font-semibold text-sm"
                   >
                     🗑️
                   </button>
@@ -206,28 +206,28 @@ export default function StrategiesPage() {
 
         {/* Add Strategy Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Add New Strategy</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-xl shadow-2xl p-8 max-w-md w-full">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Add New Strategy</h2>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Strategy Name</label>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Strategy Name</label>
                   <input
                     type="text"
                     value={newStrategy.name}
                     onChange={(e) => setNewStrategy({ ...newStrategy, name: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                     placeholder="My Trading Strategy"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Strategy Type</label>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Strategy Type</label>
                   <select
                     value={newStrategy.type}
                     onChange={(e) => setNewStrategy({ ...newStrategy, type: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="sma_crossover">SMA Crossover</option>
                     <option value="rsi">RSI</option>
@@ -235,11 +235,11 @@ export default function StrategiesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Description</label>
                   <textarea
                     value={newStrategy.description}
                     onChange={(e) => setNewStrategy({ ...newStrategy, description: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                     rows={3}
                     placeholder="Describe your strategy..."
                   />
@@ -247,20 +247,20 @@ export default function StrategiesPage() {
               </div>
 
               {modalError && (
-                <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+                <div className="mt-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">
                   {modalError}
                 </div>
               )}
               <div className="flex gap-4 mt-6">
                 <button
                   onClick={() => { setShowAddModal(false); setModalError(null); }}
-                  className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddStrategy}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-semibold"
+className="flex-1 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-all font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddStrategy}
+                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
                   disabled={!newStrategy.name}
                 >
                   Add Strategy

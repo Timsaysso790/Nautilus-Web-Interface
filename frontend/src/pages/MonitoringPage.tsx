@@ -63,17 +63,17 @@ export default function MonitoringPage() {
   const cpu = wsMetrics?.cpu_percent ?? metrics?.cpu_percent ?? 0;
   const mem = wsMetrics?.memory_percent ?? metrics?.memory_percent ?? 0;
 
-  const cpuColor = (v: number) => v > 80 ? "text-red-600" : v > 60 ? "text-yellow-600" : "text-green-600";
-  const memColor = (v: number) => v > 85 ? "text-red-600" : v > 70 ? "text-yellow-600" : "text-blue-600";
+  const cpuColor = (v: number) => v > 80 ? "text-red-600 dark:text-red-400" : v > 60 ? "text-yellow-600" : "text-green-600 dark:text-green-400";
+  const memColor = (v: number) => v > 85 ? "text-red-600 dark:text-red-400" : v > 70 ? "text-yellow-600" : "text-primary";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">System Monitoring</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 {loading ? "Loading…" : (
                   <>
                     CPU/Mem live via WebSocket
@@ -104,7 +104,7 @@ export default function MonitoringPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className={`h-2 rounded-full transition-all ${cpu > 80 ? "bg-red-500" : cpu > 60 ? "bg-yellow-500" : "bg-green-500"}`}
                   style={{ width: `${Math.min(cpu, 100)}%` }}
@@ -121,10 +121,10 @@ export default function MonitoringPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <p className="text-xs text-gray-500 mb-1">
+              <p className="text-xs text-muted-foreground mb-1">
                 {mem.toFixed(1)}% of {metrics?.memory_total_gb?.toFixed(1) ?? "—"}GB
               </p>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className={`h-2 rounded-full transition-all ${mem > 85 ? "bg-red-500" : mem > 70 ? "bg-yellow-500" : "bg-blue-500"}`}
                   style={{ width: `${Math.min(mem, 100)}%` }}
@@ -136,18 +136,18 @@ export default function MonitoringPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Disk</CardDescription>
-              <CardTitle className="text-3xl text-gray-800">
+              <CardTitle className="text-3xl text-foreground">
                 {loading ? "—" : `${metrics?.disk_used_gb?.toFixed(0) ?? "—"}GB`}
               </CardTitle>
             </CardHeader>
             {metrics && (
               <CardContent className="pt-0">
-                <p className="text-xs text-gray-500 mb-1">
+                <p className="text-xs text-muted-foreground mb-1">
                   {metrics.disk_percent.toFixed(1)}% of {metrics.disk_total_gb.toFixed(0)}GB
                 </p>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${metrics.disk_percent > 90 ? "bg-red-500" : "bg-gray-500"}`}
+                    className={`h-2 rounded-full transition-all ${metrics.disk_percent > 90 ? "bg-red-500" : "bg-muted-foreground/50"}`}
                     style={{ width: `${metrics.disk_percent}%` }}
                   />
                 </div>
@@ -158,13 +158,13 @@ export default function MonitoringPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Uptime</CardDescription>
-              <CardTitle className="text-3xl text-gray-800">
+              <CardTitle className="text-3xl text-foreground">
                 {loading ? "—" : formatUptime(metrics?.uptime_seconds ?? 0)}
               </CardTitle>
             </CardHeader>
             {metrics && (
               <CardContent className="pt-0">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {(metrics.requests_total ?? 0).toLocaleString()} total requests
                 </p>
               </CardContent>
@@ -209,12 +209,12 @@ export default function MonitoringPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {cpu > 80 && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
                   High CPU usage: {cpu.toFixed(1)}%
                 </div>
               )}
               {mem > 85 && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
                   High memory usage: {mem.toFixed(1)}%
                 </div>
               )}

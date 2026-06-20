@@ -96,23 +96,23 @@ export default function AdminDBPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted/50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admin database...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading admin database...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-muted/50">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Database</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage system settings, users, and configurations</p>
+              <h1 className="text-2xl font-bold text-foreground">Admin Database</h1>
+              <p className="text-sm text-muted-foreground mt-1">Manage system settings, users, and configurations</p>
             </div>
             <div className="flex gap-2">
               <Button onClick={loadData}>
@@ -140,10 +140,10 @@ export default function AdminDBPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {categorySettings.map((setting) => (
-                      <div key={setting.key} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div key={setting.key} className="flex items-center justify-between p-3 bg-muted/50 rounded">
                         <div className="flex-1">
                           <div className="font-medium">{setting.key}</div>
-                          <div className="text-sm text-gray-600">{setting.description}</div>
+                          <div className="text-sm text-muted-foreground">{setting.description}</div>
                           {editingKey === setting.key ? (
                             <input
                               type="text"
@@ -153,7 +153,7 @@ export default function AdminDBPage() {
                               autoFocus
                             />
                           ) : (
-                            <div className="mt-1 text-blue-600 font-mono">{setting.value}</div>
+                            <div className="mt-1 text-primary font-mono">{setting.value}</div>
                           )}
                         </div>
                         <div className="flex gap-2">
@@ -199,17 +199,17 @@ export default function AdminDBPage() {
             <CardContent>
               <div className="space-y-2">
                 {users.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div key={user.id} className="flex items-center justify-between p-3 bg-muted/50 rounded">
                     <div>
                       <div className="font-medium">{user.username}</div>
-                      <div className="text-sm text-gray-600">{user.email}</div>
+                      <div className="text-sm text-muted-foreground">{user.email}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
                         {user.role}
                       </span>
                       <span className={`px-2 py-1 rounded text-sm ${
-                        user.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        user.is_active ? 'bg-green-100 text-green-800' : 'bg-muted text-foreground'
                       }`}>
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -231,17 +231,17 @@ export default function AdminDBPage() {
             </CardHeader>
             <CardContent>
               {apiConfigs.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No API configurations yet</p>
+                <p className="text-muted-foreground text-center py-4">No API configurations yet</p>
               ) : (
                 <div className="space-y-2">
                   {apiConfigs.map((config) => (
-                    <div key={config.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <div key={config.id} className="flex items-center justify-between p-3 bg-muted/50 rounded">
                       <div>
                         <div className="font-medium">{config.name}</div>
-                        <div className="text-sm text-gray-600">{config.endpoint}</div>
+                        <div className="text-sm text-muted-foreground">{config.endpoint}</div>
                       </div>
                       <span className={`px-2 py-1 rounded text-sm ${
-                        config.is_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        config.is_enabled ? 'bg-green-100 text-green-800' : 'bg-muted text-foreground'
                       }`}>
                         {config.is_enabled ? 'Enabled' : 'Disabled'}
                       </span>

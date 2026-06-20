@@ -32,8 +32,8 @@ export default function FeaturesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Features & Services</h1>
@@ -68,7 +68,7 @@ export default function FeaturesPage() {
                     <span className={`text-xs px-2 py-1 rounded ${
                       feature.enabled 
                         ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-100 text-gray-700'
+                        : 'bg-muted text-foreground'
                     }`}>
                       {feature.enabled ? 'Enabled' : 'Disabled'}
                     </span>
@@ -101,7 +101,7 @@ export default function FeaturesPage() {
                     <span className={`text-xs px-2 py-1 rounded ${
                       service.status === 'running' 
                         ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-100 text-gray-700'
+                        : 'bg-muted text-foreground'
                     }`}>
                       {service.status}
                     </span>

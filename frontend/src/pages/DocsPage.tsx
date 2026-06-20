@@ -7,13 +7,13 @@ export default function DocsPage() {
   const [activeTab, setActiveTab] = useState("getting-started");
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-muted/50">
+      <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">📚 Documentation</h1>
-              <p className="text-sm text-gray-600 mt-1">Complete guide to Nautilus Web Interface</p>
+              <h1 className="text-2xl font-bold text-foreground">📚 Documentation</h1>
+              <p className="text-sm text-muted-foreground mt-1">Complete guide to Nautilus Web Interface</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => window.location.href = '/'}>
@@ -53,7 +53,7 @@ export default function DocsPage() {
                 </ul>
 
                 <h3>Backend Setup</h3>
-                <pre className="bg-gray-100 p-4 rounded">
+                <pre className="bg-muted p-4 rounded">
 {`# Install Nautilus Trader
 pip install nautilus_trader
 
@@ -68,7 +68,7 @@ python admin_db_api.py`}
                 </pre>
 
                 <h3>Frontend Setup</h3>
-                <pre className="bg-gray-100 p-4 rounded">
+                <pre className="bg-muted p-4 rounded">
 {`# Install dependencies
 cd frontend
 pnpm install
@@ -104,69 +104,69 @@ pnpm run build`}
                   
                   <div className="space-y-4">
                     {/* GET /api/health */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/health</div>
-                      <p className="text-sm text-gray-600 mt-2">Health check endpoint.</p>
+                    <div className="border-l-4 border-primary pl-4">
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/health</div>
+                      <p className="text-sm text-muted-foreground mt-2">Health check endpoint.</p>
                     </div>
                     {/* GET /api/nautilus/engine/info */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/nautilus/engine/info</div>
-                      <p className="text-sm text-gray-600 mt-2">Get Nautilus engine information.</p>
+                    <div className="border-l-4 border-primary pl-4">
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/nautilus/engine/info</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get Nautilus engine information.</p>
                     </div>
                     {/* POST /api/nautilus/database/optimize-postgresql */}
                     <div className="border-l-4 border-green-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/database/optimize-postgresql</div>
-                      <p className="text-sm text-gray-600 mt-2">Optimize PostgreSQL database.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/database/optimize-postgresql</div>
+                      <p className="text-sm text-muted-foreground mt-2">Optimize PostgreSQL database.</p>
                     </div>
                     {/* POST /api/nautilus/database/backup-postgresql */}
                     <div className="border-l-4 border-green-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/database/backup-postgresql</div>
-                      <p className="text-sm text-gray-600 mt-2">Backup PostgreSQL database.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/database/backup-postgresql</div>
+                      <p className="text-sm text-muted-foreground mt-2">Backup PostgreSQL database.</p>
                     </div>
                     {/* POST /api/nautilus/database/export-parquet */}
                     <div className="border-l-4 border-green-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/database/export-parquet</div>
-                      <p className="text-sm text-gray-600 mt-2">Export Parquet catalog.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/database/export-parquet</div>
+                      <p className="text-sm text-muted-foreground mt-2">Export Parquet catalog.</p>
                     </div>
                     {/* POST /api/nautilus/database/clean-parquet */}
                     <div className="border-l-4 border-green-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/database/clean-parquet</div>
-                      <p className="text-sm text-gray-600 mt-2">Clean Parquet catalog.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/database/clean-parquet</div>
+                      <p className="text-sm text-muted-foreground mt-2">Clean Parquet catalog.</p>
                     </div>
                     {/* POST /api/nautilus/database/flush-redis */}
                     <div className="border-l-4 border-green-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/database/flush-redis</div>
-                      <p className="text-sm text-gray-600 mt-2">Flush Redis cache.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/database/flush-redis</div>
+                      <p className="text-sm text-muted-foreground mt-2">Flush Redis cache.</p>
                     </div>
                     {/* GET /api/nautilus/database/redis-stats */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/nautilus/database/redis-stats</div>
-                      <p className="text-sm text-gray-600 mt-2">Get Redis statistics.</p>
+                    <div className="border-l-4 border-primary pl-4">
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/nautilus/database/redis-stats</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get Redis statistics.</p>
                     </div>
                     {/* POST /api/nautilus/components/{component_id}/stop */}
                     <div className="border-l-4 border-yellow-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/components/&#123;component_id&#125;/stop</div>
-                      <p className="text-sm text-gray-600 mt-2">Stop a component.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/components/&#123;component_id&#125;/stop</div>
+                      <p className="text-sm text-muted-foreground mt-2">Stop a component.</p>
                     </div>
                     {/* POST /api/nautilus/components/{component_id}/restart */}
                     <div className="border-l-4 border-yellow-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/components/&#123;component_id&#125;/restart</div>
-                      <p className="text-sm text-gray-600 mt-2">Restart a component.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/components/&#123;component_id&#125;/restart</div>
+                      <p className="text-sm text-muted-foreground mt-2">Restart a component.</p>
                     </div>
                     {/* POST /api/nautilus/components/{component_id}/configure */}
                     <div className="border-l-4 border-yellow-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/nautilus/components/&#123;component_id&#125;/configure</div>
-                      <p className="text-sm text-gray-600 mt-2">Configure a component.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/nautilus/components/&#123;component_id&#125;/configure</div>
+                      <p className="text-sm text-muted-foreground mt-2">Configure a component.</p>
                     </div>
                     {/* GET /api/nautilus/instruments */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/nautilus/instruments</div>
-                      <p className="text-sm text-gray-600 mt-2">Get all instruments.</p>
+                    <div className="border-l-4 border-primary pl-4">
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/nautilus/instruments</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get all instruments.</p>
                     </div>
                     {/* GET /api/nautilus/cache/stats */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/nautilus/cache/stats</div>
-                      <p className="text-sm text-gray-600 mt-2">Get cache statistics.</p>
+                    <div className="border-l-4 border-primary pl-4">
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/nautilus/cache/stats</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get cache statistics.</p>
                     </div>
                   </div>
                 </div>
@@ -177,68 +177,68 @@ pnpm run build`}
                   <div className="space-y-4">
                     {/* GET /api/admin/health */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/health</div>
-                      <p className="text-sm text-gray-600 mt-2">Health check for the admin database API.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/health</div>
+                      <p className="text-sm text-muted-foreground mt-2">Health check for the admin database API.</p>
                     </div>
                     {/* GET /api/admin/settings */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/settings</div>
-                      <p className="text-sm text-gray-600 mt-2">Get all system settings.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/settings</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get all system settings.</p>
                     </div>
                     {/* GET /api/admin/settings/{key} */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/settings/&#123;key&#125;</div>
-                      <p className="text-sm text-gray-600 mt-2">Get a specific setting by key.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/settings/&#123;key&#125;</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get a specific setting by key.</p>
                     </div>
                     {/* POST /api/admin/settings */}
                     <div className="border-l-4 border-red-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/admin/settings</div>
-                      <p className="text-sm text-gray-600 mt-2">Create a new setting.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/admin/settings</div>
+                      <p className="text-sm text-muted-foreground mt-2">Create a new setting.</p>
                     </div>
                     {/* PUT /api/admin/settings/{key} */}
                     <div className="border-l-4 border-red-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">PUT /api/admin/settings/&#123;key&#125;</div>
-                      <p className="text-sm text-gray-600 mt-2">Update a setting.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">PUT /api/admin/settings/&#123;key&#125;</div>
+                      <p className="text-sm text-muted-foreground mt-2">Update a setting.</p>
                     </div>
                     {/* DELETE /api/admin/settings/{key} */}
                     <div className="border-l-4 border-red-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">DELETE /api/admin/settings/&#123;key&#125;</div>
-                      <p className="text-sm text-gray-600 mt-2">Delete a setting.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">DELETE /api/admin/settings/&#123;key&#125;</div>
+                      <p className="text-sm text-muted-foreground mt-2">Delete a setting.</p>
                     </div>
                     {/* GET /api/admin/users */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/users</div>
-                      <p className="text-sm text-gray-600 mt-2">Get all users.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/users</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get all users.</p>
                     </div>
                     {/* POST /api/admin/users */}
                     <div className="border-l-4 border-red-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/admin/users</div>
-                      <p className="text-sm text-gray-600 mt-2">Create a new user.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/admin/users</div>
+                      <p className="text-sm text-muted-foreground mt-2">Create a new user.</p>
                     </div>
                     {/* GET /api/admin/api-configs */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/api-configs</div>
-                      <p className="text-sm text-gray-600 mt-2">Get API configurations.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/api-configs</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get API configurations.</p>
                     </div>
                     {/* POST /api/admin/api-configs */}
                     <div className="border-l-4 border-red-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/admin/api-configs</div>
-                      <p className="text-sm text-gray-600 mt-2">Create a new API configuration.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/admin/api-configs</div>
+                      <p className="text-sm text-muted-foreground mt-2">Create a new API configuration.</p>
                     </div>
                     {/* GET /api/admin/tasks */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/tasks</div>
-                      <p className="text-sm text-gray-600 mt-2">Get all scheduled tasks.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/tasks</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get all scheduled tasks.</p>
                     </div>
                     {/* POST /api/admin/tasks */}
                     <div className="border-l-4 border-red-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">POST /api/admin/tasks</div>
-                      <p className="text-sm text-gray-600 mt-2">Create a new scheduled task.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">POST /api/admin/tasks</div>
+                      <p className="text-sm text-muted-foreground mt-2">Create a new scheduled task.</p>
                     </div>
                     {/* GET /api/admin/audit-logs */}
                     <div className="border-l-4 border-purple-500 pl-4">
-                      <div className="font-mono text-sm bg-gray-100 px-2 py-1 inline-block rounded">GET /api/admin/audit-logs</div>
-                      <p className="text-sm text-gray-600 mt-2">Get audit logs.</p>
+                      <div className="font-mono text-sm bg-muted px-2 py-1 inline-block rounded">GET /api/admin/audit-logs</div>
+                      <p className="text-sm text-muted-foreground mt-2">Get audit logs.</p>
                     </div>
                   </div>
                 </div>
@@ -359,7 +359,7 @@ pnpm run build`}
                 </div>
 
                 <h3>Architecture Diagram</h3>
-                <pre className="bg-gray-100 p-4 rounded text-sm">
+                <pre className="bg-muted p-4 rounded text-sm">
 {`┌─────────────────────────────────────────────┐
 │         Cloudflare Pages (Frontend)         │
 │  React + TypeScript + Tailwind CSS          │
@@ -408,7 +408,7 @@ pnpm run build`}
                   <li>Push code to GitHub</li>
                   <li>Connect repo to Cloudflare Pages</li>
                   <li>Configure build settings:
-                    <pre className="bg-gray-100 p-2 rounded text-sm">
+                    <pre className="bg-muted p-2 rounded text-sm">
 {`Build command: cd frontend && npm install && npm run build
 Build output: frontend/dist
 Environment variables:
@@ -423,7 +423,7 @@ Environment variables:
                 <p>Deploy to your preferred platform:</p>
                 <ul>
                   <li><strong>VPS (DigitalOcean, AWS, etc.):</strong>
-                    <pre className="bg-gray-100 p-2 rounded text-sm">
+                    <pre className="bg-muted p-2 rounded text-sm">
 {`# Install dependencies
 pip install -r requirements.txt
 
@@ -433,7 +433,7 @@ python admin_db_api.py`}
                     </pre>
                   </li>
                   <li><strong>Docker:</strong>
-                    <pre className="bg-gray-100 p-2 rounded text-sm">
+                    <pre className="bg-muted p-2 rounded text-sm">
 {`# Build image
 docker build -t nautilus-api .
 
