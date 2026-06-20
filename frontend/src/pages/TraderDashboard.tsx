@@ -215,6 +215,21 @@ export default function TraderDashboard() {
 
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
+              <CardTitle>🎯 Options</CardTitle>
+              <CardDescription>Option chains, greeks & strategy builder</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Browse option chains, analyze Greeks, build multi-leg strategies, and calculate BSM prices.
+              </p>
+              <Button className="w-full" variant="secondary" onClick={() => window.location.href = '/trader/options'}>
+                Open Options
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
               <CardTitle>📊 Market Data</CardTitle>
               <CardDescription>Real-time market feeds</CardDescription>
             </CardHeader>

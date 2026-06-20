@@ -34,6 +34,7 @@ from routers import (
     data_lake,
     database_ops,
     market_data,
+    options,
     orders,
     positions,
     risk,
@@ -279,6 +280,7 @@ app.include_router(adapters.router)
 app.include_router(database_ops.router)
 app.include_router(components.router)
 app.include_router(users.router)
+app.include_router(options.router)
 app.include_router(stocks.router)
 app.include_router(data_lake.router)
 
