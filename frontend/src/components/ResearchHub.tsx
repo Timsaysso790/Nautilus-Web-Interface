@@ -5,6 +5,7 @@ import { FilePlus, FolderOpen, Zap } from "lucide-react";
 import { useNotification } from "@/contexts/NotificationContext";
 import { optionBacktestService } from "@/services/optionBacktestService";
 import NewProjectTypeDialog from "./NewProjectTypeDialog";
+import OpenProjectDialog from "./OpenProjectDialog";
 import ProjectBrowser from "./ProjectBrowser";
 import QuickBacktestView from "./QuickBacktestView";
 
@@ -16,6 +17,7 @@ interface Props {
 export default function ResearchHub({ view, onNavigate }: Props) {
   const { success, error: notifyError } = useNotification();
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showOpenProject, setShowOpenProject] = useState(false);
 
   const handleCreateProject = async (name: string, type: "options" | "portfolio") => {
     try {
@@ -64,7 +66,7 @@ export default function ResearchHub({ view, onNavigate }: Props) {
 
         <Card
           className="hover:shadow-lg transition-shadow cursor-pointer"
-          onClick={() => onNavigate("projects")}
+          onClick={() => setShowOpenProject(true)}
         >
           <CardHeader>
             <FolderOpen className="w-8 h-8 text-primary mb-2" />
@@ -101,6 +103,12 @@ export default function ResearchHub({ view, onNavigate }: Props) {
         open={showNewProject}
         onOpenChange={setShowNewProject}
         onConfirm={handleCreateProject}
+      />
+
+      <OpenProjectDialog
+        open={showOpenProject}
+        onOpenChange={setShowOpenProject}
+        onNewProject={() => setShowNewProject(true)}
       />
     </>
   );
