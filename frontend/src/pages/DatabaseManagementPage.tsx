@@ -232,25 +232,26 @@ function ArchiveCacheTab() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  const totalSize = cache.reduce((s, e) => s + e.size_bytes, 0);
+  const cached = tickers.filter(t => cachedTickers.has(t.ticker));
+  const uncached = tickers.filter(t => !cachedTickers.has(t.ticker));
+
+  const handleCacheAll = async () => {
+    for (const t of uncached) {
+      await handleConvert(t.ticker);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await dataLakeService.clearCache();
+      addNotification("success", "Cleared all cache");
+      load();
+    } catch { addNotification("error", "Failed to clear cache"); }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Card className="flex-1 py-3 px-4">
-          <p className="text-xs text-muted-foreground">Archived Tickers</p>
-          <p className="text-2xl font-bold">{tickers.length}</p>
-        </Card>
-        <Card className="flex-1 py-3 px-4">
-          <p className="text-xs text-muted-foreground">Cached (NVMe)</p>
-          <p className="text-2xl font-bold">{cache.length}</p>
-        </Card>
-        <Card className="flex-1 py-3 px-4">
-          <p className="text-xs text-muted-foreground">Cache Size</p>
-          <p className="text-2xl font-bold">{formatBytes(totalSize)}</p>
-        </Card>
-      </div>
-
+      {/* Conversion progress */}
       {converting && convertProgress && (
         <Card>
           <CardContent className="pt-4 space-y-2">
@@ -264,14 +265,88 @@ function ArchiveCacheTab() {
         </Card>
       )}
 
+      {/* Nautilus Cache */}
       <Card>
         <CardHeader>
-          <CardTitle>Archive Browser</CardTitle>
-          <CardDescription>Tickers in your theta archive. Convert to NVMe cache for faster backtest access.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Nautilus Cache</CardTitle>
+              <CardDescription>Tickers loaded into NVMe cache for fast backtest access</CardDescription>
+            </div>
+            {cache.length > 0 && (
+              <Button variant="destructive" size="sm" onClick={handleClearAll}>
+                Clear All
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : cached.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No tickers cached. Select tickers from the Archive section below and add them to cache.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 font-medium">Ticker</th>
+                    <th className="pb-2 font-medium">Size</th>
+                    <th className="pb-2 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cached.map(t => {
+                    const entry = cache.find(e => e.ticker === t.ticker);
+                    return (
+                      <tr key={t.ticker} className="border-b last:border-b-0">
+                        <td className="py-3 font-semibold">{t.ticker}</td>
+                        <td className="py-3">
+                          <Badge className="bg-green-100 text-green-700 text-[10px]">
+                            {entry ? formatBytes(entry.size_bytes) : "—"}
+                          </Badge>
+                        </td>
+                        <td className="py-3">
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm"
+                              onClick={() => handleConvert(t.ticker)}
+                              disabled={converting === t.ticker}>
+                              Re-cache
+                            </Button>
+                            <Button variant="destructive" size="sm"
+                              onClick={() => handleClear(t.ticker)}>Clear</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Archive */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Archive</CardTitle>
+              <CardDescription>Raw ticker data waiting to be cached. Selected ticker is added to cache.</CardDescription>
+            </div>
+            {uncached.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleCacheAll} disabled={converting !== null}>
+                Add All to Cache
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : uncached.length === 0 && tickers.length > 0 ? (
+            <p className="text-sm text-muted-foreground">All archived tickers are cached.</p>
           ) : tickers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No tickers in archive. Download data first.</p>
           ) : (
@@ -282,49 +357,32 @@ function ArchiveCacheTab() {
                     <th className="pb-2 font-medium">Ticker</th>
                     <th className="pb-2 font-medium">Bars</th>
                     <th className="pb-2 font-medium">Greeks</th>
-                    <th className="pb-2 font-medium">Cache</th>
                     <th className="pb-2 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tickers.map(t => {
-                    const isCached = cachedTickers.has(t.ticker);
-                    return (
-                      <tr key={t.ticker} className="border-b last:border-b-0">
-                        <td className="py-3 font-semibold">{t.ticker}</td>
-                        <td className="py-3">
-                          {t.bars_date_range ? (
-                            <Badge variant="secondary" className="text-[10px]">{t.bars_date_range}</Badge>
-                          ) : <span className="text-muted-foreground text-xs">—</span>}
-                        </td>
-                        <td className="py-3">
-                          {t.greeks_date_range ? (
-                            <Badge variant="secondary" className="text-[10px]">{t.greeks_date_range}</Badge>
-                          ) : <span className="text-muted-foreground text-xs">—</span>}
-                        </td>
-                        <td className="py-3">
-                          {isCached ? (
-                            <Badge className="bg-green-100 text-green-700 text-[10px]">
-                              {formatBytes(cache.find(e => e.ticker === t.ticker)!.size_bytes)}
-                            </Badge>
-                          ) : <span className="text-muted-foreground text-xs">Not cached</span>}
-                        </td>
-                        <td className="py-3">
-                          <div className="flex gap-1">
-                            <Button variant="outline" size="sm"
-                              onClick={() => handleConvert(t.ticker)}
-                              disabled={converting === t.ticker}>
-                              {isCached ? "Re-cache" : "Cache"}
-                            </Button>
-                            {isCached && (
-                              <Button variant="destructive" size="sm"
-                                onClick={() => handleClear(t.ticker)}>Clear</Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {uncached.map(t => (
+                    <tr key={t.ticker} className="border-b last:border-b-0">
+                      <td className="py-3 font-semibold">{t.ticker}</td>
+                      <td className="py-3">
+                        {t.bars_date_range ? (
+                          <Badge variant="secondary" className="text-[10px]">{t.bars_date_range}</Badge>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="py-3">
+                        {t.greeks_date_range ? (
+                          <Badge variant="secondary" className="text-[10px]">{t.greeks_date_range}</Badge>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="py-3">
+                        <Button variant="outline" size="sm"
+                          onClick={() => handleConvert(t.ticker)}
+                          disabled={converting === t.ticker}>
+                          Add to Cache
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
