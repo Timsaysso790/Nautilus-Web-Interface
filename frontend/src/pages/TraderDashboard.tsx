@@ -62,21 +62,15 @@ export default function TraderDashboard() {
               <p className="text-sm text-muted-foreground mb-4">
                 Explore market data, analyze stocks and options, run backtests, and review trading performance.
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => window.location.href = '/trader/market-data'}>
-                  Market Data
+              <div className="grid grid-cols-1 gap-2">
+                <Button variant="secondary" onClick={() => window.location.href = '/admin/data-lake?tab=research&view=new'}>
+                  New Project
                 </Button>
-                <Button variant="secondary" onClick={() => window.location.href = '/trader/stocks'}>
-                  Stocks
+                <Button variant="secondary" onClick={() => window.location.href = '/admin/data-lake?tab=research&view=projects'}>
+                  Open Project
                 </Button>
-                <Button variant="secondary" onClick={() => window.location.href = '/trader/options'}>
-                  Options
-                </Button>
-                <Button variant="secondary" onClick={() => window.location.href = '/trader/backtesting'}>
-                  Backtesting
-                </Button>
-                <Button className="col-span-2" variant="secondary" onClick={() => window.location.href = '/trader/option-backtest'}>
-                  Strategy Backtest
+                <Button variant="secondary" onClick={() => window.location.href = '/admin/data-lake?tab=research&view=quick-backtest'}>
+                  Quick Backtest
                 </Button>
               </div>
             </CardContent>

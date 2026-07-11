@@ -26,6 +26,7 @@ import { BacktestStationPage } from "./backtest";
 import OptionsPage from "./pages/OptionsPage";
 import StocksPage from "./pages/StocksPage";
 import LoginPage from "./pages/LoginPage";
+import DataLakePage from "./pages/DataLakePage";
 import { API_CONFIG } from "./config";
 
 function Router() {
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/admin/api-config" component={ApiConfigPage} />
       <Route path="/admin/db-management" component={DatabaseMgmt} />
       <Route path="/admin/users" component={UsersPage} />
+      <Route path="/admin/data-lake" component={DataLakePage} />
       <Route path="/trader" component={TraderDashboard} />
       <Route path="/trader/strategies" component={StrategiesPage} />
       <Route path="/trader/orders" component={OrdersPage} />

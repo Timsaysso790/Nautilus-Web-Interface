@@ -7,6 +7,7 @@ import { JobProgressCard } from "@/components/JobProgressCard";
 import { CatalogTreeView } from "@/components/CatalogTreeView";
 import { FolderBrowser } from "@/components/FolderBrowser";
 import MarketDataPanel from "@/components/MarketDataPanel";
+import ResearchHub from "@/components/ResearchHub";
 import NvmeCachePanel from "@/components/NvmeCachePanel";
 import { dataLakeService, type ConvertTaskStatus, type DataSource, type DownloadJob } from "@/services/dataLakeService";
 import { useNotification } from "@/contexts/NotificationContext";
@@ -26,7 +27,25 @@ const TABS: { key: Tab; label: string }[] = [
 export default function DataLakePage() {
   const [, navigate] = useLocation();
   const { addNotification } = useNotification();
-  const [tab, setTab] = useState<Tab>("sources");
+  const syncFromUrl = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab") as Tab | null;
+    if (t && TABS.some(tab => tab.key === t)) setTab(t);
+    setView(params.get("view"));
+  }, []);
+  const [tab, setTab] = useState<Tab>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab") as Tab | null;
+    return t && TABS.some(tab => tab.key === t) ? t : "sources";
+  });
+  const [view, setView] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get("view");
+  });
+
+  useEffect(() => {
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, [syncFromUrl]);
   const [sources, setSources] = useState<DataSource[]>([]);
   const [jobs, setJobs] = useState<DownloadJob[]>([]);
   const [importPath, setImportPath] = useState("");
@@ -168,7 +187,14 @@ export default function DataLakePage() {
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key);
+              setView(null);
+              const params = new URLSearchParams(window.location.search);
+              params.set("tab", t.key);
+              params.delete("view");
+              navigate(`/admin/data-lake?${params.toString()}`, { replace: true });
+            }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === t.key
                 ? "border-primary text-foreground"
@@ -261,12 +287,17 @@ export default function DataLakePage() {
       )}
 
       {tab === "research" && (
-        <div className="bg-card border rounded-lg p-8 text-center">
-          <h3 className="text-lg font-semibold text-foreground mb-2">Research Projects</h3>
-          <p className="text-sm text-muted-foreground">
-            Create, upload, and browse research notebooks and projects. Coming soon.
-          </p>
-        </div>
+        <ResearchHub
+          view={view}
+          onNavigate={(newView) => {
+            setView(newView);
+            const params = new URLSearchParams(window.location.search);
+            if (newView) params.set("view", newView);
+            else params.delete("view");
+            params.set("tab", "research");
+            navigate(`/admin/data-lake?${params.toString()}`, { replace: true });
+          }}
+        />
       )}
 
       {tab === "sources" && (
