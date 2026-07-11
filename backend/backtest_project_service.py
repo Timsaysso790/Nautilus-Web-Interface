@@ -69,3 +69,38 @@ def save_project_result(project_id: str, result_id: str, result: Dict[str, Any])
     with open(fpath, "w") as f:
         json.dump(result, f, indent=2)
     return fpath
+
+
+def load_project_file(project_id: str, file_id: str) -> Optional[Dict[str, Any]]:
+    fpath = PROJECTS_ROOT / project_id / f"{file_id}.json"
+    if not fpath.exists():
+        return None
+    with open(fpath) as f:
+        return json.load(f)
+
+
+def list_project_files(project_id: str) -> list[Dict[str, Any]]:
+    """List all JSON files in a project folder with type info."""
+    pdir = PROJECTS_ROOT / project_id
+    if not pdir.exists():
+        return []
+    files = []
+    for f in sorted(pdir.glob("*.json"), reverse=True):
+        try:
+            with open(f) as fh:
+                data = json.load(fh)
+            key = f.stem
+            data["_file"] = f.name
+            data["_file_type"] = "result" if key.startswith("result-") else "config"
+            files.append(data)
+        except (json.JSONDecodeError, IOError):
+            continue
+    return files
+
+
+def delete_project_file(project_id: str, file_id: str) -> bool:
+    fpath = PROJECTS_ROOT / project_id / f"{file_id}.json"
+    if not fpath.exists():
+        return False
+    fpath.unlink()
+    return True

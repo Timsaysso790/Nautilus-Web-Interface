@@ -145,6 +145,52 @@ async def delete_template(template_id: str, _user: dict = Depends(get_current_us
     return {"success": True}
 
 
+# ── Project File Management ────────────────────────────────────────────────────
+
+@router.get("/projects/{project_id}")
+async def get_project(project_id: str, _user: dict = Depends(get_current_user)):
+    async with db._execute_async(
+        "SELECT id, name, created_at, updated_at, config_count FROM backtest_projects WHERE id = ?",
+        (project_id,),
+    ) as cur:
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+    files = bps.list_project_files(project_id)
+    return {
+        "project": {
+            "id": row[0],
+            "name": row[1],
+            "created_at": row[2],
+            "updated_at": row[3],
+            "config_count": row[4],
+            "files": files,
+        }
+    }
+
+
+@router.get("/projects/{project_id}/files")
+async def list_project_files(project_id: str, _user: dict = Depends(get_current_user)):
+    files = bps.list_project_files(project_id)
+    return {"files": files}
+
+
+@router.get("/projects/{project_id}/files/{file_id}")
+async def get_project_file(project_id: str, file_id: str, _user: dict = Depends(get_current_user)):
+    data = bps.load_project_file(project_id, file_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    return data
+
+
+@router.delete("/projects/{project_id}/files/{file_id}")
+async def delete_project_file(project_id: str, file_id: str, _user: dict = Depends(get_current_user)):
+    deleted = bps.delete_project_file(project_id, file_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"success": True}
+
+
 # ── Options Station Execution ─────────────────────────────────────────────────
 
 @router.post("/options-station/run")

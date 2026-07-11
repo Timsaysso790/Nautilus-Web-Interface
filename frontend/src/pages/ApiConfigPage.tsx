@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNotification } from "@/contexts/NotificationContext";
+import { dataLakeService, type DataSource } from "@/services/dataLakeService";
 import { API_CONFIG } from '@/config';
 
 interface ApiEndpoint {
@@ -45,10 +46,67 @@ export default function ApiConfigPage() {
   const [showAddRoute, setShowAddRoute] = useState(false);
   const [testingRoute, setTestingRoute] = useState<number | null>(null);
   const [testResults, setTestResults] = useState<Record<number, any>>({});
+  // Data sources (keys & connections)
+  const [sources, setSources] = useState<DataSource[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
+  const [showAddSource, setShowAddSource] = useState(false);
+  const [newSourceType, setNewSourceType] = useState("thetadata");
+  const [newSourceKey, setNewSourceKey] = useState("");
+  const [newSourceLabel, setNewSourceLabel] = useState("");
 
   useEffect(() => {
     loadEndpoints();
+    loadSources();
   }, []);
+
+  const loadSources = async () => {
+    try {
+      setSourcesLoading(true);
+      const res = await dataLakeService.listSources();
+      setSources(res.sources);
+    } catch {
+      showError("Failed to load data sources");
+    } finally {
+      setSourcesLoading(false);
+    }
+  };
+
+  const handleAddSource = async () => {
+    if (!newSourceKey.trim()) return;
+    try {
+      await dataLakeService.createSource({
+        source_type: newSourceType,
+        api_key: newSourceKey,
+        label: newSourceLabel || undefined,
+      });
+      success("Data source added");
+      setShowAddSource(false);
+      setNewSourceKey("");
+      setNewSourceLabel("");
+      loadSources();
+    } catch {
+      showError("Failed to add data source");
+    }
+  };
+
+  const handleDeleteSource = async (id: string) => {
+    try {
+      await dataLakeService.deleteSource(id);
+      success("Data source deleted");
+      loadSources();
+    } catch {
+      showError("Failed to delete data source");
+    }
+  };
+
+  const handleTestSource = async (id: string) => {
+    try {
+      const res = await dataLakeService.testSource(id);
+      success(res.connected ? "Connected!" : `Not connected: ${res.error}`);
+    } catch {
+      showError("Test failed");
+    }
+  };
 
   const loadEndpoints = async () => {
     try {
@@ -575,6 +633,75 @@ export default function ApiConfigPage() {
             </div>
           </div>
         )}
+
+        {/* ── Data Sources (Keys & Connections) ────────────────── */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>🔑 Data Sources</CardTitle>
+                  <CardDescription>Manage API keys for data providers (ThetaData, FRED, etc.)</CardDescription>
+                </div>
+                <Button onClick={() => setShowAddSource(true)} size="sm">+ Add Source</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {showAddSource && (
+                <div className="mb-6 p-4 border border-green-200 rounded-lg bg-green-50 space-y-3">
+                  <div className="grid md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Provider</label>
+                      <select value={newSourceType} onChange={e => setNewSourceType(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md text-sm">
+                        <option value="thetadata">ThetaData</option>
+                        <option value="fred">FRED</option>
+                        <option value="polygon">Polygon</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Label</label>
+                      <input value={newSourceLabel} onChange={e => setNewSourceLabel(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Optional label" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">API Key</label>
+                      <input type="password" value={newSourceKey} onChange={e => setNewSourceKey(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Enter API key" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddSource} size="sm" className="bg-green-600">Save</Button>
+                    <Button onClick={() => setShowAddSource(false)} size="sm" variant="outline">Cancel</Button>
+                  </div>
+                </div>
+              )}
+
+              {sourcesLoading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : sources.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No data sources configured.</p>
+              ) : (
+                <div className="divide-y">
+                  {sources.map(s => (
+                    <div key={s.id} className="flex items-center justify-between py-3">
+                      <div>
+                        <p className="font-semibold text-sm">{s.label || s.source_type}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {s.source_type} · Key: {s.has_api_key ? "✅ saved" : "❌ missing"}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleTestSource(s.id)}>Test</Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteSource(s.id)}>Delete</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );

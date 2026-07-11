@@ -13,20 +13,18 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/AdminDashboard";
 import TraderDashboard from "./pages/TraderDashboard";
 import BrokerOrdersPage from "./pages/BrokerOrdersPage";
-import DatabasePage from "./pages/DatabasePage";
 import ComponentsPage from "./pages/ComponentsPage";
 import FeaturesPage from "./pages/FeaturesPage";
 import AdaptersPage from "./pages/AdaptersPage";
 import MonitoringPage from "./pages/MonitoringPage";
 import SettingsPage from "./pages/SettingsPage";
-import AdminDBPage from "./pages/AdminDBPage";
 import DocsPage from "./pages/DocsPage";
 import StrategiesPage from "./pages/StrategiesPage";
 import OrdersPage from "./pages/OrdersPage";
 import PositionsPage from "./pages/PositionsPage";
 import RiskPage from "./pages/RiskPage";
 import ApiConfigPage from "./pages/ApiConfigPage";
-import DatabaseManagementPage from "./pages/DatabaseManagementPage";
+import DatabaseMgmt from "./pages/DatabaseManagementPage";
 import MarketDataPage from "./pages/MarketDataPage";
 import PerformancePage from "./pages/PerformancePage";
 import AlertsPage from "./pages/AlertsPage";
@@ -34,7 +32,6 @@ import BacktestingPage from "./pages/BacktestingPage";
 import UsersPage from "./pages/UsersPage";
 import { BacktestStationPage } from "./backtest";
 import OptionsPage from "./pages/OptionsPage";
-import DataLakePage from "./pages/DataLakePage";
 import StocksPage from "./pages/StocksPage";
 import LoginPage from "./pages/LoginPage";
 import { API_CONFIG } from "./config";
@@ -48,16 +45,13 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin/database" component={DatabasePage} />
       <Route path="/admin/components" component={ComponentsPage} />
       <Route path="/admin/features" component={FeaturesPage} />
       <Route path="/admin/adapters" component={AdaptersPage} />
       <Route path="/admin/monitoring" component={MonitoringPage} />
       <Route path="/admin/settings" component={SettingsPage} />
-      <Route path="/admin/database-management" component={AdminDBPage} />
       <Route path="/admin/api-config" component={ApiConfigPage} />
-      <Route path="/admin/db-management" component={DatabaseManagementPage} />
-      <Route path="/admin/data-lake" component={DataLakePage} />
+      <Route path="/admin/db-management" component={DatabaseMgmt} />
       <Route path="/admin/users" component={UsersPage} />
       <Route path="/trader" component={TraderDashboard} />
       <Route path="/trader/strategies" component={StrategiesPage} />

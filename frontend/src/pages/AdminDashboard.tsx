@@ -1,12 +1,9 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useNotification } from "@/contexts/NotificationContext";
 import { useEffect, useState } from "react";
 import nautilusService, { type EngineInfo } from "@/services/nautilusService";
 
 export default function AdminDashboard() {
-  const { success, error, info } = useNotification();
   const [engineInfo, setEngineInfo] = useState<EngineInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,22 +16,11 @@ export default function AdminDashboard() {
       setLoading(true);
       const data = await nautilusService.getEngineInfo();
       setEngineInfo(data);
-      success('Connected to Nautilus Trader!');
     } catch (err) {
-      error('Failed to connect to Nautilus API');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTestNotification = () => {
-    success('Admin panel is working! This is a test notification.');
-  };
-
-  const handleRefresh = () => {
-    info('Refreshing engine info...');
-    loadEngineInfo();
   };
 
   return (
@@ -45,17 +31,12 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-2xl font-bold text-foreground">Nautilus Admin Panel</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {loading ? '⏳ Connecting...' : engineInfo ? `✅ Connected: ${engineInfo.trader_id}` : '❌ Disconnected'}
+                {loading ? "Connecting..." : engineInfo ? `Connected: ${engineInfo.trader_id}` : "Disconnected"}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleRefresh} disabled={loading}>
-                {loading ? 'Loading...' : '🔄 Refresh'}
-              </Button>
-              <Button variant="outline" onClick={() => window.location.href = '/'}>
-                ← Back to Home
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => window.location.href = '/'}>
+              ← Back to Home
+            </Button>
           </div>
         </div>
       </header>
@@ -63,230 +44,24 @@ export default function AdminDashboard() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">Dashboard</h2>
-          <p className="text-muted-foreground">Welcome to Nautilus Trader Admin Interface</p>
+          <p className="text-muted-foreground">System management tools</p>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Total Operations</CardDescription>
-              <CardTitle className="text-3xl">140+</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Admin Pages</CardDescription>
-              <CardTitle className="text-3xl">8</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>API Endpoints</CardDescription>
-              <CardTitle className="text-3xl">15+</CardTitle>
-            </CardHeader>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Status</CardDescription>
-              <CardTitle className="text-3xl text-green-600 dark:text-green-400">Live</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="max-w-md mx-auto space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>💾 Database</CardTitle>
-              <CardDescription>PostgreSQL, Parquet, Redis management</CardDescription>
+              <CardTitle>🗄️ Database Management</CardTitle>
+              <CardDescription>
+                Download market data, manage archive & cache, and browse backtest projects
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                Manage database operations, backups, and cache optimization.
+                One place to manage data downloads from ThetaData, browse your ticker archive,
+                convert to NVMe cache, and view backtest project files and results.
               </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/database'}>
-                Open Database
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>🔧 Components</CardTitle>
-              <CardDescription>Manage Nautilus components</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Control lifecycle of engines, adapters, and services.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/components'}>
-                Open Components
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>🎛️ Features</CardTitle>
-              <CardDescription>Feature flags and configuration</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Toggle features and configure system parameters.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/features'}>
-                Open Features
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>🔌 Adapters</CardTitle>
-              <CardDescription>Exchange/broker connections</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Manage connections to exchanges and brokers.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/adapters'}>
-                Open Adapters
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>📊 Monitoring</CardTitle>
-              <CardDescription>System metrics and logs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                View real-time metrics, logs, and alerts.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/monitoring'}>
-                Open Monitoring
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>⚙️ Settings</CardTitle>
-              <CardDescription>System configuration</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Configure system settings and preferences.
-              </p>
-              <Button onClick={() => window.location.href = '/admin/settings'}>
-                Settings
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>🔌 API Configuration</CardTitle>
-              <CardDescription>Backend API management</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Configure and test backend API endpoints.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/api-config'}>
-                Manage APIs
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>💾 Database Management</CardTitle>
-              <CardDescription>Comprehensive database administration</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Manage database connections, execute queries, and create backups.
-              </p>
-              <Button onClick={() => window.location.href = '/admin/db-management'}>
-                Manage Databases
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>💼 Positions</CardTitle>
-              <CardDescription>Position tracking</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Monitor open positions and P&L.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/positions'}>
-                Open Positions
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>🌊 Data Lake</CardTitle>
-              <CardDescription>Data sources, downloads, and catalog</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Manage ThetaData, Yahoo Finance, FRED sources. Download, convert, and browse the catalog.
-              </p>
-              <Button className="w-full" onClick={() => window.location.href = '/admin/data-lake'}>
-                Open Data Lake
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>👥 User Management</CardTitle>
-              <CardDescription>Manage user accounts and roles</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Create, deactivate, and manage user accounts and access roles.
-              </p>
-              <Button onClick={() => window.location.href = '/admin/users'}>
-                Manage Users
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>📚 Documentation</CardTitle>
-              <CardDescription>View project documentation</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Read the documentation for the Nautilus Web Interface.
-              </p>
-              <Button onClick={() => window.location.href = '/docs'}>
-                View Documentation
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>🔔 Notification System</CardTitle>
-              <CardDescription>Test the notification system</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={handleTestNotification}>
-                Test Notification
+              <Button className="w-full" onClick={() => window.location.href = '/admin/db-management'}>
+                Open Database Management
               </Button>
             </CardContent>
           </Card>
@@ -294,14 +69,8 @@ export default function AdminDashboard() {
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>Nautilus Web Interface v1.0.0</p>
-          <p className="mt-2">
-            <a href="https://github.com/Black101081/Nautilus-Web-Interface" className="text-primary hover:underline">
-              View on GitHub
-            </a>
-          </p>
         </div>
       </main>
     </div>
   );
 }
-
