@@ -4,7 +4,7 @@ Dividend pipeline — yfinance dividend scraper + schedule builder + forward pro
 
 import json
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional
 
 import pandas as pd

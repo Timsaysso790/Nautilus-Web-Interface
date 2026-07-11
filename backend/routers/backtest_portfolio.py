@@ -2,17 +2,14 @@
 Portfolio Engine API router — endpoints for portfolio backtesting.
 """
 
-import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-import database as db_mod
 import portfolio_engine
 from auth_jwt import get_current_user
-from state import nautilus_system
 
 logger = logging.getLogger(__name__)
 

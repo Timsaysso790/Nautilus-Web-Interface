@@ -2,7 +2,6 @@
 Portfolio Engine — master orchestrator for bar-by-bar leveraged income backtest.
 """
 
-import json
 import logging
 import math
 from datetime import datetime, timedelta, timezone
@@ -110,11 +109,9 @@ async def run_portfolio_backtest(config: Dict[str, Any]) -> Dict[str, Any]:
             df.rename(columns={date_col: "Date"}, inplace=True)
         equity_data[ticker] = df
 
-    # ── Pre-compute dividend schedules ──────────────────────────────────
-    div_schedules: Dict[str, pd.Series] = {}
+    # ── Warm dividend cache ────────────────────────────────────────────
     for ticker in tickers:
-        divs = await dividend_pipeline.get_dividend_history(ticker, start_date, end_date)
-        div_schedules[ticker] = divs
+        await dividend_pipeline.get_dividend_history(ticker, start_date, end_date)
 
     # ── Initialize state ────────────────────────────────────────────────
     cash = initial_cash
@@ -156,7 +153,6 @@ async def run_portfolio_backtest(config: Dict[str, Any]) -> Dict[str, Any]:
     if qqq_df.empty:
         return {"success": False, "error": "No QQQ price data available"}
 
-    date_index = pd.to_datetime(qqq_df["Date"])
     bb_period = int(clearance_config.get("bbPeriod", 20))
     bb_std = float(clearance_config.get("bbStdDev", 2.0))
     rsi_threshold = float(clearance_config.get("rsiThreshold", 40.0))
@@ -290,12 +286,12 @@ async def run_portfolio_backtest(config: Dict[str, Any]) -> Dict[str, Any]:
                     )
 
                     if margin_enabled and tm["front_load_capacity"] > 0:
-                        borrow_amount = bridge.can_borrow_amount(
+                        can_borrow = bridge.can_borrow_amount(
                             tm["front_load_capacity"],
                             total_asset_value,
                             margin_debt,
                         )
-                        if borrow_amount:
+                        if can_borrow:
                             actual_borrow = tm["front_load_capacity"]
                             margin_debt += actual_borrow
                             cash += actual_borrow

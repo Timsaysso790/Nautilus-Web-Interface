@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useNotification } from "@/contexts/NotificationContext";
 import { optionBacktestService } from "@/services/optionBacktestService";
@@ -83,7 +84,7 @@ export default function PortfolioEnginePage() {
   const [modalError, setModalError] = useState("");
   const [jsonPreview, setJsonPreview] = useState("");
 
-  const config: PortfolioConfig = {
+  const config: PortfolioConfig = useMemo(() => ({
     assets,
     cashSchedule,
     clearanceConfig,
@@ -92,7 +93,7 @@ export default function PortfolioEnginePage() {
     startDate,
     endDate,
     initialCash,
-  };
+  }), [assets, cashSchedule, clearanceConfig, marginConfig, vixConfig, startDate, endDate, initialCash]);
 
   const handleRun = useCallback(async () => {
     const tickers = assets.filter(a => a.ticker);
@@ -144,30 +145,30 @@ export default function PortfolioEnginePage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">Start Date</label>
-                <input
+                <Input
                   type="date"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="h-8 text-xs"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">End Date</label>
-                <input
+                <Input
                   type="date"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
-                  className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Initial Cash ($)</label>
-              <input
+              <Input
                 type="number"
                 value={initialCash}
                 onChange={e => setInitialCash(Number(e.target.value))}
-                className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="h-8 text-xs"
               />
             </div>
           </CardContent>
