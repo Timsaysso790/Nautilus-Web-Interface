@@ -80,14 +80,28 @@ export interface BrowseResult {
 
 export interface TickerCoverage {
   ticker: string;
-  contracts: number;
-  data_types: string[];
+  bars_date_range: string | null;
+  greeks_date_range: string | null;
   total_files: number;
   total_size_bytes: number;
 }
 
 export interface ThetaDataSymbols {
   symbols: string[];
+}
+
+export interface BatchDownloadRequest {
+  symbols: string[];
+  start_date: string;
+  end_date: string;
+  tier: string;
+  bars: boolean;
+  greeks: boolean;
+}
+
+export interface NvmeCacheEntry {
+  ticker: string;
+  size_bytes: number;
 }
 
 export const dataLakeService = {
@@ -165,11 +179,30 @@ export const dataLakeService = {
     return api.get<ThetaDataSymbols>('/api/data-lake/thetadata/symbols');
   },
 
+  // Batch ThetaData download
+  async batchDownload(data: BatchDownloadRequest) {
+    return api.post<{ task_id: string }>('/api/data-lake/thetadata/batch-download', data);
+  },
+
   // Tickers
   async listTickers() {
     return api.get<{ tickers: TickerCoverage[] }>('/api/data-lake/tickers');
   },
   async deleteTicker(ticker: string) {
     return api.delete<{ success: boolean; removed: number }>(`/api/data-lake/tickers/${ticker}`);
+  },
+
+  // NVMe Cache
+  async convertToCache(ticker: string) {
+    return api.post<{ task_id: string }>(`/api/data-lake/cache/convert/${ticker}`);
+  },
+  async listCache() {
+    return api.get<{ cache: NvmeCacheEntry[]; total_size_bytes: number }>('/api/data-lake/cache');
+  },
+  async clearCache(ticker?: string) {
+    if (ticker) {
+      return api.delete<{ success: boolean }>(`/api/data-lake/cache/${ticker}`);
+    }
+    return api.delete<{ success: boolean }>('/api/data-lake/cache');
   },
 };

@@ -11,23 +11,38 @@ from pydantic import BaseModel
 
 import database
 from auth_jwt import require_admin
-from credential_utils import encrypt_credential, mask_credential
+from credential_utils import encrypt_credential, mask_credential, decrypt_credential
 from data_sources.converter import convert_theta_data
 from data_sources.ingester import scan_catalog, remove_from_catalog
 from data_sources.manager import DataSourceManager
 from data_sources.theta_downloader import (
     download_equity_bars,
+    download_option_greeks,
+    batch_download,
     list_symbols,
     scan_ticker_coverage,
     delete_ticker as delete_ticker_data,
 )
+from data_sources.archive_converter import convert_ticker, list_cache, clear_cache
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/data-lake", tags=["data-lake"])
 
-# In-memory conversion task progress (volatile — fine for background tasks)
+# In-memory task progress (volatile — fine for background tasks)
 _convert_tasks: Dict[str, Dict[str, Any]] = {}
+
+
+async def _get_theta_api_key() -> Optional[str]:
+    """Retrieve decrypted ThetaData API key from DB."""
+    sources = await database.list_data_sources()
+    for src in sources:
+        if src["source_type"] == "thetadata":
+            full = await database.get_data_source(src["id"])
+            if full and full.get("api_key_encrypted"):
+                return decrypt_credential(full["api_key_encrypted"])
+    return os.getenv("THETADATA_API_KEY")
+
 
 def _run_conversion(task_id: str, source_path: str, instrument_filter: Optional[str] = None):
     """Run conversion in background, updating _convert_tasks with progress."""
@@ -97,6 +112,15 @@ class ConvertRequest(BaseModel):
     source_path: str
     instrument_id_template: Optional[str] = None
     instrument_filter: Optional[str] = None
+
+
+class BatchDownloadRequest(BaseModel):
+    symbols: List[str]
+    start_date: str
+    end_date: str
+    tier: str = "free"
+    bars: bool = True
+    greeks: bool = False
 
 
 # ── Sources ───────────────────────────────────────────────────────────────────
@@ -202,7 +226,7 @@ async def create_job(req: CreateJobRequest):
 
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str):
-    job = await DataSourceManager.get_job_status(job_id)
+    job = await database.get_download_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"job": job}
@@ -223,7 +247,7 @@ async def convert_data(req: ConvertRequest, background_tasks: BackgroundTasks):
     try:
         base = _browse_base()
         full_path = (base / req.source_path).resolve()
-        full_path.relative_to(base)  # safety check
+        full_path.relative_to(base)
 
         task_id = str(uuid.uuid4())
         _convert_tasks[task_id] = {
@@ -287,13 +311,7 @@ async def delete_catalog_entry(data_type: str, instrument_id: str):
 
 @router.get("/browse")
 async def browse_folder(path: str = Query("", alias="path")):
-    """
-    List subdirectories and parquet files at the given path relative to the
-    catalog root.  Returns the directory tree for the folder browser UI.
-    """
     base = _browse_base()
-
-    # Resolve the requested path, ensuring it stays within the base
     try:
         resolved = (base / path).resolve()
         resolved.relative_to(base)
@@ -329,7 +347,6 @@ async def browse_folder(path: str = Query("", alias="path")):
     except ValueError:
         parent_path = ""
 
-    # Count total parquet files recursively in this directory
     total_parquet = sum(1 for _ in resolved.rglob("*.parquet"))
 
     return {
@@ -340,6 +357,7 @@ async def browse_folder(path: str = Query("", alias="path")):
         "total_parquet_recursive": total_parquet,
         "parent_path": parent_path,
     }
+
 
 @router.post("/import", dependencies=[Depends(require_admin)])
 async def import_existing_data(req: ConvertRequest):
@@ -357,7 +375,86 @@ async def import_existing_data(req: ConvertRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ── ThetaData download ────────────────────────────────────────────────────────────
+# ── ThetaData batch download ─────────────────────────────────────────────────────
+
+def _run_batch_download(
+    task_id: str,
+    symbols: List[str],
+    start_date: str,
+    end_date: str,
+    tier: str,
+    bars: bool,
+    greeks: bool,
+    output_dir: str,
+    api_key: str,
+):
+    def cb(msg, idx, converted, skipped, errors, total):
+        _convert_tasks[task_id].update({
+            "status": "running",
+            "current_file": msg,
+            "processed": idx,
+            "converted": converted,
+            "skipped": skipped,
+            "errors": errors,
+            "total_files": total,
+        })
+
+    try:
+        from datetime import date
+        sd = date.fromisoformat(start_date)
+        ed = date.fromisoformat(end_date)
+
+        _convert_tasks[task_id].update({"status": "running"})
+        stats = batch_download(
+            symbols=symbols,
+            start_date=sd,
+            end_date=ed,
+            output_dir=output_dir,
+            api_key=api_key,
+            tier=tier,
+            bars=bars,
+            greeks=greeks,
+            progress_callback=cb,
+        )
+        _convert_tasks[task_id].update({"status": "completed", **stats})
+    except Exception as e:
+        logger.exception("Batch download failed: %s", e)
+        _convert_tasks[task_id].update({"status": "error", "error_detail": str(e)})
+
+
+@router.post("/thetadata/batch-download", dependencies=[Depends(require_admin)])
+async def start_batch_download(req: BatchDownloadRequest, background_tasks: BackgroundTasks):
+    api_key = await _get_theta_api_key()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No ThetaData API key configured. Add one in Keys & Connections.")
+
+    output_dir = str(_browse_base())
+
+    task_id = str(uuid.uuid4())
+    _convert_tasks[task_id] = {
+        "status": "pending", "total_files": 0, "processed": 0,
+        "current_file": "", "converted": 0, "skipped": 0, "errors": 0,
+    }
+
+    background_tasks.add_task(
+        _run_batch_download,
+        task_id, req.symbols, req.start_date, req.end_date,
+        req.tier, req.bars, req.greeks, output_dir, api_key,
+    )
+
+    return {"task_id": task_id}
+
+
+@router.get("/thetadata/symbols")
+async def theta_symbols():
+    try:
+        syms = list_symbols()
+        return {"symbols": syms[:500]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Single-ticker download (legacy) ─────────────────────────────────────────────
 
 class ThetaDataDownloadRequest(BaseModel):
     symbol: str
@@ -365,8 +462,7 @@ class ThetaDataDownloadRequest(BaseModel):
     end_date: str
 
 
-def _run_theta_download(task_id: str, symbol: str, start_date: str, end_date: str, output_dir: str):
-    """Run ThetaData download in background with progress tracking."""
+def _run_theta_download(task_id: str, symbol: str, start_date: str, end_date: str, output_dir: str, api_key: str):
     def cb(msg, idx, converted, skipped, errors, total):
         _convert_tasks[task_id].update({
             "status": "running",
@@ -389,6 +485,8 @@ def _run_theta_download(task_id: str, symbol: str, start_date: str, end_date: st
             start_date=sd,
             end_date=ed,
             output_dir=output_dir,
+            api_key=api_key,
+            tier="free",
             progress_callback=cb,
         )
         _convert_tasks[task_id].update({"status": "completed", **stats})
@@ -399,7 +497,11 @@ def _run_theta_download(task_id: str, symbol: str, start_date: str, end_date: st
 
 @router.post("/thetadata/download", dependencies=[Depends(require_admin)])
 async def start_theta_download(req: ThetaDataDownloadRequest, background_tasks: BackgroundTasks):
-    output_dir = str(_browse_base() / "theta")
+    api_key = await _get_theta_api_key()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No ThetaData API key configured.")
+
+    output_dir = str(_browse_base())
 
     task_id = str(uuid.uuid4())
     _convert_tasks[task_id] = {
@@ -408,19 +510,10 @@ async def start_theta_download(req: ThetaDataDownloadRequest, background_tasks: 
     }
 
     background_tasks.add_task(
-        _run_theta_download, task_id, req.symbol, req.start_date, req.end_date, output_dir,
+        _run_theta_download, task_id, req.symbol, req.start_date, req.end_date, output_dir, api_key,
     )
 
     return {"task_id": task_id}
-
-
-@router.get("/thetadata/symbols")
-async def theta_symbols():
-    try:
-        syms = list_symbols()
-        return {"symbols": syms[:500]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Ticker Management ─────────────────────────────────────────────────────────────
@@ -437,3 +530,76 @@ async def delete_ticker(ticker: str):
     base = _browse_base()
     removed = delete_ticker_data(str(base), ticker)
     return {"success": True, "removed": removed}
+
+
+# ── NVMe Cache endpoints ─────────────────────────────────────────────────────────
+
+def _run_cache_convert(task_id: str, ticker: str, archive_root: str, cache_root: str):
+    def cb(msg, converted, conv, skipped, errors, total):
+        _convert_tasks[task_id].update({
+            "status": "running",
+            "current_file": msg,
+            "processed": converted,
+            "converted": converted,
+            "skipped": skipped,
+            "errors": errors,
+            "total_files": total,
+        })
+
+    try:
+        _convert_tasks[task_id].update({"status": "running"})
+        stats = convert_ticker(
+            ticker=ticker,
+            archive_root=archive_root,
+            cache_root=cache_root,
+            progress_callback=cb,
+        )
+        _convert_tasks[task_id].update({"status": "completed", **stats})
+    except Exception as e:
+        logger.exception("Cache convert failed for %s: %s", ticker, e)
+        _convert_tasks[task_id].update({"status": "error", "error_detail": str(e)})
+
+
+@router.post("/cache/convert/{ticker}", dependencies=[Depends(require_admin)])
+async def convert_to_cache(ticker: str, background_tasks: BackgroundTasks):
+    base = _browse_base()
+    archive_root = str(base)
+    cache_root = str(base)
+
+    task_id = str(uuid.uuid4())
+    _convert_tasks[task_id] = {
+        "status": "pending", "total_files": 0, "processed": 0,
+        "current_file": "", "converted": 0, "skipped": 0, "errors": 0,
+    }
+
+    background_tasks.add_task(
+        _run_cache_convert, task_id, ticker.upper(), archive_root, cache_root,
+    )
+
+    return {"task_id": task_id}
+
+
+@router.get("/cache")
+async def list_cache_endpoint():
+    base = _browse_base()
+    entries = list_cache(str(base))
+    total_size = sum(e["size_bytes"] for e in entries)
+    return {"cache": entries, "total_size_bytes": total_size}
+
+
+@router.delete("/cache/{ticker}", dependencies=[Depends(require_admin)])
+async def clear_cache_ticker(ticker: str):
+    base = _browse_base()
+    ok = clear_cache(str(base), ticker)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Ticker not found in cache")
+    return {"success": True}
+
+
+@router.delete("/cache", dependencies=[Depends(require_admin)])
+async def clear_all_cache():
+    base = _browse_base()
+    entries = list_cache(str(base))
+    for e in entries:
+        clear_cache(str(base), e["ticker"])
+    return {"success": True}

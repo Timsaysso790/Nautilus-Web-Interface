@@ -7,15 +7,17 @@ import { JobProgressCard } from "@/components/JobProgressCard";
 import { CatalogTreeView } from "@/components/CatalogTreeView";
 import { FolderBrowser } from "@/components/FolderBrowser";
 import MarketDataPanel from "@/components/MarketDataPanel";
+import NvmeCachePanel from "@/components/NvmeCachePanel";
 import { dataLakeService, type ConvertTaskStatus, type DataSource, type DownloadJob } from "@/services/dataLakeService";
 import { useNotification } from "@/contexts/NotificationContext";
 
-type Tab = "marketdata" | "catalog" | "convert" | "backtests" | "research" | "sources";
+type Tab = "marketdata" | "catalog" | "convert" | "nvme_cache" | "backtests" | "research" | "sources";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "marketdata", label: "Market Data" },
   { key: "catalog", label: "Data Browser" },
   { key: "convert", label: "Convert & Ingest" },
+  { key: "nvme_cache", label: "NVMe Cache" },
   { key: "backtests", label: "Backtest Results" },
   { key: "research", label: "Research" },
   { key: "sources", label: "Keys & Connections" },
@@ -183,6 +185,8 @@ export default function DataLakePage() {
       {tab === "catalog" && (
         <CatalogTreeView onError={(msg) => notify(msg, "error")} />
       )}
+
+      {tab === "nvme_cache" && <NvmeCachePanel />}
 
       {tab === "convert" && (
         <div className="space-y-6">
