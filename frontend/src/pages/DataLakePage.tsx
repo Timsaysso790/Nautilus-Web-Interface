@@ -6,16 +6,19 @@ import { DownloadJobForm } from "@/components/DownloadJobForm";
 import { JobProgressCard } from "@/components/JobProgressCard";
 import { CatalogTreeView } from "@/components/CatalogTreeView";
 import { FolderBrowser } from "@/components/FolderBrowser";
+import MarketDataPanel from "@/components/MarketDataPanel";
 import { dataLakeService, type ConvertTaskStatus, type DataSource, type DownloadJob } from "@/services/dataLakeService";
 import { useNotification } from "@/contexts/NotificationContext";
 
-type Tab = "sources" | "download" | "convert" | "catalog";
+type Tab = "marketdata" | "catalog" | "convert" | "backtests" | "research" | "sources";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "sources", label: "Keys & Connections" },
-  { key: "download", label: "Download" },
+  { key: "marketdata", label: "Market Data" },
+  { key: "catalog", label: "Data Browser" },
   { key: "convert", label: "Convert & Ingest" },
-  { key: "catalog", label: "Catalog Browser" },
+  { key: "backtests", label: "Backtest Results" },
+  { key: "research", label: "Research" },
+  { key: "sources", label: "Keys & Connections" },
 ];
 
 export default function DataLakePage() {
@@ -175,47 +178,10 @@ export default function DataLakePage() {
         ))}
       </div>
 
-      {tab === "sources" && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Data Sources</h2>
-          {sources.length === 0 && (
-            <p className="text-sm text-muted-foreground">No sources configured. Add a source to get started.</p>
-          )}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sources.map(s => (
-              <DataSourceCard
-                key={s.id}
-                source={s}
-                onTest={() => handleTestSource(s.id)}
-                onEdit={() => window.location.href = `/admin/data-lake/sources/${s.id}`}
-                onDelete={() => handleDeleteSource(s.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {tab === "marketdata" && <MarketDataPanel />}
 
-      {tab === "download" && (
-        <div className="space-y-6">
-          <DownloadJobForm
-            onCreated={() => { notify("Download started", "success"); loadJobs(); }}
-            onError={(msg) => notify(msg, "error")}
-          />
-          <div className="space-y-2">
-            <h3 className="font-semibold text-foreground">Job History</h3>
-            {jobs.length === 0 && <p className="text-sm text-muted-foreground">No jobs yet.</p>}
-            <div className="grid md:grid-cols-2 gap-3">
-              {jobs.map(j => (
-                <JobProgressCard
-                  key={j.id}
-                  job={j}
-                  onConvert={() => handleConvertJob(j.id)}
-                  onDelete={() => handleDeleteJob(j.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+      {tab === "catalog" && (
+        <CatalogTreeView onError={(msg) => notify(msg, "error")} />
       )}
 
       {tab === "convert" && (
@@ -281,8 +247,42 @@ export default function DataLakePage() {
         </div>
       )}
 
-      {tab === "catalog" && (
-        <CatalogTreeView onError={(msg) => notify(msg, "error")} />
+      {tab === "backtests" && (
+        <div className="bg-card border rounded-lg p-8 text-center">
+          <h3 className="text-lg font-semibold text-foreground mb-2">Backtest Results</h3>
+          <p className="text-sm text-muted-foreground">
+            Browse and manage backtest result files. Coming soon.
+          </p>
+        </div>
+      )}
+
+      {tab === "research" && (
+        <div className="bg-card border rounded-lg p-8 text-center">
+          <h3 className="text-lg font-semibold text-foreground mb-2">Research Projects</h3>
+          <p className="text-sm text-muted-foreground">
+            Create, upload, and browse research notebooks and projects. Coming soon.
+          </p>
+        </div>
+      )}
+
+      {tab === "sources" && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-foreground">Data Sources</h2>
+          {sources.length === 0 && (
+            <p className="text-sm text-muted-foreground">No sources configured. Add a source to get started.</p>
+          )}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sources.map(s => (
+              <DataSourceCard
+                key={s.id}
+                source={s}
+                onTest={() => handleTestSource(s.id)}
+                onEdit={() => window.location.href = `/admin/data-lake/sources/${s.id}`}
+                onDelete={() => handleDeleteSource(s.id)}
+              />
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

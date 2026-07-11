@@ -15,6 +15,12 @@ from credential_utils import encrypt_credential, mask_credential
 from data_sources.converter import convert_theta_data
 from data_sources.ingester import scan_catalog, remove_from_catalog
 from data_sources.manager import DataSourceManager
+from data_sources.theta_downloader import (
+    download_equity_bars,
+    list_symbols,
+    scan_ticker_coverage,
+    delete_ticker as delete_ticker_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -349,3 +355,107 @@ async def import_existing_data(req: ConvertRequest):
         return {"success": True, "stats": stats}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── ThetaData download ────────────────────────────────────────────────────────────
+
+class ThetaDataDownloadRequest(BaseModel):
+    symbol: str
+    start_date: str
+    end_date: str
+
+async def _get_theta_api_key() -> str:
+    """Retrieve the ThetaData API key from configured data sources."""
+    try:
+        sources = await database.list_data_sources()
+        for s in sources:
+            if s["source_type"].lower() == "thetadata":
+                full = await database.get_data_source(s["id"])
+                if full and full.get("api_key_encrypted"):
+                    from credential_utils import decrypt_credential
+                    return decrypt_credential(full["api_key_encrypted"])
+    except Exception as e:
+        logger.warning("Failed to get ThetaData API key: %s", e)
+    return os.getenv("THETADATA_API_KEY", "")
+
+
+def _run_theta_download(task_id: str, api_key: str, symbol: str, start_date: str, end_date: str, output_dir: str):
+    """Run ThetaData download in background with progress tracking."""
+    def cb(msg, idx, converted, skipped, errors, total):
+        _convert_tasks[task_id].update({
+            "status": "running",
+            "current_file": msg,
+            "processed": idx,
+            "converted": converted,
+            "skipped": skipped,
+            "errors": errors,
+            "total_files": total,
+        })
+
+    try:
+        from datetime import date
+        sd = date.fromisoformat(start_date)
+        ed = date.fromisoformat(end_date)
+
+        _convert_tasks[task_id].update({"status": "running", "total_files": 1})
+        stats = download_equity_bars(
+            api_key=api_key,
+            symbol=symbol,
+            start_date=sd,
+            end_date=ed,
+            output_dir=output_dir,
+            progress_callback=cb,
+        )
+        _convert_tasks[task_id].update({"status": "completed", **stats})
+    except Exception as e:
+        logger.exception("Theta download failed: %s", e)
+        _convert_tasks[task_id].update({"status": "error", "error_detail": str(e)})
+
+
+@router.post("/thetadata/download", dependencies=[Depends(require_admin)])
+async def start_theta_download(req: ThetaDataDownloadRequest, background_tasks: BackgroundTasks):
+    api_key = await _get_theta_api_key()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No ThetaData API key configured. Add one in Keys & Connections.")
+
+    output_dir = str(_browse_base() / "theta")
+
+    task_id = str(uuid.uuid4())
+    _convert_tasks[task_id] = {
+        "status": "pending", "total_files": 0, "processed": 0,
+        "current_file": "", "converted": 0, "skipped": 0, "errors": 0,
+    }
+
+    background_tasks.add_task(
+        _run_theta_download, task_id, api_key, req.symbol, req.start_date, req.end_date, output_dir,
+    )
+
+    return {"task_id": task_id}
+
+
+@router.get("/thetadata/symbols")
+async def theta_symbols():
+    api_key = await _get_theta_api_key()
+    if not api_key:
+        return {"symbols": []}
+    try:
+        syms = list_symbols(api_key)
+        return {"symbols": syms[:500]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Ticker Management ─────────────────────────────────────────────────────────────
+
+@router.get("/tickers")
+async def ticker_coverage():
+    base = _browse_base()
+    tickers = scan_ticker_coverage(str(base))
+    return {"tickers": tickers}
+
+
+@router.delete("/tickers/{ticker}", dependencies=[Depends(require_admin)])
+async def delete_ticker(ticker: str):
+    base = _browse_base()
+    removed = delete_ticker_data(str(base), ticker)
+    return {"success": True, "removed": removed}

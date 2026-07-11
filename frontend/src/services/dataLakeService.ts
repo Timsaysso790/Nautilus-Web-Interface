@@ -78,6 +78,18 @@ export interface BrowseResult {
   parent_path: string;
 }
 
+export interface TickerCoverage {
+  ticker: string;
+  contracts: number;
+  data_types: string[];
+  total_files: number;
+  total_size_bytes: number;
+}
+
+export interface ThetaDataSymbols {
+  symbols: string[];
+}
+
 export const dataLakeService = {
   // Sources
   async listSources() {
@@ -143,5 +155,21 @@ export const dataLakeService = {
       source_path: sourcePath,
       instrument_filter: instrumentFilter || null,
     });
+  },
+
+  // ThetaData download
+  async thetaDownload(data: { symbol: string; start_date: string; end_date: string }) {
+    return api.post<{ task_id: string }>('/api/data-lake/thetadata/download', data);
+  },
+  async thetaSymbols() {
+    return api.get<ThetaDataSymbols>('/api/data-lake/thetadata/symbols');
+  },
+
+  // Tickers
+  async listTickers() {
+    return api.get<{ tickers: TickerCoverage[] }>('/api/data-lake/tickers');
+  },
+  async deleteTicker(ticker: string) {
+    return api.delete<{ success: boolean; removed: number }>(`/api/data-lake/tickers/${ticker}`);
   },
 };
