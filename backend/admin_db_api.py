@@ -12,7 +12,6 @@ import secrets
 import sqlite3
 import json
 import os
-import httpx
 from datetime import datetime
 from contextlib import asynccontextmanager
 
@@ -80,34 +79,6 @@ def _init_db() -> None:
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS components (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            name        TEXT UNIQUE NOT NULL,
-            type        TEXT NOT NULL,
-            status      TEXT NOT NULL DEFAULT 'stopped',
-            description TEXT,
-            updated_at  TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS features (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            name        TEXT UNIQUE NOT NULL,
-            category    TEXT NOT NULL DEFAULT 'general',
-            enabled     INTEGER NOT NULL DEFAULT 0,
-            description TEXT,
-            updated_at  TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS adapters (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            name           TEXT UNIQUE NOT NULL,
-            type           TEXT NOT NULL,
-            status         TEXT NOT NULL DEFAULT 'disconnected',
-            last_connected TEXT,
-            config         TEXT,
-            updated_at     TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
         CREATE TABLE IF NOT EXISTS api_endpoints (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             name         TEXT NOT NULL,
@@ -161,52 +132,6 @@ def _init_db() -> None:
                 ("Daily Backup",    "backup",    "0 2 * * *", 1),
                 ("DB Optimize",     "optimize",  "0 3 * * 0", 1),
                 ("Cache Cleanup",   "clean",     "0 1 * * *", 1),
-            ]
-        )
-
-    # Components
-    if not c.execute("SELECT 1 FROM components LIMIT 1").fetchone():
-        c.executemany(
-            "INSERT OR IGNORE INTO components (name, type, status, description) VALUES (?, ?, ?, ?)",
-            [
-                ("Data Engine",       "DataEngine",      "running", "Handles market data subscriptions"),
-                ("Execution Engine",  "ExecutionEngine", "running", "Manages order execution"),
-                ("Risk Engine",       "RiskEngine",      "running", "Enforces risk limits"),
-                ("Portfolio",         "Portfolio",       "active",  "Tracks positions and PnL"),
-                ("Cache",             "Cache",           "active",  "In-memory data cache"),
-                ("Message Bus",       "MessageBus",      "active",  "Internal event bus"),
-            ]
-        )
-
-    # Features
-    if not c.execute("SELECT 1 FROM features LIMIT 1").fetchone():
-        c.executemany(
-            "INSERT OR IGNORE INTO features (name, category, enabled, description) VALUES (?, ?, ?, ?)",
-            [
-                ("Live Trading",       "trading",   0, "Enable live order execution"),
-                ("Backtesting",        "trading",   1, "Enable strategy backtesting"),
-                ("Market Data",        "data",      1, "Enable live market data feeds"),
-                ("Price Alerts",       "alerts",    1, "Enable price alert notifications"),
-                ("Risk Management",    "risk",      1, "Enable risk limit enforcement"),
-                ("Email Notifications","notify",    0, "Send email alerts"),
-                ("Slack Notifications","notify",    0, "Send Slack alerts"),
-                ("API Rate Limiting",  "security",  1, "Enforce API rate limits"),
-            ]
-        )
-
-    # Adapters
-    if not c.execute("SELECT 1 FROM adapters LIMIT 1").fetchone():
-        c.executemany(
-            "INSERT OR IGNORE INTO adapters (name, type, status) VALUES (?, ?, ?)",
-            [
-                ("Binance Spot",       "crypto",  "disconnected"),
-                ("Binance Futures",    "crypto",  "disconnected"),
-                ("Bybit",              "crypto",  "disconnected"),
-                ("Coinbase Advanced",  "crypto",  "disconnected"),
-                ("Interactive Brokers","equity",  "disconnected"),
-                ("dYdX",               "crypto",  "disconnected"),
-                ("Kraken",             "crypto",  "disconnected"),
-                ("OKX",                "crypto",  "disconnected"),
             ]
         )
 
@@ -504,158 +429,6 @@ def get_audit_logs(limit: int = 100):
     logs = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return {"logs": logs}
-
-
-# ── Components ────────────────────────────────────────────────────────────────
-
-@app.get("/api/admin/components")
-def get_components():
-    conn = get_db()
-    cursor = conn.execute("SELECT * FROM components ORDER BY name")
-    components = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return {"components": components}
-
-@app.get("/api/admin/components/{component_id}")
-def get_component(component_id: int):
-    conn = get_db()
-    cursor = conn.execute("SELECT * FROM components WHERE id = ?", (component_id,))
-    component = cursor.fetchone()
-    conn.close()
-    if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
-    return dict(component)
-
-@app.put("/api/admin/components/{component_id}/status")
-def update_component_status(component_id: int, status: str = Query(...)):
-    conn = get_db()
-    row = conn.execute("SELECT name FROM components WHERE id = ?", (component_id,)).fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Component not found")
-    conn.execute(
-        "UPDATE components SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (status, component_id)
-    )
-    _log_action(conn, "component.status_change", details=f"component={row['name']} status={status}")
-    conn.commit()
-    conn.close()
-    return {"message": f"Component status updated to '{status}'"}
-
-
-@app.post("/api/admin/components/sync")
-def sync_components_from_main_api():
-    """
-    Pull live component statuses from the main NautilusTrader backend
-    and update the admin DB to reflect current engine state.
-    """
-    main_api_url = os.getenv("MAIN_API_URL", "http://backend:8000")
-    try:
-        with httpx.Client(timeout=5.0) as client:
-            resp = client.get(f"{main_api_url}/api/components")
-            resp.raise_for_status()
-            data = resp.json()
-        components_live = data.get("components", [])
-    except Exception as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Could not reach main backend: {exc}"
-        )
-
-    conn = get_db()
-    updated = 0
-    for comp in components_live:
-        name = comp.get("name", "")
-        status = comp.get("status", "stopped")
-        cur = conn.execute(
-            "UPDATE components SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?",
-            (status, name)
-        )
-        updated += cur.rowcount
-    _log_action(conn, "components.sync", details=f"synced {updated} components from main API")
-    conn.commit()
-    conn.close()
-    return {"success": True, "synced": updated, "message": f"Synced {updated} component statuses"}
-
-
-# ── Features ──────────────────────────────────────────────────────────────────
-
-@app.get("/api/admin/features")
-def get_features():
-    conn = get_db()
-    cursor = conn.execute("SELECT * FROM features ORDER BY category, name")
-    features = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return {"features": features}
-
-@app.get("/api/admin/features/{feature_id}")
-def get_feature(feature_id: int):
-    conn = get_db()
-    cursor = conn.execute("SELECT * FROM features WHERE id = ?", (feature_id,))
-    feature = cursor.fetchone()
-    conn.close()
-    if not feature:
-        raise HTTPException(status_code=404, detail="Feature not found")
-    return dict(feature)
-
-@app.put("/api/admin/features/{feature_id}/toggle")
-def toggle_feature(feature_id: int):
-    conn = get_db()
-    cursor = conn.execute("SELECT name, enabled FROM features WHERE id = ?", (feature_id,))
-    feature = cursor.fetchone()
-    if not feature:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Feature not found")
-    new_status = 0 if feature['enabled'] else 1
-    conn.execute(
-        "UPDATE features SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (new_status, feature_id)
-    )
-    _log_action(
-        conn, "feature.toggle",
-        details=f"feature={feature['name']} enabled={'true' if new_status else 'false'}"
-    )
-    conn.commit()
-    conn.close()
-    return {"message": f"Feature {'enabled' if new_status else 'disabled'}", "enabled": bool(new_status)}
-
-
-# ── Adapters ──────────────────────────────────────────────────────────────────
-
-@app.get("/api/admin/adapters")
-def get_adapters():
-    conn = get_db()
-    cursor = conn.execute("SELECT * FROM adapters ORDER BY type, name")
-    adapters = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return {"adapters": adapters}
-
-@app.get("/api/admin/adapters/{adapter_id}")
-def get_adapter(adapter_id: int):
-    conn = get_db()
-    cursor = conn.execute("SELECT * FROM adapters WHERE id = ?", (adapter_id,))
-    adapter = cursor.fetchone()
-    conn.close()
-    if not adapter:
-        raise HTTPException(status_code=404, detail="Adapter not found")
-    return dict(adapter)
-
-@app.put("/api/admin/adapters/{adapter_id}/status")
-def update_adapter_status(adapter_id: int, status: str = Query(...)):
-    conn = get_db()
-    row = conn.execute("SELECT name FROM adapters WHERE id = ?", (adapter_id,)).fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Adapter not found")
-    last_connected = datetime.now().isoformat() if status == 'connected' else None
-    conn.execute(
-        "UPDATE adapters SET status = ?, last_connected = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (status, last_connected, adapter_id)
-    )
-    _log_action(conn, "adapter.status_change", details=f"adapter={row['name']} status={status}")
-    conn.commit()
-    conn.close()
-    return {"message": f"Adapter status updated to '{status}'"}
 
 
 # ── API Endpoints ─────────────────────────────────────────────────────────────

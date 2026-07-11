@@ -13,21 +13,13 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/AdminDashboard";
 import TraderDashboard from "./pages/TraderDashboard";
 import BrokerOrdersPage from "./pages/BrokerOrdersPage";
-import ComponentsPage from "./pages/ComponentsPage";
-import FeaturesPage from "./pages/FeaturesPage";
-import AdaptersPage from "./pages/AdaptersPage";
-import MonitoringPage from "./pages/MonitoringPage";
+
 import SettingsPage from "./pages/SettingsPage";
-import DocsPage from "./pages/DocsPage";
 import StrategiesPage from "./pages/StrategiesPage";
 import OrdersPage from "./pages/OrdersPage";
-import PositionsPage from "./pages/PositionsPage";
-import RiskPage from "./pages/RiskPage";
 import ApiConfigPage from "./pages/ApiConfigPage";
 import DatabaseMgmt from "./pages/DatabaseManagementPage";
 import MarketDataPage from "./pages/MarketDataPage";
-import PerformancePage from "./pages/PerformancePage";
-import AlertsPage from "./pages/AlertsPage";
 import BacktestingPage from "./pages/BacktestingPage";
 import UsersPage from "./pages/UsersPage";
 import { BacktestStationPage } from "./backtest";
@@ -45,10 +37,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin/components" component={ComponentsPage} />
-      <Route path="/admin/features" component={FeaturesPage} />
-      <Route path="/admin/adapters" component={AdaptersPage} />
-      <Route path="/admin/monitoring" component={MonitoringPage} />
+
       <Route path="/admin/settings" component={SettingsPage} />
       <Route path="/admin/api-config" component={ApiConfigPage} />
       <Route path="/admin/db-management" component={DatabaseMgmt} />
@@ -56,17 +45,12 @@ function Router() {
       <Route path="/trader" component={TraderDashboard} />
       <Route path="/trader/strategies" component={StrategiesPage} />
       <Route path="/trader/orders" component={OrdersPage} />
-      <Route path="/trader/positions" component={PositionsPage} />
-      <Route path="/trader/risk" component={RiskPage} />
       <Route path="/trader/option-backtest" component={BacktestStationPage} />
       <Route path="/trader/options" component={OptionsPage} />
       <Route path="/trader/broker-orders" component={BrokerOrdersPage} />
       <Route path="/trader/stocks" component={StocksPage} />
       <Route path="/trader/market-data" component={MarketDataPage} />
-      <Route path="/trader/performance" component={PerformancePage} />
-      <Route path="/trader/alerts" component={AlertsPage} />
       <Route path="/trader/backtesting" component={BacktestingPage} />
-      <Route path="/docs" component={DocsPage} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -89,7 +73,6 @@ function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Listen for 401 events dispatched by api.ts — triggers soft logout
     const onUnauthorized = () => {
       setAuthenticated(false);
     };
@@ -98,22 +81,18 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Check if stored token is still valid by verifying it hasn't expired
     const token = localStorage.getItem('nautilus_token');
     if (!token) {
       setAuthenticated(false);
       return;
     }
-    // Decode JWT payload to check expiry (no library needed for exp check)
     try {
       const parts = token.split('.');
       if (parts.length !== 3) throw new Error('Malformed token');
-      // JWT uses base64url encoding; atob needs standard base64
       const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
       const payload = JSON.parse(atob(base64));
       const exp = typeof payload.exp === 'number' ? payload.exp : null;
       if (exp !== null && exp * 1000 < Date.now()) {
-        // Token expired — clear and show login
         localStorage.removeItem('nautilus_token');
         localStorage.removeItem('nautilus_role');
         setAuthenticated(false);
@@ -136,14 +115,12 @@ function App() {
   const handleLogout = async () => {
     const token = localStorage.getItem('nautilus_token');
     if (token) {
-      // Notify backend to blacklist the token
       try {
         await fetch(`${API_CONFIG.NAUTILUS_API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch {
-        // Ignore network errors — local logout still proceeds
       }
     }
     localStorage.removeItem('nautilus_token');
@@ -151,10 +128,8 @@ function App() {
     setAuthenticated(false);
   };
 
-  // Still loading auth state
   if (authenticated === null) return null;
 
-  // Show login page if not authenticated
   if (!authenticated) {
     return (
       <ErrorBoundary>

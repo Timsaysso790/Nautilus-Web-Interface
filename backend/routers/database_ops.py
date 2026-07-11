@@ -161,12 +161,6 @@ async def clean_cache(req: CacheOpRequest, _admin: dict = Depends(require_admin)
 
     try:
         conn = sqlite3.connect(str(db_path))
-        # Remove triggered alerts
-        cur = conn.execute(
-            "DELETE FROM alerts WHERE status = 'triggered' "
-            "AND created_at < datetime('now', '-30 days')"
-        )
-        alerts_removed = cur.rowcount
         # Remove cancelled / filled orders
         cur = conn.execute(
             "DELETE FROM orders WHERE status IN ('CANCELLED', 'FILLED') "
@@ -176,12 +170,11 @@ async def clean_cache(req: CacheOpRequest, _admin: dict = Depends(require_admin)
         conn.commit()
         conn.close()
 
-        total = alerts_removed + orders_removed
+        total = orders_removed
         return {
             "success": True,
-            "message": f"Removed {total} old records "
-                       f"({alerts_removed} alerts, {orders_removed} orders)",
-            "alerts_removed": alerts_removed,
+            "message": f"Removed {total} old records ({orders_removed} orders)",
+
             "orders_removed": orders_removed,
         }
     except Exception as exc:

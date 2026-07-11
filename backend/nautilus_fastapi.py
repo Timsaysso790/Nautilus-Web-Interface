@@ -36,30 +36,24 @@ import auth as _auth_module
 from auth import ApiKeyMiddleware
 from auth_jwt import decode_token
 from routers import (
-    adapters,
-    alerts,
     auth as auth_router_module,
     backtest,
     backtest_portfolio,
     backtest_projects,
     broker_orders,
-    components,
     data_lake,
     database_ops,
     market_data,
     options,
     orders,
     positions,
-    risk,
     stocks,
     strategies,
     system,
     users,
 )
 from routers.strategies import load_strategies_from_db
-from routers.components import load_component_states
 from state import manager, nautilus_system
-from alert_monitor import run_alert_monitor
 
 
 # ── Lifespan (startup / shutdown) ─────────────────────────────────────────────
@@ -116,15 +110,13 @@ async def lifespan(app: FastAPI):
     _check_production_secrets()
     # Initialise the SQLite schema + seed defaults
     await database.init_db()
-    # Restore persisted strategies and component states
+    # Restore persisted strategies
     await load_strategies_from_db()
-    await load_component_states()
     # Start background tasks
-    alert_task = asyncio.create_task(run_alert_monitor())
     purge_task = asyncio.create_task(_purge_expired_tokens_loop())
     yield
     # Shutdown: cancel background tasks
-    for task in (alert_task, purge_task):
+    for task in (purge_task,):
         task.cancel()
         try:
             await task
@@ -284,15 +276,12 @@ app.include_router(auth_router_module.router)
 app.include_router(strategies.router)
 app.include_router(orders.router)
 app.include_router(positions.router)
-app.include_router(risk.router)
 app.include_router(market_data.router)
-app.include_router(alerts.router)
 app.include_router(system.router)
 app.include_router(backtest.router)
-app.include_router(adapters.router)
+
 app.include_router(broker_orders.router)
 app.include_router(database_ops.router)
-app.include_router(components.router)
 app.include_router(users.router)
 app.include_router(options.router)
 app.include_router(stocks.router)

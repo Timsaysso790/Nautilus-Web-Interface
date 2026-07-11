@@ -27,13 +27,7 @@ class NautilusManager:
         self.strategies: Dict[str, Any] = {}
         self.orders: Dict[str, Any] = {}
         self.positions: Dict[str, Any] = {}
-        self.adapter_states: Dict[str, str] = {}  # id -> status
-        self.risk_limits: Dict[str, float] = {
-            "max_order_size": 10000.0,
-            "max_position_size": 50000.0,
-            "max_daily_loss": 5000.0,
-            "max_positions": 10,
-        }
+
         self.is_running = False
 
     def initialize_backtest_engine(self) -> Dict[str, Any]:
@@ -75,152 +69,6 @@ class NautilusManager:
             "engine_type": "BacktestEngine",
             "is_running": self.is_running,
             "strategies_count": len(self.strategies)
-        }
-
-    def get_components(self) -> List[Dict[str, Any]]:
-        """Get real Nautilus components status"""
-        components = []
-
-        if self.engine:
-            components.append({
-                "id": "data_engine",
-                "name": "DataEngine",
-                "type": "engine",
-                "status": "running" if self.is_running else "stopped",
-                "description": "Manages market data subscriptions and caching",
-                "config": {
-                    "cache_enabled": True,
-                    "cache_size_mb": 256
-                }
-            })
-
-            components.append({
-                "id": "exec_engine",
-                "name": "ExecutionEngine",
-                "type": "engine",
-                "status": "running" if self.is_running else "stopped",
-                "description": "Manages order execution and routing",
-                "config": {
-                    "allow_cash_positions": True,
-                    "oms_type": "HEDGING"
-                }
-            })
-
-            components.append({
-                "id": "risk_engine",
-                "name": "RiskEngine",
-                "type": "engine",
-                "status": "running" if self.is_running else "stopped",
-                "description": "Pre-trade risk checks and position limits",
-                "config": {
-                    "bypass": False,
-                    "max_order_rate": "100/00:00:01"
-                }
-            })
-
-            components.append({
-                "id": "portfolio",
-                "name": "Portfolio",
-                "type": "component",
-                "status": "active" if self.is_running else "inactive",
-                "description": "Tracks positions, balances and P&L",
-                "config": {
-                    "base_currency": "USD"
-                }
-            })
-
-            components.append({
-                "id": "cache",
-                "name": "Cache",
-                "type": "component",
-                "status": "active" if self.is_running else "inactive",
-                "description": "In-memory cache for instruments and data",
-                "config": {
-                    "encoding": "msgpack",
-                    "timestamps_as_iso8601": False
-                }
-            })
-        else:
-            components = [
-                {
-                    "id": "not_initialized",
-                    "name": "Engine Not Initialized",
-                    "type": "system",
-                    "status": "stopped",
-                    "description": "Initialize Nautilus engine first",
-                    "config": {}
-                }
-            ]
-
-        return components
-
-    def get_adapters(self) -> List[Dict[str, Any]]:
-        """Get available adapters with current connection state"""
-        adapter_defs = [
-            {
-                "id": "binance",
-                "name": "Binance",
-                "type": "exchange",
-                "venue": "BINANCE",
-                "description": "Binance cryptocurrency exchange",
-                "capabilities": ["market_data", "execution", "account"],
-            },
-            {
-                "id": "interactive_brokers",
-                "name": "Interactive Brokers",
-                "type": "broker",
-                "venue": "IB",
-                "description": "Interactive Brokers multi-asset broker",
-                "capabilities": ["market_data", "execution", "account"],
-            },
-            {
-                "id": "coinbase",
-                "name": "Coinbase Advanced",
-                "type": "exchange",
-                "venue": "COINBASE",
-                "description": "Coinbase Advanced Trade API",
-                "capabilities": ["market_data", "execution", "account"],
-            },
-            {
-                "id": "kraken",
-                "name": "Kraken",
-                "type": "exchange",
-                "venue": "KRAKEN",
-                "description": "Kraken cryptocurrency exchange",
-                "capabilities": ["market_data", "execution"],
-            },
-        ]
-
-        result = []
-        for adapter in adapter_defs:
-            status = self.adapter_states.get(adapter["id"], "disconnected")
-            result.append({
-                **adapter,
-                "status": status,
-                "last_connected": None,
-            })
-        return result
-
-    def connect_adapter(self, adapter_id: str) -> Dict[str, Any]:
-        """Connect an adapter"""
-        adapters = {a["id"] for a in self.get_adapters()}
-        if adapter_id not in adapters:
-            return {"success": False, "message": f"Adapter '{adapter_id}' not found"}
-
-        self.adapter_states[adapter_id] = "connected"
-        return {
-            "success": True,
-            "message": f"Adapter {adapter_id} connected",
-            "status": "connected"
-        }
-
-    def disconnect_adapter(self, adapter_id: str) -> Dict[str, Any]:
-        """Disconnect an adapter"""
-        self.adapter_states[adapter_id] = "disconnected"
-        return {
-            "success": True,
-            "message": f"Adapter {adapter_id} disconnected",
-            "status": "disconnected"
         }
 
     def get_strategies(self) -> List[Dict[str, Any]]:
@@ -429,47 +277,6 @@ class NautilusManager:
         filled_sorted = sorted(filled, key=lambda o: o["timestamp"], reverse=True)
         return filled_sorted[:limit]
 
-    # ---------- Risk ----------
-
-    def get_risk_metrics(self) -> Dict[str, Any]:
-        """Calculate risk metrics from current positions"""
-        open_positions = self.get_positions()
-        total_exposure = sum(
-            p["quantity"] * p.get("current_price", p["entry_price"])
-            for p in open_positions
-        )
-        total_unrealized_pnl = sum(p.get("unrealized_pnl", 0.0) for p in open_positions)
-
-        # Calculate max drawdown from realized P&L
-        realized_pnls = [p.get("realized_pnl", 0.0) for p in self.positions.values()]
-        max_drawdown = abs(min(realized_pnls, default=0.0))
-
-        # Simple VaR approximation (1% of exposure)
-        var_1d = total_exposure * 0.01
-
-        balance = 100000.0  # Default starting balance
-        margin_used = total_exposure * 0.1  # 10% margin requirement
-        margin_available = max(0.0, balance - margin_used)
-
-        return {
-            "total_exposure": round(total_exposure, 2),
-            "margin_used": round(margin_used, 2),
-            "margin_available": round(margin_available, 2),
-            "max_drawdown": round(max_drawdown, 4),
-            "var_1d": round(var_1d, 2),
-            "position_count": len(open_positions),
-            "total_unrealized_pnl": round(total_unrealized_pnl, 2),
-        }
-
-    def get_risk_limits(self) -> Dict[str, Any]:
-        """Get current risk limits"""
-        return dict(self.risk_limits)
-
-    def update_risk_limits(self, limits: Dict[str, float]) -> Dict[str, Any]:
-        """Update risk limits"""
-        self.risk_limits.update(limits)
-        return {"success": True, "message": "Risk limits updated", "limits": self.risk_limits}
-
     # ---------- Account ----------
 
     def get_account_info(self) -> Dict[str, Any]:
@@ -481,14 +288,13 @@ class NautilusManager:
                 "currency": "USD"
             }
 
-        metrics = self.get_risk_metrics()
         return {
             "status": "initialized",
             "balance": 100000.0,
             "currency": "USD",
-            "margin_used": metrics["margin_used"],
-            "margin_available": metrics["margin_available"],
-            "unrealized_pnl": metrics["total_unrealized_pnl"],
+            "margin_used": 0.0,
+            "margin_available": 100000.0,
+            "unrealized_pnl": 0.0,
         }
 
     def shutdown(self) -> Dict[str, Any]:

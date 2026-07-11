@@ -165,12 +165,6 @@ async def nautilus_create_strategy(request: StrategyCreateRequest, _user: dict =
 
 @router.get("/strategies")
 async def list_strategies():
-    # Check daily loss limit and auto-stop running strategies if exceeded
-    try:
-        from risk_engine import risk_engine
-        await risk_engine.check_daily_loss_auto_stop()
-    except Exception:
-        pass  # Never fail the list endpoint due to risk check errors
     strategies = _nautilus().get_all_strategies()
     result = []
     for strategy in strategies:

@@ -61,9 +61,6 @@ if hasattr(engine, 'data_engine'):
 if hasattr(engine, 'exec_engine'):
     print(f"ExecutionEngine: {engine.exec_engine}")
     
-if hasattr(engine, 'risk_engine'):
-    print(f"RiskEngine: {engine.risk_engine}")
-
 # Check cache contents
 print("\n--- Cache Contents ---")
 print(f"Instruments in cache: {list(engine.cache.instruments())}")

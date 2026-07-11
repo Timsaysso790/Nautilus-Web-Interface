@@ -76,10 +76,7 @@ async def health_check():
 async def get_engine_info():
     info = nautilus_system.get_system_info()
     live_status = live_manager.get_status()
-
-    # Check live mode: live_manager OR any DB adapter is connected
-    db_connected = await database.has_connected_adapter()
-    is_live = live_status["is_active"] or db_connected
+    is_live = live_status["is_active"]
 
     return {
         "trader_id": info["trader_id"],
@@ -116,7 +113,7 @@ async def list_components():
     components = [
         {"id": "data_engine",  "name": "Data Engine",       "type": "DataEngine",      "status": "running" if active else "stopped"},
         {"id": "exec_engine",  "name": "Execution Engine",  "type": "ExecutionEngine", "status": "running" if active else "stopped"},
-        {"id": "risk_engine",  "name": "Risk Engine",       "type": "RiskEngine",      "status": "running" if active else "stopped"},
+        {"id": "portfolio",    "name": "Portfolio",          "type": "Portfolio",       "status": "running" if active else "stopped"},
         {"id": "portfolio",    "name": "Portfolio",          "type": "Portfolio",       "status": "active"  if active else "stopped"},
         {"id": "cache",        "name": "Cache",              "type": "Cache",           "status": "active"},
         {"id": "message_bus",  "name": "MessageBus",         "type": "MessageBus",      "status": "active"},
@@ -204,47 +201,6 @@ async def list_trades(limit: int = 20):
             all_trades.append(row)
     return {"trades": all_trades[:limit], "count": len(all_trades)}
 
-
-@router.post("/notifications/test-email")
-async def test_email(body: Dict[str, Any] = Body(...), _admin: dict = Depends(require_admin)):
-    """Send a test email to verify SMTP configuration."""
-    from notifications import EmailNotifier
-    settings_data = await database.get_settings()
-    notif = settings_data.get("notifications", {})
-    to_addr = body.get("email", notif.get("email_to", ""))
-    if not to_addr:
-        return {"success": False, "error": "No email address provided"}
-    try:
-        notifier = EmailNotifier()
-        await notifier.send(
-            subject="Test Email from Nautilus Trader",
-            body="<p>Test email sent successfully from Nautilus Web Interface!</p>",
-            to=to_addr,
-            settings=notif,
-        )
-        return {"success": True, "message": f"Test email sent to {to_addr}"}
-    except Exception as exc:
-        return {"success": False, "error": str(exc)}
-
-
-@router.post("/notifications/test-telegram")
-async def test_telegram(body: Dict[str, Any] = Body(...), _admin: dict = Depends(require_admin)):
-    """Send a test Telegram message to verify bot configuration."""
-    from notifications import TelegramNotifier
-    bot_token = body.get("bot_token", "")
-    chat_id = body.get("chat_id", "")
-    if not bot_token or not chat_id:
-        return {"success": False, "error": "bot_token and chat_id are required"}
-    try:
-        notifier = TelegramNotifier()
-        await notifier.send(
-            text="✅ Test message from Nautilus Web Interface",
-            bot_token=bot_token,
-            chat_id=chat_id,
-        )
-        return {"success": True, "message": "Telegram message sent"}
-    except Exception as exc:
-        return {"success": False, "error": str(exc)}
 
 
 @router.get("/instruments")

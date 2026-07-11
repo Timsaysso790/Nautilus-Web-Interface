@@ -1,5 +1,5 @@
 """
-Async SQLite persistence for orders, alerts, risk limits, and settings.
+Async SQLite persistence for orders, settings, and trading data.
 Replaces the in-memory dicts that were lost on every server restart.
 """
 
@@ -15,14 +15,6 @@ import aiosqlite
 DB_PATH = Path(__file__).parent / "data" / "nautilus.db"
 
 # ── Default values ────────────────────────────────────────────────────────────
-
-DEFAULT_RISK_LIMITS: Dict[str, Any] = {
-    "max_position_size": 100_000,
-    "max_daily_loss": 5_000,
-    "max_drawdown_pct": 15.0,
-    "max_leverage": 10,
-    "max_orders_per_day": 1_000,
-}
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "general": {
@@ -77,17 +69,6 @@ async def init_db() -> None:
                 timestamp           TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS alerts (
-                id          TEXT PRIMARY KEY,
-                symbol      TEXT NOT NULL,
-                condition   TEXT NOT NULL,
-                price       REAL NOT NULL,
-                message     TEXT NOT NULL DEFAULT '',
-                status      TEXT NOT NULL DEFAULT 'active',
-                created_at  TEXT NOT NULL,
-                triggered_at TEXT
-            );
-
             CREATE TABLE IF NOT EXISTS kv_store (
                 namespace   TEXT NOT NULL,
                 key         TEXT NOT NULL,
@@ -118,22 +99,6 @@ async def init_db() -> None:
                 strategy_id TEXT,
                 opened_at   TEXT NOT NULL,
                 closed_at   TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS adapter_configs (
-                adapter_id      TEXT PRIMARY KEY,
-                api_key         TEXT,
-                api_secret      TEXT,
-                status          TEXT NOT NULL DEFAULT 'disconnected',
-                last_connected  TEXT,
-                extra_config    TEXT DEFAULT '{}',
-                updated_at      TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS component_states (
-                component_id    TEXT PRIMARY KEY,
-                status          TEXT NOT NULL DEFAULT 'stopped',
-                updated_at      TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS users (
@@ -225,8 +190,6 @@ async def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_orders_status    ON orders(status);
             CREATE INDEX IF NOT EXISTS idx_orders_timestamp ON orders(timestamp);
-            CREATE INDEX IF NOT EXISTS idx_alerts_symbol    ON alerts(symbol);
-            CREATE INDEX IF NOT EXISTS idx_alerts_status    ON alerts(status);
             CREATE INDEX IF NOT EXISTS idx_strategies_status     ON strategies(status);
             CREATE INDEX IF NOT EXISTS idx_strategies_created_at ON strategies(created_at);
             CREATE INDEX IF NOT EXISTS idx_positions_is_open     ON positions(is_open);
@@ -258,17 +221,10 @@ async def init_db() -> None:
 
 async def _seed_defaults(db: aiosqlite.Connection) -> None:
     """Populate kv_store with defaults if they don't exist yet."""
-    # Single query: which namespaces already have rows?
     async with db.execute(
-        "SELECT namespace FROM kv_store WHERE namespace IN ('risk', 'settings') GROUP BY namespace"
+        "SELECT namespace FROM kv_store WHERE namespace = 'settings' GROUP BY namespace"
     ) as cur:
         existing = {row[0] for row in await cur.fetchall()}
-
-    if "risk" not in existing:
-        await db.execute(
-            "INSERT INTO kv_store (namespace, key, value) VALUES ('risk', 'limits', ?)",
-            (json.dumps(DEFAULT_RISK_LIMITS),),
-        )
 
     if "settings" not in existing:
         for section, values in DEFAULT_SETTINGS.items():
@@ -346,139 +302,6 @@ async def cancel_order(order_id: str) -> bool:
         )
         await db.commit()
         return cur.rowcount > 0
-
-
-# ── Alerts ────────────────────────────────────────────────────────────────────
-
-async def list_alerts() -> List[Dict[str, Any]]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM alerts ORDER BY created_at DESC") as cur:
-            rows = await cur.fetchall()
-    return [dict(r) for r in rows]
-
-
-async def create_alert(
-    symbol: str,
-    condition: str,
-    price: float,
-    message: str = "",
-) -> Dict[str, Any]:
-    alert = {
-        "id": f"ALT-{uuid.uuid4().hex[:8].upper()}",
-        "symbol": symbol,
-        "condition": condition,
-        "price": price,
-        "message": message,
-        "status": "active",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "triggered_at": None,
-    }
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO alerts (id, symbol, condition, price, message, status, created_at, triggered_at)
-            VALUES (:id, :symbol, :condition, :price, :message, :status, :created_at, :triggered_at)
-            """,
-            alert,
-        )
-        await db.commit()
-    return alert
-
-
-async def list_active_alerts() -> List[Dict[str, Any]]:
-    """Return only alerts with status='active' (not yet triggered)."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM alerts WHERE status='active' ORDER BY created_at DESC"
-        ) as cur:
-            rows = await cur.fetchall()
-    return [dict(r) for r in rows]
-
-
-async def trigger_alert(alert_id: str) -> bool:
-    """Mark alert as triggered with current timestamp. Returns True if updated."""
-    now = datetime.now(timezone.utc).isoformat()
-    async with aiosqlite.connect(DB_PATH) as db:
-        cur = await db.execute(
-            "UPDATE alerts SET status='triggered', triggered_at=? WHERE id=? AND status='active'",
-            (now, alert_id),
-        )
-        await db.commit()
-        updated = cur.rowcount > 0
-
-    if updated:
-        # Fetch alert and send notifications (best-effort)
-        try:
-            alert = await _get_alert_by_id(alert_id)
-            if alert:
-                import notifications  # lazy import to avoid circular at module load
-                await notifications.notify_alert_triggered(alert)
-        except Exception:
-            pass  # Notifications are best-effort; never crash the trigger
-
-    return updated
-
-
-async def dismiss_alert(alert_id: str) -> bool:
-    """Mark alert as dismissed (active → dismissed only). Returns True if updated."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        cur = await db.execute(
-            "UPDATE alerts SET status='dismissed' WHERE id=? AND status='active'",
-            (alert_id,),
-        )
-        await db.commit()
-        return cur.rowcount > 0
-
-
-async def delete_alert(alert_id: str) -> bool:
-    async with aiosqlite.connect(DB_PATH) as db:
-        cur = await db.execute("DELETE FROM alerts WHERE id=?", (alert_id,))
-        await db.commit()
-        return cur.rowcount > 0
-
-
-# ── Risk limits ───────────────────────────────────────────────────────────────
-
-async def get_risk_limits() -> Dict[str, Any]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT value FROM kv_store WHERE namespace='risk' AND key='limits'"
-        ) as cur:
-            row = await cur.fetchone()
-    if not row:
-        return DEFAULT_RISK_LIMITS.copy()
-    try:
-        return json.loads(row[0])
-    except (json.JSONDecodeError, TypeError):
-        return DEFAULT_RISK_LIMITS.copy()
-
-
-async def risk_limits_explicitly_set() -> bool:
-    """Return True if risk limits have been explicitly configured by the user (not just seeded defaults)."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT 1 FROM kv_store WHERE namespace='risk' AND key='user_configured'"
-        ) as cur:
-            row = await cur.fetchone()
-    return row is not None
-
-
-async def update_risk_limits(updates: Dict[str, Any]) -> Dict[str, Any]:
-    limits = await get_risk_limits()
-    limits.update(updates)
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "INSERT OR REPLACE INTO kv_store (namespace, key, value) VALUES ('risk', 'limits', ?)",
-            (json.dumps(limits),),
-        )
-        # Mark that limits have been explicitly configured by the user
-        await db.execute(
-            "INSERT OR REPLACE INTO kv_store (namespace, key, value) VALUES ('risk', 'user_configured', '1')",
-        )
-        await db.commit()
-    return limits
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -678,77 +501,7 @@ async def close_db_position(position_id: str) -> bool:
         return cur.rowcount > 0
 
 
-# ── Adapter configs ───────────────────────────────────────────────────────────
 
-async def get_adapter_config(adapter_id: str) -> Optional[Dict[str, Any]]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM adapter_configs WHERE adapter_id = ?", (adapter_id,)
-        ) as cur:
-            row = await cur.fetchone()
-    return dict(row) if row else None
-
-
-async def upsert_adapter_config(
-    adapter_id: str,
-    status: str,
-    api_key: Optional[str] = None,
-    api_secret: Optional[str] = None,
-    extra_config: Optional[Dict] = None,
-) -> None:
-    now = datetime.now(timezone.utc).isoformat()
-    last_connected = now if status == "connected" else None
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO adapter_configs
-                (adapter_id, api_key, api_secret, status, last_connected, extra_config, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(adapter_id) DO UPDATE SET
-                api_key        = excluded.api_key,
-                api_secret     = excluded.api_secret,
-                status         = excluded.status,
-                last_connected = COALESCE(excluded.last_connected, last_connected),
-                extra_config   = excluded.extra_config,
-                updated_at     = excluded.updated_at
-            """,
-            (
-                adapter_id,
-                api_key,
-                api_secret,
-                status,
-                last_connected,
-                json.dumps(extra_config or {}),
-                now,
-            ),
-        )
-        await db.commit()
-
-
-# ── Component states ──────────────────────────────────────────────────────────
-
-async def get_component_states() -> Dict[str, str]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT component_id, status FROM component_states") as cur:
-            rows = await cur.fetchall()
-    return {row[0]: row[1] for row in rows}
-
-
-async def set_component_state(component_id: str, status: str) -> None:
-    now = datetime.now(timezone.utc).isoformat()
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO component_states (component_id, status, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(component_id) DO UPDATE SET
-                status     = excluded.status,
-                updated_at = excluded.updated_at
-            """,
-            (component_id, status, now),
-        )
-        await db.commit()
 
 
 # ── Low-level helpers ──────────────────────────────────────────────────────────
@@ -772,59 +525,6 @@ async def _execute_async(sql: str, params: tuple = (), *, commit: bool = False):
         yield cur
         if commit:
             await db.commit()
-
-
-async def _get_alert_by_id(alert_id: str) -> Optional[Dict[str, Any]]:
-    """Fetch a single alert by ID."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM alerts WHERE id=?", (alert_id,)) as cur:
-            row = await cur.fetchone()
-    return dict(row) if row else None
-
-
-# ── Adapter helpers ────────────────────────────────────────────────────────────
-
-async def has_connected_adapter() -> bool:
-    """Return True if any adapter in DB has status='connected'."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT COUNT(*) FROM adapter_configs WHERE status='connected'"
-        ) as cur:
-            row = await cur.fetchone()
-    return (row[0] if row else 0) > 0
-
-
-# ── Risk helpers ───────────────────────────────────────────────────────────────
-
-async def get_daily_realized_loss() -> float:
-    """
-    Return the total realized loss from filled orders today (UTC).
-    Loss is a negative number; we return its absolute value is implied by callers.
-    """
-    from datetime import datetime, timezone
-    today = datetime.now(timezone.utc).date().isoformat()
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            """SELECT COALESCE(SUM(pnl), 0) FROM orders
-               WHERE status='filled' AND date(timestamp)=? AND pnl < 0""",
-            (today,),
-        ) as cur:
-            row = await cur.fetchone()
-    return float(row[0]) if row and row[0] is not None else 0.0
-
-
-async def count_orders_today() -> int:
-    """Return the number of orders created today (UTC)."""
-    from datetime import datetime, timezone
-    today = datetime.now(timezone.utc).date().isoformat()
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT COUNT(*) FROM orders WHERE date(timestamp)=?",
-            (today,),
-        ) as cur:
-            row = await cur.fetchone()
-    return int(row[0]) if row and row[0] is not None else 0
 
 
 # ── Users ──────────────────────────────────────────────────────────────────────

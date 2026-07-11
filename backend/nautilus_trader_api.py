@@ -27,7 +27,6 @@ from nautilus_integration import nautilus_manager
 from nautilus_core import NautilusTradingSystem
 from auth import ApiKeyMiddleware, API_KEY
 import market_data_service
-import alerts_db
 
 # Lazy initialization — avoids crash at import time if NautilusTradingSystem
 # has missing dependencies (nautilus_trader not installed, etc.)
@@ -82,11 +81,7 @@ class OrderRequest(BaseModel):
     quantity: float
     price: Optional[float] = None
 
-class RiskLimitsRequest(BaseModel):
-    max_order_size: Optional[float] = None
-    max_position_size: Optional[float] = None
-    max_daily_loss: Optional[float] = None
-    max_positions: Optional[int] = None
+
 
 class DemoBacktestRequest(BaseModel):
     fast_period: int = 10
@@ -129,46 +124,6 @@ async def shutdown_engine():
     result = nautilus_manager.shutdown()
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result["message"])
-    return result
-
-# ---------- Components ----------
-
-@app.get("/api/components")
-async def get_components():
-    return {"components": nautilus_manager.get_components()}
-
-@app.get("/api/components/{component_id}")
-async def get_component(component_id: str):
-    components = nautilus_manager.get_components()
-    component = next((c for c in components if c["id"] == component_id), None)
-    if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
-    return component
-
-# ---------- Adapters ----------
-
-@app.get("/api/adapters")
-async def get_adapters():
-    return {"adapters": nautilus_manager.get_adapters()}
-
-@app.get("/api/adapters/{adapter_id}")
-async def get_adapter(adapter_id: str):
-    adapters = nautilus_manager.get_adapters()
-    adapter = next((a for a in adapters if a["id"] == adapter_id), None)
-    if not adapter:
-        raise HTTPException(status_code=404, detail="Adapter not found")
-    return adapter
-
-@app.post("/api/adapters/{adapter_id}/connect")
-async def connect_adapter(adapter_id: str):
-    result = nautilus_manager.connect_adapter(adapter_id)
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["message"])
-    return result
-
-@app.post("/api/adapters/{adapter_id}/disconnect")
-async def disconnect_adapter(adapter_id: str):
-    result = nautilus_manager.disconnect_adapter(adapter_id)
     return result
 
 # ---------- Strategies ----------
@@ -272,21 +227,6 @@ async def get_trades(limit: int = 100):
 async def get_account():
     return nautilus_manager.get_account_info()
 
-# ---------- Risk ----------
-
-@app.get("/api/risk/metrics")
-async def get_risk_metrics():
-    return nautilus_manager.get_risk_metrics()
-
-@app.get("/api/risk/limits")
-async def get_risk_limits():
-    return nautilus_manager.get_risk_limits()
-
-@app.post("/api/risk/limits")
-async def update_risk_limits(limits: RiskLimitsRequest):
-    data = {k: v for k, v in limits.model_dump().items() if v is not None}
-    return nautilus_manager.update_risk_limits(data)
-
 # ---------- Market Data ----------
 
 @app.get("/api/market-data/instruments")
@@ -353,46 +293,6 @@ async def run_backtest(request: BacktestRequest):
         raise HTTPException(status_code=500, detail=result.get("message", "Backtest failed"))
     return {"result": result}
 
-# ---------- Alerts ----------
-
-class AlertRequest(BaseModel):
-    symbol: str
-    condition: str  # above, below
-    price: float
-    message: Optional[str] = None
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialise persistent storage on server start."""
-    await alerts_db.init_db()
-
-@app.get("/api/alerts")
-async def get_alerts():
-    return {"alerts": await alerts_db.get_all_alerts()}
-
-@app.post("/api/alerts")
-async def create_alert(alert: AlertRequest):
-    alert_id = f"ALERT-{uuid.uuid4().hex[:8].upper()}"
-    new_alert = {
-        "id": alert_id,
-        "symbol": alert.symbol,
-        "condition": alert.condition,
-        "price": alert.price,
-        "message": alert.message or f"{alert.symbol} {alert.condition} {alert.price}",
-        "status": "active",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "triggered_at": None,
-    }
-    saved = await alerts_db.create_alert(new_alert)
-    return {"success": True, "alert": saved}
-
-@app.delete("/api/alerts/{alert_id}")
-async def delete_alert(alert_id: str):
-    deleted = await alerts_db.delete_alert(alert_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Alert not found")
-    return {"success": True, "message": f"Alert {alert_id} deleted"}
-
 # ---------- WebSocket ----------
 
 @app.websocket("/ws")
@@ -413,7 +313,6 @@ async def websocket_endpoint(
             engine_info = nautilus_manager.get_engine_info()
             strategies = nautilus_manager.get_strategies()
             positions = nautilus_manager.get_positions()
-            risk = nautilus_manager.get_risk_metrics()
 
             await websocket.send_json({
                 "type": "update",
@@ -422,7 +321,6 @@ async def websocket_endpoint(
                     "engine": engine_info,
                     "strategies_count": len(strategies),
                     "positions_count": len(positions),
-                    "risk": risk,
                 }
             })
     except WebSocketDisconnect:

@@ -156,79 +156,6 @@ def test_cancel_nonexistent_order(client):
     assert r.status_code == 404
 
 
-# ── Alerts ────────────────────────────────────────────────────────────────────
-
-def test_list_alerts_empty(client):
-    r = client.get("/api/alerts")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["alerts"] == []
-    assert body["count"] == 0
-
-
-def test_create_alert(client):
-    payload = {"symbol": "BTCUSDT", "condition": "above", "price": 70000}
-    r = client.post("/api/alerts", json=payload)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["success"] is True
-    assert body["alert"]["symbol"] == "BTCUSDT"
-    assert body["alert"]["price"] == 70000
-
-
-def test_create_alert_invalid_condition(client):
-    r = client.post(
-        "/api/alerts",
-        json={"symbol": "BTCUSDT", "condition": "maybe", "price": 70000},
-    )
-    assert r.status_code == 422
-
-
-def test_delete_alert(client):
-    r = client.post(
-        "/api/alerts",
-        json={"symbol": "ETHUSDT", "condition": "below", "price": 3000},
-    )
-    alert_id = r.json()["alert"]["id"]
-
-    r = client.delete(f"/api/alerts/{alert_id}")
-    assert r.status_code == 200
-
-    r = client.get("/api/alerts")
-    ids = [a["id"] for a in r.json()["alerts"]]
-    assert alert_id not in ids
-
-
-def test_delete_nonexistent_alert(client):
-    r = client.delete("/api/alerts/ALT-DOESNOTEXIST")
-    assert r.status_code == 404
-
-
-# ── Risk ──────────────────────────────────────────────────────────────────────
-
-def test_get_risk_limits(client):
-    r = client.get("/api/risk/limits")
-    assert r.status_code == 200
-    body = r.json()
-    assert "max_position_size" in body
-    assert "max_daily_loss" in body
-
-
-def test_update_risk_limits(client):
-    r = client.post("/api/risk/limits", json={"max_daily_loss": 9999})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["limits"]["max_daily_loss"] == 9999
-
-
-def test_risk_metrics(client):
-    r = client.get("/api/risk/metrics")
-    assert r.status_code == 200
-    body = r.json()
-    assert "max_drawdown" in body
-    assert "total_pnl" in body
-
-
 # ── Market Data ───────────────────────────────────────────────────────────────
 
 def test_market_data_instruments(client):
@@ -272,36 +199,6 @@ def test_save_settings(client):
     assert r.status_code == 200
     body = r.json()
     assert body["settings"]["general"]["system_name"] == "Test System"
-
-
-# ── Adapters ──────────────────────────────────────────────────────────────────
-
-def test_list_adapters(client):
-    r = client.get("/api/adapters")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["count"] > 0
-    ids = [a["id"] for a in body["adapters"]]
-    assert "binance" in ids
-    assert "interactive_brokers" in ids
-
-
-# ── Components ────────────────────────────────────────────────────────────────
-
-def test_list_components(client):
-    r = client.get("/api/components")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["count"] == 6
-    comp_ids = [c["id"] for c in body["components"]]
-    assert "risk_engine" in comp_ids
-
-
-def test_component_actions(client):
-    for action in ("start", "stop", "restart", "configure"):
-        r = client.post(f"/api/component/{action}", json={"component": "risk_engine"})
-        assert r.status_code == 200
-        assert r.json()["success"] is True
 
 
 # ── Database ops ──────────────────────────────────────────────────────────────
@@ -372,110 +269,6 @@ def test_rsi_strategy_status_persists(client):
     assert found[0]["status"] == "running"
 
 
-# ── Adapter connect / disconnect ──────────────────────────────────────────────
-
-def test_adapter_get_by_id(client):
-    r = client.get("/api/adapters/binance")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["id"] == "binance"
-    assert "status" in body
-
-
-def test_adapter_get_unknown(client):
-    r = client.get("/api/adapters/does_not_exist")
-    assert r.status_code == 404
-
-
-def test_adapter_connect(client):
-    payload = {"api_key": "test-key-abc", "api_secret": "test-secret-xyz"}
-    r = client.post("/api/adapters/binance/connect", json=payload)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["success"] is True
-    assert body["status"] == "connected"
-
-
-def test_adapter_connect_missing_credentials(client):
-    """binance requires api_key AND api_secret — omitting both must 400."""
-    r = client.post("/api/adapters/binance/connect", json={})
-    assert r.status_code == 400
-
-
-def test_adapter_connect_missing_secret(client):
-    """binance requires api_secret too."""
-    r = client.post("/api/adapters/binance/connect", json={"api_key": "only-key"})
-    assert r.status_code == 400
-
-
-def test_adapter_disconnect(client):
-    # Connect first
-    client.post(
-        "/api/adapters/bybit/connect",
-        json={"api_key": "testkey12345", "api_secret": "testsecret12345"},
-    )
-    r = client.post("/api/adapters/bybit/disconnect")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["success"] is True
-    assert body["status"] == "disconnected"
-
-
-def test_adapter_status_persists_after_connect(client):
-    """After connect, GET /adapters should show status='connected'."""
-    client.post(
-        "/api/adapters/okx/connect",
-        json={"api_key": "testkey12345", "api_secret": "testsecret12345"},
-    )
-    r = client.get("/api/adapters/okx")
-    assert r.json()["status"] == "connected"
-
-
-def test_adapter_disconnect_unknown(client):
-    r = client.post("/api/adapters/nonexistent_adapter/disconnect")
-    assert r.status_code == 404
-
-
-# ── Alert triggering logic ────────────────────────────────────────────────────
-
-def test_alert_trigger_marks_status(client):
-    """Create an alert then manually trigger it via DB and verify status."""
-    import asyncio
-    import database
-
-    r = client.post(
-        "/api/alerts",
-        json={"symbol": "BTCUSDT", "condition": "above", "price": 1.0},
-    )
-    alert_id = r.json()["alert"]["id"]
-
-    # Trigger via the new DB function
-    triggered = asyncio.run(database.trigger_alert(alert_id))
-    assert triggered is True
-
-    # Verify status via list endpoint
-    r = client.get("/api/alerts")
-    found = [a for a in r.json()["alerts"] if a["id"] == alert_id]
-    assert found[0]["status"] == "triggered"
-    assert found[0]["triggered_at"] is not None
-
-
-def test_trigger_already_triggered_alert(client):
-    """Triggering an already-triggered alert must return False (no-op)."""
-    import asyncio
-    import database
-
-    r = client.post(
-        "/api/alerts",
-        json={"symbol": "ETHUSDT", "condition": "below", "price": 99999.0},
-    )
-    alert_id = r.json()["alert"]["id"]
-
-    asyncio.run(database.trigger_alert(alert_id))
-    second = asyncio.run(database.trigger_alert(alert_id))
-    assert second is False  # already triggered, rowcount == 0
-
-
 # ── Auth middleware ───────────────────────────────────────────────────────────
 
 def test_auth_disabled_by_default(client):
@@ -518,50 +311,6 @@ def test_auth_enabled_passes_with_key(authed_client):
     assert r.status_code == 200
 
 
-# ── Alert dismiss ─────────────────────────────────────────────────────────────
-
-def test_alert_dismiss(client):
-    """Dismiss an active alert — status becomes 'dismissed', not deleted."""
-    r = client.post(
-        "/api/alerts",
-        json={"symbol": "SOLUSDT", "condition": "above", "price": 500.0},
-    )
-    alert_id = r.json()["alert"]["id"]
-
-    r = client.put(f"/api/alerts/{alert_id}/dismiss")
-    assert r.status_code == 200
-    assert r.json()["status"] == "dismissed"
-
-    # Still present in the list
-    r = client.get("/api/alerts")
-    found = [a for a in r.json()["alerts"] if a["id"] == alert_id]
-    assert found, "Dismissed alert should remain in the list"
-    assert found[0]["status"] == "dismissed"
-
-
-def test_alert_dismiss_nonexistent(client):
-    """Dismissing an unknown ID must return 404."""
-    r = client.put("/api/alerts/ALT-DOESNOTEXIST/dismiss")
-    assert r.status_code == 404
-
-
-def test_alert_dismiss_already_triggered(client):
-    """Dismissing an already-triggered alert must return 404 (not active)."""
-    import asyncio
-    import database
-
-    r = client.post(
-        "/api/alerts",
-        json={"symbol": "BNBUSDT", "condition": "below", "price": 1.0},
-    )
-    alert_id = r.json()["alert"]["id"]
-
-    asyncio.run(database.trigger_alert(alert_id))  # mark as triggered
-
-    r = client.put(f"/api/alerts/{alert_id}/dismiss")
-    assert r.status_code == 404  # only active alerts can be dismissed
-
-
 # ── Orders — validation edge cases ───────────────────────────────────────────
 
 def test_create_order_zero_quantity(client):
@@ -598,18 +347,6 @@ def test_close_nonexistent_position(client):
     body = r.json()
     assert body["success"] is True
     assert body["closed_in_db"] is False
-
-
-# ── Risk — validation ─────────────────────────────────────────────────────────
-
-def test_update_risk_limits_partial(client):
-    """Partial update should only change the specified field."""
-    r = client.post("/api/risk/limits", json={"max_position_size": 250_000})
-    assert r.status_code == 200
-    limits = r.json()["limits"]
-    assert limits["max_position_size"] == 250_000
-    # Other fields remain at their defaults
-    assert "max_daily_loss" in limits
 
 
 # ── Strategy — SMA validation ─────────────────────────────────────────────────
@@ -699,43 +436,4 @@ def test_create_strategy_rsi_inverted_levels_rejected(client):
     assert r.status_code == 422
 
 
-# ── Risk limits JSON safety ───────────────────────────────────────────────────
 
-def test_risk_limits_returns_valid_json_after_corrupt_kv_store(client, tmp_path, monkeypatch):
-    """If kv_store has corrupt JSON, risk limits endpoint must return defaults."""
-    import aiosqlite, asyncio, database
-    monkeypatch.setattr(database, "DB_PATH", tmp_path / "corrupt.db")
-
-    async def inject_corrupt():
-        await database.init_db()
-        await database._execute(
-            "INSERT OR REPLACE INTO kv_store (namespace, key, value) VALUES ('risk', 'limits', 'NOT_VALID_JSON')",
-            commit=True,
-        )
-
-    asyncio.run(inject_corrupt())
-
-    from fastapi.testclient import TestClient
-    from nautilus_fastapi import app
-    with TestClient(app) as c:
-        login_r = c.post("/api/auth/login", json={"username": "admin", "password": "admin"})
-        if login_r.status_code == 200:
-            c.headers.update({"Authorization": f"Bearer {login_r.json()['access_token']}"})
-        r = c.get("/api/risk/limits")
-    assert r.status_code == 200
-    body = r.json()
-    limits = body.get("limits", body)
-    # Must return numeric defaults, not crash
-    assert isinstance(limits.get("max_position_size", 0), (int, float))
-
-
-# ── Daily realized loss NULL safety ──────────────────────────────────────────
-
-def test_risk_metrics_with_no_pnl_orders(client):
-    """Risk metrics must return 0 for daily_realized_loss when no filled orders exist."""
-    r = client.get("/api/risk/metrics")
-    assert r.status_code == 200
-    body = r.json()
-    # Should not crash even with no pnl data in DB
-    assert "daily_realized_loss" in body
-    assert body["daily_realized_loss"] == 0.0

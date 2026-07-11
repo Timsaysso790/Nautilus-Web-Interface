@@ -33,25 +33,6 @@ test.describe("Health & System", () => {
     expect(typeof body.requests_total).toBe("number");
   });
 
-  test("GET /api/components returns 6 components", async ({ request }) => {
-    const r = await request.get(`${API}/api/components`);
-    expect(r.status()).toBe(200);
-    const body = await r.json();
-    expect(body.count).toBe(6);
-    const ids = body.components.map((c: { id: string }) => c.id);
-    expect(ids).toContain("risk_engine");
-    expect(ids).toContain("data_engine");
-  });
-
-  test("component start/stop/restart actions return success", async ({ request }) => {
-    for (const action of ["start", "stop", "restart"]) {
-      const r = await request.post(`${API}/api/component/${action}`, {
-        data: { component: "risk_engine" },
-      });
-      expect(r.status()).toBe(200);
-      expect((await r.json()).success).toBe(true);
-    }
-  });
 });
 
 test.describe("Settings", () => {
@@ -96,50 +77,6 @@ test.describe("Settings", () => {
     const body = await r.json();
     expect(body.notifications?.email_enabled).toBe(true);
     expect(body.notifications?.email_to).toBe("e2e@test.com");
-  });
-});
-
-test.describe("Risk Limits", () => {
-  test("get risk limits returns default values", async ({ request }) => {
-    const r = await request.get(`${API}/api/risk/limits`);
-    expect(r.status()).toBe(200);
-    const body = await r.json();
-    expect(body.limits).toHaveProperty("max_position_size");
-    expect(body.limits).toHaveProperty("max_daily_loss");
-  });
-
-  test("update risk limits persists correctly", async ({ request }) => {
-    const r = await request.post(`${API}/api/risk/limits`, {
-      data: {
-        max_position_size: 123_456,
-        max_daily_loss: 7_890,
-        max_leverage: 4.0,
-        max_orders_per_day: 75,
-      },
-    });
-    expect(r.status()).toBe(200);
-    const limits = (await r.json()).limits;
-    expect(limits.max_position_size).toBe(123_456);
-    expect(limits.max_daily_loss).toBe(7_890);
-    expect(limits.max_leverage).toBe(4.0);
-    expect(limits.max_orders_per_day).toBe(75);
-  });
-
-  test("partial update keeps other limits intact", async ({ request }) => {
-    // First set a known state
-    await request.post(`${API}/api/risk/limits`, {
-      data: { max_position_size: 500_000, max_daily_loss: 10_000 },
-    });
-
-    // Partial update: only change one field
-    await request.post(`${API}/api/risk/limits`, {
-      data: { max_position_size: 250_000 },
-    });
-
-    const r = await request.get(`${API}/api/risk/limits`);
-    const limits = (await r.json()).limits;
-    expect(limits.max_position_size).toBe(250_000);
-    expect(limits.max_daily_loss).toBe(10_000); // unchanged
   });
 });
 
