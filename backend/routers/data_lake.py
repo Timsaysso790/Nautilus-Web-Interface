@@ -364,22 +364,8 @@ class ThetaDataDownloadRequest(BaseModel):
     start_date: str
     end_date: str
 
-async def _get_theta_api_key() -> str:
-    """Retrieve the ThetaData API key from configured data sources."""
-    try:
-        sources = await database.list_data_sources()
-        for s in sources:
-            if s["source_type"].lower() == "thetadata":
-                full = await database.get_data_source(s["id"])
-                if full and full.get("api_key_encrypted"):
-                    from credential_utils import decrypt_credential
-                    return decrypt_credential(full["api_key_encrypted"])
-    except Exception as e:
-        logger.warning("Failed to get ThetaData API key: %s", e)
-    return os.getenv("THETADATA_API_KEY", "")
 
-
-def _run_theta_download(task_id: str, api_key: str, symbol: str, start_date: str, end_date: str, output_dir: str):
+def _run_theta_download(task_id: str, symbol: str, start_date: str, end_date: str, output_dir: str):
     """Run ThetaData download in background with progress tracking."""
     def cb(msg, idx, converted, skipped, errors, total):
         _convert_tasks[task_id].update({
@@ -397,9 +383,8 @@ def _run_theta_download(task_id: str, api_key: str, symbol: str, start_date: str
         sd = date.fromisoformat(start_date)
         ed = date.fromisoformat(end_date)
 
-        _convert_tasks[task_id].update({"status": "running", "total_files": 1})
+        _convert_tasks[task_id].update({"status": "running"})
         stats = download_equity_bars(
-            api_key=api_key,
             symbol=symbol,
             start_date=sd,
             end_date=ed,
@@ -414,10 +399,6 @@ def _run_theta_download(task_id: str, api_key: str, symbol: str, start_date: str
 
 @router.post("/thetadata/download", dependencies=[Depends(require_admin)])
 async def start_theta_download(req: ThetaDataDownloadRequest, background_tasks: BackgroundTasks):
-    api_key = await _get_theta_api_key()
-    if not api_key:
-        raise HTTPException(status_code=400, detail="No ThetaData API key configured. Add one in Keys & Connections.")
-
     output_dir = str(_browse_base() / "theta")
 
     task_id = str(uuid.uuid4())
@@ -427,7 +408,7 @@ async def start_theta_download(req: ThetaDataDownloadRequest, background_tasks: 
     }
 
     background_tasks.add_task(
-        _run_theta_download, task_id, api_key, req.symbol, req.start_date, req.end_date, output_dir,
+        _run_theta_download, task_id, req.symbol, req.start_date, req.end_date, output_dir,
     )
 
     return {"task_id": task_id}
@@ -435,11 +416,8 @@ async def start_theta_download(req: ThetaDataDownloadRequest, background_tasks: 
 
 @router.get("/thetadata/symbols")
 async def theta_symbols():
-    api_key = await _get_theta_api_key()
-    if not api_key:
-        return {"symbols": []}
     try:
-        syms = list_symbols(api_key)
+        syms = list_symbols()
         return {"symbols": syms[:500]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

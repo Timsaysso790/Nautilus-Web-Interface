@@ -1,13 +1,12 @@
 """
 ThetaData downloader — connects via thetadata Python library (no Java Terminal required),
-downloads 1-min OHLC for equities or options, aggregates to 5-min bars, and saves as
+downloads 1-min OHLC for equities day-by-day, aggregates to 5-min bars, and saves as
 clean parquet files organized by ticker/year/month.
 """
 
 import logging
-import os
 import shutil
-from datetime import date, datetime, timezone
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -27,47 +26,43 @@ BAR_5MIN_SCHEMA = pa.schema([
 ])
 
 
-def _build_datetime(df: pd.DataFrame) -> pd.Series:
-    dt = pd.to_datetime(df["date"].astype(str), format="%Y%m%d")
-    if "ms_cst" in df.columns:
-        dt += pd.to_timedelta(df["ms_cst"], unit="ms")
-    return dt
+def _to_pandas(df):
+    if df is None:
+        return None
+    return df.to_pandas() if hasattr(df, "to_pandas") else df
 
 
 def _aggregate_5min(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_index()
     agg = df.resample("5min").agg({
-        "open": "first",
-        "high": "max",
-        "low": "min",
-        "close": "last",
-        "volume": "sum",
+        "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum",
     })
     return agg[agg["close"] > 0].dropna()
 
 
-def _write_parquet(df: pd.DataFrame, out_dir: Path):
-    out_dir.mkdir(parents=True, exist_ok=True)
-    if df.empty:
+def _write_batch(records: List[dict], out_dir: Path):
+    if not records:
         return
-    df["ts_event"] = df["ts_event"].astype("uint64")
-    ts = pd.to_datetime(df["ts_event"], unit="ns", utc=True)
-    for (year, month), group in df.groupby([ts.dt.year, ts.dt.month]):
-        rows = group.drop(columns=["ts_event"], errors="ignore").to_dict("records")
-        if not rows:
-            continue
-        table = pa.Table.from_pylist(
-            [{"ts_event": r["ts_event"], **{k: v for k, v in r.items() if k != "ts_event"}}
-             for r in df[df.index.isin(group.index)].to_dict("records")],
-            schema=BAR_5MIN_SCHEMA,
+    table = pa.Table.from_pylist(records, schema=BAR_5MIN_SCHEMA)
+    ts = pd.to_datetime([r["ts_event"] for r in records], unit="ns", utc=True)
+    for (year, month), idx in pd.Series(index=range(len(records)), data=ts).groupby([ts.dt.year, ts.dt.month]):
+        month_dir = out_dir / str(year)
+        month_dir.mkdir(parents=True, exist_ok=True)
+        sub = [records[i] for i in idx.index]
+        pq.write_table(
+            pa.Table.from_pylist(sub, schema=BAR_5MIN_SCHEMA),
+            month_dir / f"{month:02d}.parquet",
         )
-        pq.write_table(table, out_dir / f"{year}-{month:02d}.parquet")
 
 
-def _ensure_client(api_key: str):
-    """Lazy import of thetadata to avoid crash if not installed."""
-    from thetadata import ThetaClient
-    return ThetaClient(api_key=api_key)
+def _business_days(start: date, end: date) -> List[date]:
+    days = []
+    cur = start
+    while cur <= end:
+        if cur.weekday() < 5:
+            days.append(cur)
+        cur += timedelta(days=1)
+    return days
 
 
 def ticker_from_iid(iid: str) -> str:
@@ -75,34 +70,31 @@ def ticker_from_iid(iid: str) -> str:
     return m.group(1).upper() if m else iid
 
 
-# ── Public API ──────────────────────────────────────────────────────────────────────
-
-def list_symbols(api_key: str) -> List[str]:
+def list_symbols() -> List[str]:
     try:
-        client = _ensure_client(api_key)
-        syms = client.stock_list_symbols()
-        if syms is not None:
-            df = syms.to_pandas() if hasattr(syms, "to_pandas") else syms
-            return sorted(df.iloc[:, 0].tolist())
+        from thetadata import ThetaClient
+        client = ThetaClient()
+        syms = _to_pandas(client.stock_list_symbols())
+        if syms is not None and not syms.empty:
+            return sorted(syms.iloc[:, 0].tolist())
     except Exception as e:
         logger.error("list_symbols failed: %s", e)
     return []
 
 
-def list_option_symbols(api_key: str) -> List[str]:
+def list_option_symbols() -> List[str]:
     try:
-        client = _ensure_client(api_key)
-        syms = client.option_list_symbols()
-        if syms is not None:
-            df = syms.to_pandas() if hasattr(syms, "to_pandas") else syms
-            return sorted(df.iloc[:, 0].tolist())
+        from thetadata import ThetaClient
+        client = ThetaClient()
+        syms = _to_pandas(client.option_list_symbols())
+        if syms is not None and not syms.empty:
+            return sorted(syms.iloc[:, 0].tolist())
     except Exception as e:
         logger.error("list_option_symbols failed: %s", e)
     return []
 
 
 def download_equity_bars(
-    api_key: str,
     symbol: str,
     start_date: date,
     end_date: date,
@@ -110,50 +102,60 @@ def download_equity_bars(
     progress_callback: Optional[Callable] = None,
 ) -> Dict[str, Any]:
     """
-    Download 1-min OHLC for an equity, aggregate to 5-min bars,
-    write to output_dir/{symbol}/5min/{year}-{month}.parquet.
+    Download 1-min OHLC day-by-day, aggregate to 5-min bars,
+    write to output_dir/{symbol}/5min/{year}/{month:02d}.parquet.
     """
     stats = {"converted": 0, "skipped": 0, "errors": 0}
+
     try:
-        client = _ensure_client(api_key)
+        from thetadata import ThetaClient
+        client = ThetaClient()
+    except Exception as e:
+        logger.error("Failed to create ThetaClient: %s", e)
+        stats["errors"] = 1
+        if progress_callback:
+            progress_callback(f"Import error: {e}", 0, 0, 0, 1, 0)
+        return stats
 
-        def cb(msg, idx=0, converted=0, skipped=0, errors=0, total=0):
-            if progress_callback:
-                progress_callback(msg, idx, converted, skipped, errors, total)
+    days = _business_days(start_date, end_date)
+    total_days = len(days)
+    all_records: List[dict] = []
 
-        cb("Connecting to ThetaData...")
+    for idx, day in enumerate(days):
+        if progress_callback:
+            progress_callback(f"Downloading {symbol} {day.isoformat()} ({idx + 1}/{total_days})", idx, len(all_records), idx, 0, total_days)
 
-        df = client.stock_history_ohlc(
-            symbol=symbol,
-            start_date=start_date,
-            end_date=end_date,
-            interval=1,
+        try:
+            raw = client.stock_history_ohlc(
+                symbol=symbol,
+                date=day,
+                interval="1m",
+            )
+            df = _to_pandas(raw)
+            if df is None or df.empty:
+                stats["skipped"] += 1
+                continue
+        except Exception as e:
+            logger.warning("Failed day %s: %s", day, e)
+            stats["errors"] += 1
+            continue
+
+        # Build datetime index
+        dt_col = pd.to_datetime(
+            df["date"].astype(str) + " " + df["ms_cst"].apply(lambda ms: f"{int(ms // 3600000):02d}:{int((ms % 3600000) // 60000):02d}:{int((ms % 60000) // 1000):02d}.{int(ms % 1000):03d}"),
+            format="%Y%m%d %H:%M:%S.%f", errors="coerce",
         )
-
-        if df is None or df.empty:
-            stats["skipped"] = 1
-            cb("No data returned from ThetaData", 0, 0, 1, 0, 0)
-            return stats
-
-        df = df.to_pandas() if hasattr(df, "to_pandas") else df
-        cb(f"Downloaded {len(df)} 1-min rows", 0, 0, 0, 0, len(df))
-
-        df["datetime"] = _build_datetime(df)
+        df["datetime"] = dt_col
         df = df[df["close"] > 0].copy()
         if df.empty:
-            stats["skipped"] = 1
-            return stats
+            stats["skipped"] += 1
+            continue
 
         df.set_index("datetime", inplace=True)
         bars = _aggregate_5min(df)
-        total = len(bars)
 
-        out_path = Path(output_dir) / symbol / "5min"
-        out_path.mkdir(parents=True, exist_ok=True)
-
-        records = []
-        for idx, (ts, row) in enumerate(bars.iterrows()):
-            records.append({
+        for ts, row in bars.iterrows():
+            all_records.append({
                 "ts_event": int(ts.timestamp() * 1_000_000_000),
                 "open": float(row["open"]),
                 "high": float(row["high"]),
@@ -161,36 +163,24 @@ def download_equity_bars(
                 "close": float(row["close"]),
                 "volume": int(row["volume"]),
             })
-            if progress_callback and idx % 100 == 0:
-                cb(f"Aggregating {idx}/{total}", idx, idx, 0, 0, total)
 
-        cb(f"Writing {total} bars...", total, total, 0, 0, total)
-
-        table = pa.Table.from_pylist(records, schema=BAR_5MIN_SCHEMA)
-        ts_vals = [r["ts_event"] for r in records]
-        ts_series = pd.to_datetime(ts_vals, unit="ns", utc=True)
-        for (year, month), idx_group in pd.Series(index=range(len(records)), data=ts_series).groupby([ts_series.dt.year, ts_series.dt.month]):
-            group_rows = [records[i] for i in idx_group.index]
-            group_table = pa.Table.from_pylist(group_rows, schema=BAR_5MIN_SCHEMA)
-            pq.write_table(group_table, out_path / f"{year}-{month:02d}.parquet")
-
-        stats["converted"] = total
-        cb(f"Done — {total} bars written", total, total, total, 0, total)
-
-    except Exception as e:
-        logger.exception("download_equity_bars failed: %s", e)
-        stats["errors"] = 1
         if progress_callback:
-            progress_callback(f"Error: {e}", 0, 0, 0, 1, 0)
+            progress_callback(f"Downloaded {symbol} {day.isoformat()} ({len(bars)} bars)", idx, len(all_records), idx + 1, stats["skipped"], total_days)
+
+    if progress_callback:
+        progress_callback(f"Writing {len(all_records)} total bars...", total_days, len(all_records), total_days, stats["skipped"], total_days)
+
+    out_path = Path(output_dir) / symbol.upper() / "5min"
+    _write_batch(all_records, out_path)
+    stats["converted"] = len(all_records)
+
+    if progress_callback:
+        progress_callback(f"Done — {len(all_records)} bars written", total_days, len(all_records), total_days, stats["skipped"], total_days)
 
     return stats
 
 
 def scan_ticker_coverage(catalog_path: str) -> List[Dict[str, Any]]:
-    """
-    Walk the data directory and Nautilus catalog to produce per-ticker coverage info.
-    Returns: [{ticker, contracts, data_types, total_files, total_size_bytes}]
-    """
     tickers: Dict[str, Dict] = {}
     data_dir = Path(catalog_path) / "data"
 
@@ -204,20 +194,13 @@ def scan_ticker_coverage(catalog_path: str) -> List[Dict[str, Any]]:
                     continue
                 ticker = ticker_from_iid(instr_dir.name)
                 if ticker not in tickers:
-                    tickers[ticker] = {
-                        "ticker": ticker,
-                        "contracts": 0,
-                        "data_types": set(),
-                        "total_files": 0,
-                        "total_size_bytes": 0,
-                    }
+                    tickers[ticker] = {"ticker": ticker, "contracts": 0, "data_types": set(), "total_files": 0, "total_size_bytes": 0}
                 tickers[ticker]["contracts"] += 1
                 tickers[ticker]["data_types"].add(dtype)
                 for f in instr_dir.glob("*.parquet"):
                     tickers[ticker]["total_files"] += 1
                     tickers[ticker]["total_size_bytes"] += f.stat().st_size
 
-    # Also scan theta download directory
     theta_dir = Path(catalog_path) / "theta"
     if theta_dir.exists():
         for sym_dir in theta_dir.iterdir():
@@ -225,13 +208,7 @@ def scan_ticker_coverage(catalog_path: str) -> List[Dict[str, Any]]:
                 continue
             ticker = sym_dir.name.upper()
             if ticker not in tickers:
-                tickers[ticker] = {
-                    "ticker": ticker,
-                    "contracts": 0,
-                    "data_types": set(),
-                    "total_files": 0,
-                    "total_size_bytes": 0,
-                }
+                tickers[ticker] = {"ticker": ticker, "contracts": 0, "data_types": set(), "total_files": 0, "total_size_bytes": 0}
             tickers[ticker]["data_types"].add("5min_bars")
             for f in sym_dir.rglob("*.parquet"):
                 tickers[ticker]["total_files"] += 1
@@ -245,7 +222,6 @@ def scan_ticker_coverage(catalog_path: str) -> List[Dict[str, Any]]:
 
 
 def delete_ticker(catalog_path: str, ticker: str) -> int:
-    """Remove all catalog + theta data for a ticker. Returns count of deleted directories."""
     removed = 0
     data_dir = Path(catalog_path) / "data"
     if data_dir.exists():
