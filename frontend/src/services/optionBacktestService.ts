@@ -104,4 +104,38 @@ export const optionBacktestService = {
   }) {
     return api.post<OptionBacktestResult>('/api/nautilus/option-backtest', params);
   },
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+
+  async listProjects() {
+    return api.get<{ projects: any[] }>('/api/backtest/projects');
+  },
+
+  async createProject(name: string) {
+    return api.post<{ project: any }>('/api/backtest/projects', { name });
+  },
+
+  async deleteProject(projectId: string) {
+    return api.delete(`/api/backtest/projects/${projectId}`);
+  },
+
+  // ── Templates ─────────────────────────────────────────────────────────────
+
+  async listTemplates() {
+    return api.get<{ templates: any[] }>('/api/backtest/templates');
+  },
+
+  async saveTemplate(name: string, config: any) {
+    return api.post<{ template: any }>('/api/backtest/templates', { name, config });
+  },
+
+  async deleteTemplate(templateId: string) {
+    return api.delete(`/api/backtest/templates/${templateId}`);
+  },
+
+  // ── Options Station Backtest ──────────────────────────────────────────────
+
+  async runOptionsStation(config: any) {
+    return api.post<any>('/api/backtest/options-station/run', config);
+  },
 };

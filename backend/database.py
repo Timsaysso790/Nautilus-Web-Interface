@@ -193,6 +193,21 @@ async def init_db() -> None:
                 PRIMARY KEY (symbol)
             );
 
+            CREATE TABLE IF NOT EXISTS backtest_projects (
+                id          TEXT PRIMARY KEY,
+                name        TEXT NOT NULL,
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL,
+                config_count INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS backtest_templates (
+                id          TEXT PRIMARY KEY,
+                name        TEXT NOT NULL,
+                config      TEXT NOT NULL DEFAULT '{}',
+                created_at  TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at);
 
             CREATE INDEX IF NOT EXISTS idx_orders_status    ON orders(status);
@@ -729,6 +744,19 @@ async def _execute(sql: str, params: tuple = (), *, commit: bool = False) -> Non
     """Execute a raw SQL statement. Used by tests to inject test data."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(sql, params)
+        if commit:
+            await db.commit()
+
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def _execute_async(sql: str, params: tuple = (), *, commit: bool = False):
+    """Execute SQL and yield the cursor for reading results."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(sql, params)
+        yield cur
         if commit:
             await db.commit()
 

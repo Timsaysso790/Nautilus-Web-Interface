@@ -3,20 +3,20 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OptionBacktestResult } from "@/services/optionBacktestService";
+import type { BacktestResult } from "../types";
 
 interface Props {
-  result: OptionBacktestResult;
+  result: BacktestResult;
 }
 
 const METRIC = (label: string, value: string, color?: string) => (
   <div className="bg-muted/30 rounded-lg p-3">
     <p className="text-xs text-muted-foreground">{label}</p>
-    <p className={`text-lg font-semibold ${color || 'text-foreground'}`}>{value}</p>
+    <p className={`text-lg font-semibold ${color || "text-foreground"}`}>{value}</p>
   </div>
 );
 
-export function OptionBacktestResults({ result }: Props) {
+export function OptionsStationResults({ result }: Props) {
   const { summary, equity_curve, trades } = result;
 
   const formatCurrency = (v: number) => {
@@ -26,7 +26,6 @@ export function OptionBacktestResults({ result }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Summary metrics grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {METRIC("Total P&L", formatCurrency(summary.total_pnl), summary.total_pnl >= 0 ? "text-green-500" : "text-red-500")}
         {METRIC("Net P&L (after comm.)", formatCurrency(summary.net_pnl), summary.net_pnl >= 0 ? "text-green-500" : "text-red-500")}
@@ -40,7 +39,6 @@ export function OptionBacktestResults({ result }: Props) {
         {METRIC("Total Commission", formatCurrency(summary.total_commission))}
       </div>
 
-      {/* P&L Attribution */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">P&L Attribution (Greeks-based)</CardTitle>
@@ -48,10 +46,10 @@ export function OptionBacktestResults({ result }: Props) {
         <CardContent>
           <div className="grid grid-cols-5 gap-2 text-center text-sm">
             {[
-              { key: "delta", label: "Δ Delta", color: "text-blue-500" },
-              { key: "gamma", label: "Γ Gamma", color: "text-purple-500" },
-              { key: "theta", label: "Θ Theta", color: "text-green-500" },
-              { key: "vega", label: "ν Vega", color: "text-orange-500" },
+              { key: "delta", label: "\u0394 Delta", color: "text-blue-500" },
+              { key: "gamma", label: "\u0393 Gamma", color: "text-purple-500" },
+              { key: "theta", label: "\u0398 Theta", color: "text-green-500" },
+              { key: "vega", label: "\u03bd Vega", color: "text-orange-500" },
               { key: "unexplained", label: "Other", color: "text-muted-foreground" },
             ].map(m => (
               <div key={m.key}>
@@ -65,7 +63,6 @@ export function OptionBacktestResults({ result }: Props) {
         </CardContent>
       </Card>
 
-      {/* Equity curve */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Equity Curve</CardTitle>
@@ -74,7 +71,7 @@ export function OptionBacktestResults({ result }: Props) {
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={equity_curve} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
               <defs>
-                <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="eqGradStation" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
@@ -82,7 +79,7 @@ export function OptionBacktestResults({ result }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
               <YAxis
-                domain={['auto', 'auto']}
+                domain={["auto", "auto"]}
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 tickLine={false}
                 axisLine={false}
@@ -94,13 +91,12 @@ export function OptionBacktestResults({ result }: Props) {
                 formatter={(v: number) => [formatCurrency(v)]}
               />
               <ReferenceLine y={equity_curve[0]?.equity || 0} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" />
-              <Area type="monotone" dataKey="equity" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#eqGrad)" dot={false} />
+              <Area type="monotone" dataKey="equity" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#eqGradStation)" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Recent trades table */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Recent Trades ({trades.length} total)</CardTitle>
