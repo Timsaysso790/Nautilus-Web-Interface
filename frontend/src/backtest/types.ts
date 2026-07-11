@@ -1,6 +1,7 @@
 export interface BacktestProject {
   id: string;
   name: string;
+  project_type: string;
   created_at: string;
   updated_at: string;
   config_count: number;

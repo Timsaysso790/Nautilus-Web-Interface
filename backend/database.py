@@ -172,10 +172,11 @@ async def init_db() -> None:
             );
 
             CREATE TABLE IF NOT EXISTS backtest_projects (
-                id          TEXT PRIMARY KEY,
-                name        TEXT NOT NULL,
-                created_at  TEXT NOT NULL,
-                updated_at  TEXT NOT NULL,
+                id           TEXT PRIMARY KEY,
+                name         TEXT NOT NULL,
+                project_type TEXT NOT NULL DEFAULT 'options',
+                created_at   TEXT NOT NULL,
+                updated_at   TEXT NOT NULL,
                 config_count INTEGER NOT NULL DEFAULT 0
             );
 

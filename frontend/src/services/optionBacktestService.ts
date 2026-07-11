@@ -111,8 +111,8 @@ export const optionBacktestService = {
     return api.get<{ projects: any[] }>('/api/backtest/projects');
   },
 
-  async createProject(name: string) {
-    return api.post<{ project: any }>('/api/backtest/projects', { name });
+  async createProject(name: string, type = "options") {
+    return api.post<{ project: any }>('/api/backtest/projects', { name, type });
   },
 
   async deleteProject(projectId: string) {
@@ -137,6 +137,20 @@ export const optionBacktestService = {
 
   async runOptionsStation(config: any) {
     return api.post<any>('/api/backtest/options-station/run', config);
+  },
+
+  // ── Project Config ───────────────────────────────────────────────────────
+
+  async saveProjectConfig(projectId: string, configId: string, config: any) {
+    return api.post<{ success: boolean; config_id: string }>(
+      `/api/backtest/projects/${projectId}/config`, { config_id: configId, config }
+    );
+  },
+
+  async loadProjectConfig(projectId: string, configId: string) {
+    return api.get<{ config: any; config_id: string }>(
+      `/api/backtest/projects/${projectId}/config/${configId}`
+    );
   },
 
   // ── Portfolio Engine Backtest ────────────────────────────────────────────

@@ -27,6 +27,7 @@ _backtest_lock = False
 
 class CreateProjectRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
+    type: str = Field("options", pattern=r"^(options|portfolio)$")
 
 
 class SaveTemplateRequest(BaseModel):
@@ -34,20 +35,28 @@ class SaveTemplateRequest(BaseModel):
     config: Dict[str, Any]
 
 
+class ProjectConfigRequest(BaseModel):
+    config_id: str = Field(..., min_length=1, max_length=200)
+    config: Dict[str, Any]
+
+
 # ── Project CRUD ──────────────────────────────────────────────────────────────
 
 @router.get("/projects")
 async def list_projects(_user: dict = Depends(get_current_user)):
-    async with db._execute_async("SELECT id, name, created_at, updated_at, config_count FROM backtest_projects ORDER BY updated_at DESC") as cur:
+    async with db._execute_async(
+        "SELECT id, name, project_type, created_at, updated_at, config_count FROM backtest_projects ORDER BY updated_at DESC"
+    ) as cur:
         rows = cur.fetchall()
     return {
         "projects": [
             {
                 "id": r[0],
                 "name": r[1],
-                "created_at": r[2],
-                "updated_at": r[3],
-                "config_count": r[4],
+                "project_type": r[2],
+                "created_at": r[3],
+                "updated_at": r[4],
+                "config_count": r[5],
             }
             for r in rows
         ]
@@ -60,8 +69,8 @@ async def create_project(request: CreateProjectRequest, _user: dict = Depends(ge
     now = datetime.now(timezone.utc).isoformat()
     try:
         async with db._execute_async(
-            "INSERT INTO backtest_projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (project_id, request.name, now, now),
+            "INSERT INTO backtest_projects (id, name, project_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            (project_id, request.name, request.type, now, now),
             commit=True,
         ):
             pass
@@ -74,6 +83,7 @@ async def create_project(request: CreateProjectRequest, _user: dict = Depends(ge
         "project": {
             "id": project_id,
             "name": request.name,
+            "project_type": request.type,
             "created_at": now,
             "updated_at": now,
             "config_count": 0,
@@ -150,7 +160,7 @@ async def delete_template(template_id: str, _user: dict = Depends(get_current_us
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, _user: dict = Depends(get_current_user)):
     async with db._execute_async(
-        "SELECT id, name, created_at, updated_at, config_count FROM backtest_projects WHERE id = ?",
+        "SELECT id, name, project_type, created_at, updated_at, config_count FROM backtest_projects WHERE id = ?",
         (project_id,),
     ) as cur:
         row = cur.fetchone()
@@ -161,9 +171,10 @@ async def get_project(project_id: str, _user: dict = Depends(get_current_user)):
         "project": {
             "id": row[0],
             "name": row[1],
-            "created_at": row[2],
-            "updated_at": row[3],
-            "config_count": row[4],
+            "project_type": row[2],
+            "created_at": row[3],
+            "updated_at": row[4],
+            "config_count": row[5],
             "files": files,
         }
     }
@@ -189,6 +200,33 @@ async def delete_project_file(project_id: str, file_id: str, _user: dict = Depen
     if not deleted:
         raise HTTPException(status_code=404, detail="File not found")
     return {"success": True}
+
+
+@router.post("/projects/{project_id}/config")
+async def save_project_config(
+    project_id: str,
+    request: ProjectConfigRequest,
+    _user: dict = Depends(get_current_user),
+):
+    """Save a configuration to a project's filesystem folder."""
+    try:
+        bps.save_project_config(project_id, request.config_id, request.config)
+        return {"success": True, "config_id": request.config_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save config: {str(e)}")
+
+
+@router.get("/projects/{project_id}/config/{config_id}")
+async def load_project_config(
+    project_id: str,
+    config_id: str,
+    _user: dict = Depends(get_current_user),
+):
+    """Load a configuration from a project's filesystem folder."""
+    data = bps.load_project_config(project_id, config_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return {"config": data, "config_id": config_id}
 
 
 # ── Options Station Execution ─────────────────────────────────────────────────

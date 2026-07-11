@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,12 @@ import { PortfolioContextCard } from "./components/PortfolioContextCard";
 import { ProcessingModal } from "./components/ProcessingModal";
 import type {
   PortfolioAsset, CashSchedule, ValuationClearanceConfig, MarginBridgeConfig,
-  VixHedgeConfig, PortfolioConfig, PortfolioBacktestResult,
+  VixHedgeConfig, PortfolioConfig, PortfolioBacktestResult, BacktestProject,
 } from "./types";
+
+interface Props {
+  initialProjectId?: string;
+}
 
 const DEFAULT_ASSETS: PortfolioAsset[] = [
   { ticker: "QDTE", allocation: 30, dripEnabled: true },
@@ -68,7 +72,7 @@ const DEFAULT_VIX: VixHedgeConfig = {
   },
 };
 
-export default function PortfolioEnginePage() {
+export default function PortfolioEnginePage({ initialProjectId }: Props) {
   const { success, error: notifyError } = useNotification();
   const [assets, setAssets] = useState<PortfolioAsset[]>(DEFAULT_ASSETS);
   const [cashSchedule, setCashSchedule] = useState<CashSchedule>(DEFAULT_CASH_SCHEDULE);
@@ -84,15 +88,54 @@ export default function PortfolioEnginePage() {
   const [modalError, setModalError] = useState("");
   const [jsonPreview, setJsonPreview] = useState("");
 
+  // ── Project state ───────────────────────────────────────────────────────────
+  const [projects, setProjects] = useState<BacktestProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || "");
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  const loadProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await optionBacktestService.listProjects();
+      const portfolioProjects = res.projects.filter(
+        (p: any) => !p.project_type || p.project_type === "portfolio"
+      );
+      setProjects(portfolioProjects);
+    } catch {
+      notifyError("Failed to load projects");
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [notifyError]);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  // Load project config when selectedProjectId changes
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    (async () => {
+      try {
+        const res = await optionBacktestService.loadProjectConfig(selectedProjectId, "config-portfolio");
+        const cfg = res.config;
+        if (cfg.assets) setAssets(cfg.assets);
+        if (cfg.cashSchedule) setCashSchedule(cfg.cashSchedule);
+        if (cfg.clearanceConfig) setClearanceConfig(cfg.clearanceConfig);
+        if (cfg.marginConfig) setMarginConfig(cfg.marginConfig);
+        if (cfg.vixConfig) setVixConfig(cfg.vixConfig);
+        if (cfg.startDate) setStartDate(cfg.startDate);
+        if (cfg.endDate) setEndDate(cfg.endDate);
+        if (cfg.initialCash) setInitialCash(cfg.initialCash);
+      } catch {
+        // No saved config — use defaults
+      }
+    })();
+  }, [selectedProjectId]);
+
   const config: PortfolioConfig = useMemo(() => ({
-    assets,
-    cashSchedule,
-    clearanceConfig,
-    marginConfig,
-    vixConfig,
-    startDate,
-    endDate,
-    initialCash,
+    assets, cashSchedule, clearanceConfig, marginConfig, vixConfig,
+    startDate, endDate, initialCash,
   }), [assets, cashSchedule, clearanceConfig, marginConfig, vixConfig, startDate, endDate, initialCash]);
 
   const handleRun = useCallback(async () => {
@@ -107,17 +150,27 @@ export default function PortfolioEnginePage() {
       return;
     }
 
+    const payload = { ...config, projectId: selectedProjectId };
     setJsonPreview(JSON.stringify(config, null, 2));
     setModalState("submitting");
     setRunning(true);
 
     try {
-      const res = await optionBacktestService.runPortfolioBacktest(config);
+      const res = await optionBacktestService.runPortfolioBacktest(payload);
       setResult(res);
       setModalState("success");
       success(
         `Portfolio backtest complete: ${res.summary.totalReturnPct >= 0 ? "+" : ""}${res.summary.totalReturnPct}% return`
       );
+
+      // Save config to project
+      if (selectedProjectId) {
+        try {
+          await optionBacktestService.saveProjectConfig(selectedProjectId, "config-portfolio", config);
+        } catch {
+          // non-critical
+        }
+      }
     } catch (e: any) {
       setModalError(e?.detail || "Portfolio backtest failed");
       setModalState("error");
@@ -125,17 +178,57 @@ export default function PortfolioEnginePage() {
     } finally {
       setRunning(false);
     }
-  }, [config, success, notifyError]);
+  }, [config, selectedProjectId, success, notifyError]);
 
   const handleModalClose = useCallback(() => {
     setModalState("idle");
     setJsonPreview("");
   }, []);
 
+  const handleProjectSelect = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setSelectedProjectId(id);
+    setResult(null);
+    const params = new URLSearchParams(window.location.search);
+    if (id) params.set("project", id);
+    else params.delete("project");
+    window.history.replaceState(null, "", `/trader/option-backtest?${params.toString()}`);
+  }, []);
+
+  const currentProject = projects.find(p => p.id === selectedProjectId);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Left Column: Configuration */}
       <div className="lg:col-span-1 space-y-4">
+        {/* Project selector */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Project</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <select
+              value={selectedProjectId}
+              onChange={handleProjectSelect}
+              className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
+            >
+              <option value="">— No project (run only) —</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            {currentProject && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {currentProject.project_type === "portfolio" ? "Stock Portfolio" : "Options Backtest"}
+                {currentProject.config_count > 0 && ` · ${currentProject.config_count} configs`}
+              </p>
+            )}
+            {loadingProjects && (
+              <p className="text-[10px] text-muted-foreground mt-1">Loading projects...</p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Global params */}
         <Card>
           <CardHeader className="pb-3">

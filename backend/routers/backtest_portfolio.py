@@ -3,12 +3,14 @@ Portfolio Engine API router — endpoints for portfolio backtesting.
 """
 
 import logging
-from typing import List
+import uuid
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 import portfolio_engine
+import backtest_project_service as bps
 from auth_jwt import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -88,6 +90,7 @@ class PortfolioBacktestRequest(BaseModel):
     startDate: str = "2024-01-01"
     endDate: str = ""
     initialCash: float = Field(50000.0, gt=0)
+    projectId: str = ""
 
 
 @router.post("/run")
@@ -101,9 +104,20 @@ async def run_portfolio_backtest(
     _backtest_lock = True
     try:
         config = request.model_dump()
+        project_id = config.pop("projectId", "")
+
         result = await portfolio_engine.run_portfolio_backtest(config)
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error", "Portfolio backtest failed"))
+
+        # Save config and result to project folder if projectId is present
+        if project_id:
+            try:
+                bps.save_project_config(project_id, "config-portfolio", config)
+                bps.save_project_result(project_id, f"result-{uuid.uuid4().hex[:8]}", result)
+            except Exception as e:
+                logger.warning(f"Failed to save portfolio result for project {project_id}: {e}")
+
         return result
     except HTTPException:
         raise

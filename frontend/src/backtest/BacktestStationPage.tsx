@@ -13,12 +13,29 @@ import PortfolioEnginePage from "./PortfolioEnginePage";
 
 type Tab = "options" | "portfolio";
 
+function parseUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab") as Tab | null;
+  const project = params.get("project") || "";
+  return {
+    tab: tab && ["options", "portfolio"].includes(tab) ? tab : "options",
+    project,
+  };
+}
+
+function updateUrl(tab: Tab, project: string) {
+  const params = new URLSearchParams();
+  params.set("tab", tab);
+  if (project) params.set("project", project);
+  window.history.replaceState(null, "", `/trader/option-backtest?${params.toString()}`);
+}
+
 export default function BacktestStationPage() {
   const { success, error: notifyError } = useNotification();
-  const [tab, setTab] = useState<Tab>("options");
+  const [tab, setTab] = useState<Tab>(parseUrlParams().tab);
   const [projects, setProjects] = useState<BacktestProject[]>([]);
   const [templates, setTemplates] = useState<BacktestTemplate[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState(parseUrlParams().project);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateConfig, setTemplateConfig] = useState<CompiledStrategy | null>(null);
   const [formKey, setFormKey] = useState(0);
@@ -31,6 +48,12 @@ export default function BacktestStationPage() {
   const [jsonPreview, setJsonPreview] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  useEffect(() => {
+    const initial = parseUrlParams();
+    if (initial.tab !== tab) setTab(initial.tab);
+    if (initial.project !== selectedProjectId) setSelectedProjectId(initial.project);
+  }, []);
 
   const loadProjects = useCallback(async () => {
     setLoadingProjects(true);
@@ -61,13 +84,20 @@ export default function BacktestStationPage() {
     loadTemplates();
   }, []);
 
+  const handleTabChange = useCallback((newTab: Tab) => {
+    setTab(newTab);
+    setResult(null);
+    updateUrl(newTab, selectedProjectId);
+  }, [selectedProjectId]);
+
   const handleProjectChange = useCallback((id: string) => {
     setSelectedProjectId(id);
     setSelectedTemplateId("");
     setTemplateConfig(null);
     setResult(null);
     setFormKey(prev => prev + 1);
-  }, []);
+    updateUrl(tab, id);
+  }, [tab]);
 
   const handleTemplateChange = useCallback((id: string) => {
     setSelectedTemplateId(id);
@@ -92,12 +122,13 @@ export default function BacktestStationPage() {
         setSelectedProjectId(res.project.id);
         setResult(null);
         setFormKey(prev => prev + 1);
+        updateUrl(tab, res.project.id);
       }
       success(`Project "${name}" created`);
     } catch (e: any) {
       notifyError(e?.detail || "Failed to create project");
     }
-  }, [success, notifyError, loadProjects]);
+  }, [success, notifyError, loadProjects, tab]);
 
   const handleSaveTemplate = useCallback(async (name: string) => {
     setShowSaveTemplate(false);
@@ -161,7 +192,7 @@ export default function BacktestStationPage() {
           ].map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => handleTabChange(t.key)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 tab === t.key
                   ? "border-primary text-foreground"
@@ -216,7 +247,7 @@ export default function BacktestStationPage() {
           </div>
         )}
 
-        {tab === "portfolio" && <PortfolioEnginePage />}
+        {tab === "portfolio" && <PortfolioEnginePage initialProjectId={selectedProjectId} />}
       </main>
 
       <NewProjectDialog
