@@ -8,6 +8,7 @@ import { OptionsStationForm } from "./components/OptionsStationForm";
 import { OptionsStationResults } from "./components/OptionsStationResults";
 import { ProcessingModal } from "./components/ProcessingModal";
 import { NewProjectDialog } from "./components/NewProjectDialog";
+import AppLayout from "@/components/AppLayout";
 import { SaveTemplateDialog } from "./components/SaveTemplateDialog";
 import PortfolioEnginePage from "./PortfolioEnginePage";
 
@@ -168,22 +169,10 @@ export default function BacktestStationPage() {
   const currentProject = projects.find(p => p.id === selectedProjectId);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Backtest Station</h1>
-              <p className="text-sm text-muted-foreground">Multi-leg options strategy backtesting with condition triggers</p>
-            </div>
-            <Button variant="outline" onClick={() => window.location.href = '/trader'}>
-              Back to Trader
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-6">
+    <AppLayout
+      title="Backtest Station"
+      subtitle="Multi-leg options strategy backtesting with condition triggers"
+    >
         {/* Tabs */}
         <div className="flex gap-1 border-b">
           {[
@@ -248,7 +237,6 @@ export default function BacktestStationPage() {
         )}
 
         {tab === "portfolio" && <PortfolioEnginePage initialProjectId={selectedProjectId} />}
-      </main>
 
       <NewProjectDialog
         open={showNewProject}
@@ -269,6 +257,6 @@ export default function BacktestStationPage() {
         onClose={handleModalClose}
         onSubmit={() => {}}
       />
-    </div>
+    </AppLayout>
   );
 }

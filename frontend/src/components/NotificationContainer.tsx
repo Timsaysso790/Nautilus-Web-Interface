@@ -7,17 +7,17 @@ const NotificationItem: React.FC<{ notification: Notification; onClose: () => vo
   onClose,
 }) => {
   const icons = {
-    success: <CheckCircle className="h-5 w-5 text-green-400" />,
-    error: <XCircle className="h-5 w-5 text-red-400" />,
+    success: <CheckCircle className="h-5 w-5 text-profit" />,
+    error: <XCircle className="h-5 w-5 text-loss" />,
     warning: <AlertTriangle className="h-5 w-5 text-yellow-400" />,
     info: <Info className="h-5 w-5 text-blue-400" />,
   };
 
   const bgColors = {
-    success: 'bg-green-900/90 border-green-700',
-    error: 'bg-red-900/90 border-red-700',
-    warning: 'bg-yellow-900/90 border-yellow-700',
-    info: 'bg-blue-900/90 border-blue-700',
+    success: 'bg-profit/15 border-profit/30',
+    error: 'bg-loss/15 border-loss/30',
+    warning: 'bg-alert/15 border-alert/30',
+    info: 'bg-primary/15 border-primary/30',
   };
 
   return (

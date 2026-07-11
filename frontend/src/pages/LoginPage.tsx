@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { API_CONFIG } from '../config';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { KeyRound, ArrowLeft } from "lucide-react";
 
 interface LoginPageProps {
   onLogin: (token: string, role: string) => void;
@@ -18,7 +21,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     setLoading(true);
     setError('');
 
-    // Validate 2FA code length before sending
     if (requires2fa && totpCode.length !== 6) {
       setError('Please enter a complete 6-digit code.');
       setLoading(false);
@@ -62,94 +64,93 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center p-4">
-      <div className="bg-card text-card-foreground rounded-2xl shadow-2xl p-8 w-full max-w-md border">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🐚</div>
-          <h1 className="text-3xl font-bold text-foreground">Nautilus Trader</h1>
-          <p className="text-muted-foreground mt-1">Web Interface</p>
+          <KeyRound className="h-10 w-10 text-primary mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Nautilus Trader</h1>
+          <p className="text-sm text-muted-foreground mt-1">Web Interface</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {!requires2fa ? (
-            <>
+        <div className="border border-border rounded-lg p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!requires2fa ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Username</label>
+                  <Input
+                    type="text"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder="Enter your username..."
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your password..."
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+              </>
+            ) : (
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  Username
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Two-Factor Authentication Code
                 </label>
-                <input
+                <Input
                   type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-input rounded-xl focus:border-primary focus:outline-none text-foreground bg-background"
-                  placeholder="Enter your username..."
-                  autoComplete="username"
+                  value={totpCode}
+                  onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  autoFocus
                   required
+                  className="text-center text-xl tracking-widest font-mono"
                 />
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Enter the 6-digit code from your authenticator app
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-input rounded-xl focus:border-primary focus:outline-none text-foreground bg-background"
-                  placeholder="Enter your password..."
-                  autoComplete="current-password"
-                  required
-                />
+            )}
+
+            {error && (
+              <div className="bg-loss-bg border border-loss/30 text-loss rounded-lg px-3 py-2 text-sm">
+                {error}
               </div>
-            </>
-          ) : (
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">
-                Two-Factor Authentication Code
-              </label>
-              <input
-                type="text"
-                value={totpCode}
-                onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full px-4 py-3 border-2 border-input rounded-xl focus:border-primary focus:outline-none text-foreground bg-background text-center text-2xl tracking-widest font-mono"
-                placeholder="000000"
-                maxLength={6}
-                autoComplete="one-time-code"
-                autoFocus
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                Enter the 6-digit code from your authenticator app
-              </p>
-            </div>
-          )}
+            )}
 
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 font-bold transition-all disabled:opacity-50"
-          >
-            {loading ? 'Signing in...' : requires2fa ? 'Verify Code' : 'Sign In'}
-          </button>
-
-          {requires2fa && (
-            <button
-              type="button"
-              onClick={() => { setRequires2fa(false); setTotpCode(''); setError(''); }}
-              className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full"
             >
-              ← Back to login
-            </button>
-          )}
-        </form>
+              {loading ? 'Signing in...' : requires2fa ? 'Verify Code' : 'Sign In'}
+            </Button>
 
-        <div className="mt-6 pt-6 border-t border-border text-center">
+            {requires2fa && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                onClick={() => { setRequires2fa(false); setTotpCode(''); setError(''); }}
+              >
+                <ArrowLeft className="h-3 w-3 mr-1" />
+                Back to login
+              </Button>
+            )}
+          </form>
+        </div>
+
+        <div className="mt-4 text-center">
           <p className="text-xs text-muted-foreground">
             Server: <span className="font-mono">{API_CONFIG.NAUTILUS_API_URL}</span>
           </p>

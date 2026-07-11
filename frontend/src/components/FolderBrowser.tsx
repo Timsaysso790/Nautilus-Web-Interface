@@ -141,9 +141,9 @@ export function FolderBrowser({ onSelect, onConvert, converting, convertProgress
             />
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
-            <span className="text-green-600">{convertProgress.converted} converted</span>
-            <span className="text-yellow-600">{convertProgress.skipped} skipped</span>
-            {convertProgress.errors > 0 && <span className="text-red-600">{convertProgress.errors} errors</span>}
+            <span className="text-profit">{convertProgress.converted} converted</span>
+            <span className="text-alert">{convertProgress.skipped} skipped</span>
+            {convertProgress.errors > 0 && <span className="text-loss">{convertProgress.errors} errors</span>}
           </div>
         </div>
       )}

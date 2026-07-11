@@ -7,6 +7,7 @@ import { OptionChainTable } from "@/components/OptionChainTable";
 import { OptionPayoffChart } from "@/components/OptionPayoffChart";
 import { optionsService, type OptionChain, type PayoffLeg, type PayoffResult, type BSMParams, type BSMResult } from "@/services/optionsService";
 import { useNotification } from "@/contexts/NotificationContext";
+import AppLayout from "@/components/AppLayout";
 
 type Tab = "chain" | "strategy" | "bsm";
 
@@ -105,22 +106,7 @@ export default function OptionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Options</h1>
-              <p className="text-sm text-muted-foreground">Option chains, greeks, and strategy analysis</p>
-            </div>
-            <Button variant="outline" onClick={() => window.location.href = '/trader'}>
-              Back to Trader
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-4">
+    <AppLayout title="Options" subtitle="Option chains, greeks, and strategy analysis">
         {/* Symbol + Expiration controls */}
         <div className="flex gap-4 items-end">
           <div className="space-y-1">
@@ -341,7 +327,6 @@ export default function OptionsPage() {
             </Card>
           </div>
         )}
-      </main>
-    </div>
+    </AppLayout>
   );
 }

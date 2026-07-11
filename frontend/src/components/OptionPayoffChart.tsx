@@ -59,7 +59,7 @@ export function OptionPayoffChart({ data, breakevens }: Props) {
             <ReferenceLine
               key={i}
               x={be}
-              stroke="hsl(var(--warning))"
+              stroke="hsl(var(--alert))"
               strokeDasharray="3 3"
               label={{ value: `BE $${be.toFixed(1)}`, position: "top", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
             />

@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNotification } from "@/contexts/NotificationContext";
 import { useEffect, useState } from "react";
 import API_CONFIG from "@/config";
+import AppLayout from "@/components/AppLayout";
+import { RefreshCw } from "lucide-react";
 
 const ADMIN_API_URL = API_CONFIG.ADMIN_DB_API_URL;
 
@@ -96,7 +99,7 @@ export default function AdminDBPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-muted/50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading admin database...</p>
@@ -106,27 +109,16 @@ export default function AdminDBPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/50">
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Admin Database</h1>
-              <p className="text-sm text-muted-foreground mt-1">Manage system settings, users, and configurations</p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={loadData}>
-                🔄 Refresh
-              </Button>
-              <Button variant="outline" onClick={() => window.location.href = '/admin'}>
-                ← Back
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8">
+    <AppLayout
+      title="Admin Database"
+      subtitle="Manage system settings, users, and configurations"
+      actions={
+        <Button size="sm" onClick={loadData}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1" />
+          Refresh
+        </Button>
+      }
+    >
         {/* Settings Section */}
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4">System Settings</h2>
@@ -205,12 +197,8 @@ export default function AdminDBPage() {
                       <div className="text-sm text-muted-foreground">{user.email}</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                        {user.role}
-                      </span>
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        user.is_active ? 'bg-green-100 text-green-800' : 'bg-muted text-foreground'
-                      }`}>
+                      <Badge variant="secondary">{user.role}</Badge>
+                      <Badge variant={user.is_active ? 'default' : 'outline'}>
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -240,9 +228,7 @@ export default function AdminDBPage() {
                         <div className="font-medium">{config.name}</div>
                         <div className="text-sm text-muted-foreground">{config.endpoint}</div>
                       </div>
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        config.is_enabled ? 'bg-green-100 text-green-800' : 'bg-muted text-foreground'
-                      }`}>
+                      <Badge variant={config.is_enabled ? 'default' : 'outline'}>
                         {config.is_enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </div>
@@ -252,8 +238,7 @@ export default function AdminDBPage() {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+    </AppLayout>
   );
 }
 

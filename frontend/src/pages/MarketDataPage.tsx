@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import api from '../lib/api';
+import AppLayout from "@/components/AppLayout";
+import { Button } from "@/components/ui/button";
+import { chartDefaults } from "@/lib/chart-config";
+import { RefreshCw, BarChart3 } from "lucide-react";
 
 interface Instrument {
   symbol: string;
@@ -77,196 +81,181 @@ export default function MarketDataPage() {
     setRefreshing(false);
   };
 
-  const getChangeColor = (change: number) => change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-  const getChangeBg = (change: number) => change >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30';
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-8 flex items-center justify-center">
-        <div className="text-muted-foreground text-lg">Loading market data...</div>
-      </div>
+      <AppLayout title="Market Data" subtitle="Real-time market feeds and quotes">
+        <div className="text-center text-muted-foreground py-12">Loading market data...</div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-foreground mb-1">📊 Market Data</h1>
-            <p className="text-muted-foreground">Real-time market feeds and quotes</p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold transition-all disabled:opacity-50"
-            >
-              {refreshing ? '⟳ Refreshing...' : '⟳ Refresh'}
-            </button>
-            <button
-              onClick={() => window.location.href = '/trader'}
-              className="px-5 py-2.5 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 font-semibold"
-            >
-              ← Back
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Instrument List */}
-          <div className="lg:col-span-1">
-            <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="font-bold text-foreground">Instruments</h2>
-              </div>
-              <div className="divide-y divide-border">
-                {instruments.map(inst => (
-                  <button
-                    key={inst.symbol}
-                    onClick={() => setSelected(inst.symbol)}
-                    className={`w-full px-5 py-4 text-left transition-colors hover:bg-indigo-50 flex items-center justify-between ${
-                      selected === inst.symbol ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''
-                    }`}
-                  >
-                    <div>
-                      <div className="font-bold text-foreground">{inst.symbol}</div>
-                      <div className="text-xs text-muted-foreground">{inst.exchange}</div>
+    <AppLayout
+      title="Market Data"
+      subtitle="Real-time market feeds and quotes"
+      actions={
+        <>
+          <Button onClick={handleRefresh} disabled={refreshing} variant="outline" size="sm">
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Instruments</h2>
+            </div>
+            <div className="divide-y divide-border">
+              {instruments.map(inst => (
+                <button
+                  key={inst.symbol}
+                  onClick={() => setSelected(inst.symbol)}
+                  className={`w-full px-4 py-3 text-left transition-colors flex items-center justify-between ${
+                    selected === inst.symbol 
+                      ? 'bg-muted border-l-2 border-primary' 
+                      : 'hover:bg-muted/50'
+                  }`}
+                >
+                  <div>
+                    <div className="font-medium text-sm text-foreground">{inst.symbol}</div>
+                    <div className="text-xs text-muted-foreground">{inst.exchange}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="tabular-mono text-sm text-foreground">
+                      ${inst.price.toLocaleString()}
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-foreground">
-                        ${inst.price.toLocaleString()}
-                      </div>
-                      <div className={`text-xs font-semibold ${getChangeColor(inst.change_24h)}`}>
-                        {inst.change_24h >= 0 ? '+' : ''}{inst.change_24h.toFixed(2)}%
-                      </div>
+                    <div className={`tabular-mono text-xs font-semibold ${
+                      inst.change_24h >= 0 ? 'text-profit' : 'text-loss'
+                    }`}>
+                      {inst.change_24h >= 0 ? '+' : ''}{inst.change_24h.toFixed(2)}%
                     </div>
-                  </button>
-                ))}
-              </div>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* Quote Detail */}
-          <div className="lg:col-span-2">
-            {quote ? (
-              <div className="space-y-4">
-                {/* Main Quote */}
-                <div className="bg-card rounded-xl shadow-sm border p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-foreground">{quote.symbol}</h2>
-                      <div className="text-sm text-muted-foreground">
-                        Last updated: {new Date(quote.timestamp).toLocaleTimeString()}
-                      </div>
-                    </div>
-                    <span className={`px-3 py-1.5 rounded-full text-sm font-bold ${getChangeBg(quote.change_24h)} ${getChangeColor(quote.change_24h)}`}>
-                      {quote.change_24h >= 0 ? '+' : ''}{quote.change_24h.toFixed(2)}% 24h
-                    </span>
-                  </div>
-
-                  <div className="text-5xl font-bold text-foreground mb-6">
-                    ${quote.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                      <div className="text-xs text-muted-foreground mb-1">Bid</div>
-                      <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                        ${quote.bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-                      <div className="text-xs text-muted-foreground mb-1">Ask</div>
-                      <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                        ${quote.ask.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-card rounded-xl shadow-sm border p-5">
-                    <div className="text-sm text-muted-foreground mb-2">Spread</div>
-                    <div className="text-2xl font-bold text-foreground">
-                      ${(quote.ask - quote.bid).toFixed(4)}
-                    </div>
+        <div className="lg:col-span-2">
+          {quote ? (
+            <div className="space-y-4">
+              <div className="border border-border rounded-lg p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">{quote.symbol}</h2>
                     <div className="text-xs text-muted-foreground">
-                      {(((quote.ask - quote.bid) / quote.price) * 100).toFixed(4)}%
+                      Last updated: {new Date(quote.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
-                  <div className="bg-card rounded-xl shadow-sm border p-5">
-                    <div className="text-sm text-muted-foreground mb-2">Volume 24h</div>
-                    <div className="text-2xl font-bold text-foreground">
-                      ${(quote.volume_24h / 1_000_000).toFixed(2)}M
-                    </div>
-                    <div className="text-xs text-muted-foreground">USD equivalent</div>
-                  </div>
+                  <span className={`tabular-mono text-sm font-semibold px-2.5 py-1 rounded-md ${
+                    quote.change_24h >= 0 
+                      ? 'bg-profit-bg text-profit' 
+                      : 'bg-loss-bg text-loss'
+                  }`}>
+                    {quote.change_24h >= 0 ? '+' : ''}{quote.change_24h.toFixed(2)}% 24h
+                  </span>
                 </div>
 
-                {/* Price History Chart */}
-                {priceHistory.length > 1 && (
-                  <div className="bg-card rounded-xl shadow-sm border p-5">
-                    <div className="text-sm font-semibold text-foreground mb-3">Price History (live)</div>
-                    <ResponsiveContainer width="100%" height={160}>
-                      <LineChart data={priceHistory} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis
-                          dataKey="time"
-                          tick={{ fontSize: 10, fill: '#9ca3af' }}
-                          interval="preserveStartEnd"
-                          tickLine={false}
-                        />
-                        <YAxis
-                          domain={['auto', 'auto']}
-                          tick={{ fontSize: 10, fill: '#9ca3af' }}
-                          tickLine={false}
-                          axisLine={false}
-                          width={70}
-                          tickFormatter={(v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        />
-                        <Tooltip
-                          formatter={(v: number) => [`$${v.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 'Price']}
-                          labelStyle={{ fontSize: 11 }}
-                          contentStyle={{ fontSize: 12 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="price"
-                          stroke={quote.change_24h >= 0 ? '#16a34a' : '#dc2626'}
-                          strokeWidth={2}
-                          dot={false}
-                          isAnimationActive={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <div className="text-3xl tabular-mono font-bold text-foreground mb-5">
+                  ${quote.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
 
-                {/* Subscribed Info */}
-                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-indigo-500 rounded-full animate-pulse"></div>
-                    <div>
-                      <div className="font-semibold text-indigo-900">Live Data Feed</div>
-                      <div className="text-sm text-indigo-700">
-                        Subscribed to {quote.symbol} — updates every 3 seconds
-                      </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-profit-bg rounded-lg p-4">
+                    <div className="text-xs text-muted-foreground mb-1">Bid</div>
+                    <div className="tabular-mono text-lg font-bold text-profit">
+                      ${quote.bid.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div className="bg-loss-bg rounded-lg p-4">
+                    <div className="text-xs text-muted-foreground mb-1">Ask</div>
+                    <div className="tabular-mono text-lg font-bold text-loss">
+                      ${quote.ask.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="bg-card rounded-xl shadow-sm border p-12 text-center">
-                <div className="text-5xl mb-4">📊</div>
-                <div className="text-muted-foreground">Select an instrument to view market data</div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border border-border rounded-lg p-4">
+                  <div className="text-xs text-muted-foreground mb-2">Spread</div>
+                  <div className="tabular-mono text-lg font-bold text-foreground">
+                    ${(quote.ask - quote.bid).toFixed(4)}
+                  </div>
+                  <div className="tabular-mono text-xs text-muted-foreground">
+                    {(((quote.ask - quote.bid) / quote.price) * 100).toFixed(4)}%
+                  </div>
+                </div>
+                <div className="border border-border rounded-lg p-4">
+                  <div className="text-xs text-muted-foreground mb-2">Volume 24h</div>
+                  <div className="tabular-mono text-lg font-bold text-foreground">
+                    ${(quote.volume_24h / 1_000_000).toFixed(2)}M
+                  </div>
+                  <div className="text-xs text-muted-foreground">USD equivalent</div>
+                </div>
               </div>
-            )}
-          </div>
+
+              {priceHistory.length > 1 && (
+                <div className="border border-border rounded-lg p-4">
+                  <div className="text-sm font-semibold text-foreground mb-3">Price History (live)</div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <LineChart data={priceHistory} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
+                      <CartesianGrid {...chartDefaults.grid} />
+                      <XAxis
+                        dataKey="time"
+                        tick={chartDefaults.axis.tick}
+                        interval="preserveStartEnd"
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={['auto', 'auto']}
+                        tick={chartDefaults.axis.tick}
+                        tickLine={false}
+                        axisLine={false}
+                        width={70}
+                        tickFormatter={(v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      />
+                      <Tooltip
+                        {...chartDefaults.tooltip}
+                        formatter={(v: number) => [`$${v.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 'Price']}
+                        labelStyle={{ fontSize: 11 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="price"
+                        stroke={quote.change_24h >= 0 ? chartDefaults.profitStroke : chartDefaults.lossStroke}
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              <div className="bg-muted border border-border rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-profit rounded-full animate-pulse"></div>
+                  <div>
+                    <div className="text-sm font-medium text-foreground">Live Data Feed</div>
+                    <div className="text-xs text-muted-foreground">
+                      Subscribed to {quote.symbol} — updates every 3 seconds
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="border border-border rounded-lg p-12 text-center">
+              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <div className="text-muted-foreground">Select an instrument to view market data</div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

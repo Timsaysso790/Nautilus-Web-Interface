@@ -5,7 +5,6 @@ import { loadApiConfig } from "./config";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { NotificationContainer } from "./components/NotificationContainer";
 import Home from "./pages/Home";
@@ -59,18 +58,6 @@ function Router() {
   );
 }
 
-function LogoutButton({ onLogout }: { onLogout: () => void }) {
-  return (
-    <button
-      onClick={onLogout}
-      title="Logout"
-      className="fixed bottom-4 right-4 z-50 px-3 py-1.5 bg-card text-muted-foreground rounded-lg text-xs font-medium border hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-lg opacity-60 hover:opacity-100"
-    >
-      Logout
-    </button>
-  );
-}
-
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
@@ -114,22 +101,6 @@ function App() {
     setAuthenticated(true);
   };
 
-  const handleLogout = async () => {
-    const token = localStorage.getItem('nautilus_token');
-    if (token) {
-      try {
-        await fetch(`${API_CONFIG.NAUTILUS_API_URL}/api/auth/logout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {
-      }
-    }
-    localStorage.removeItem('nautilus_token');
-    localStorage.removeItem('nautilus_role');
-    setAuthenticated(false);
-  };
-
   if (authenticated === null) return null;
 
   if (!authenticated) {
@@ -147,9 +118,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <NotificationContainer />
-            <ThemeToggle />
             <Router />
-            <LogoutButton onLogout={handleLogout} />
           </TooltipProvider>
         </NotificationProvider>
       </ThemeProvider>

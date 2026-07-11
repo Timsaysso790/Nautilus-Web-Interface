@@ -11,6 +11,7 @@ import ResearchHub from "@/components/ResearchHub";
 import NvmeCachePanel from "@/components/NvmeCachePanel";
 import { dataLakeService, type ConvertTaskStatus, type DataSource, type DownloadJob } from "@/services/dataLakeService";
 import { useNotification } from "@/contexts/NotificationContext";
+import AppLayout from "@/components/AppLayout";
 
 type Tab = "marketdata" | "catalog" | "convert" | "nvme_cache" | "backtests" | "research" | "sources";
 
@@ -174,14 +175,10 @@ export default function DataLakePage() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Data Lake</h1>
-          <p className="text-sm text-muted-foreground">Manage data sources, downloads, and catalog</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate("/admin")}>Back to Admin</Button>
-      </div>
+    <AppLayout
+      title="Data Lake"
+      subtitle="Manage data sources, downloads, and catalog"
+    >
 
       <div className="flex gap-1 border-b">
         {TABS.map(t => (
@@ -319,6 +316,6 @@ export default function DataLakePage() {
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   );
 }

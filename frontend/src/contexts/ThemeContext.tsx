@@ -37,7 +37,7 @@ export function ThemeProvider({
   switchable = true,
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
-    return getStoredTheme() ?? defaultTheme ?? getSystemTheme();
+    return getStoredTheme() ?? defaultTheme ?? "dark";
   });
 
   useEffect(() => {

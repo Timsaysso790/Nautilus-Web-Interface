@@ -10,6 +10,34 @@ import {
   ReferenceLine,
 } from 'recharts';
 import api from '../lib/api';
+import AppLayout from "@/components/AppLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { chartDefaults } from "@/lib/chart-config";
+import { Play, Loader2, FlaskConical } from "lucide-react";
 
 interface Strategy {
   id: string;
@@ -68,14 +96,6 @@ interface SweepResponse {
 
 type Mode = 'demo' | 'real' | 'sweep';
 
-const METRIC = (label: string, value: string, sub?: string, color?: string) => (
-  <div className="bg-card rounded-xl p-4 shadow-sm border border-border/50">
-    <div className="text-xs text-muted-foreground mb-1">{label}</div>
-    <div className={`text-2xl font-bold ${color ?? 'text-foreground'}`}>{value}</div>
-    {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
-  </div>
-);
-
 function formatEquityLabel(value: number) {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
@@ -91,23 +111,30 @@ function formatTime(iso: string) {
   }
 }
 
+function MetricCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div className="border border-border rounded-lg p-4">
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      <div className={`tabular-mono text-xl font-bold ${color ?? 'text-foreground'}`}>{value}</div>
+      {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
 export default function BacktestingPage() {
   const [mode, setMode] = useState<Mode>('demo');
 
-  // Demo mode params
   const [fastPeriod, setFastPeriod] = useState(10);
   const [slowPeriod, setSlowPeriod] = useState(20);
   const [numBars, setNumBars] = useState(500);
   const [demoBalance, setDemoBalance] = useState(100000);
 
-  // Real mode params
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState('');
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2024-12-31');
   const [realBalance, setRealBalance] = useState(100000);
 
-  // Sweep mode params
   const [sweepFastMin, setSweepFastMin] = useState(5);
   const [sweepFastMax, setSweepFastMax] = useState(25);
   const [sweepFastStep, setSweepFastStep] = useState(5);
@@ -121,7 +148,6 @@ export default function BacktestingPage() {
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPositions, setShowPositions] = useState(false);
 
   useEffect(() => {
     api.get<{ strategies: Strategy[] }>('/api/strategies')
@@ -188,481 +214,406 @@ export default function BacktestingPage() {
     }
   };
 
-  const pnlColor = (v: number) => (v >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400');
-  const pnlBg = (v: number) => (v >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
-
   const equityCurve = result?.equity_curve ?? [];
   const startingBalance = result?.starting_balance ?? 0;
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
+    <AppLayout
+      title="Backtesting"
+      subtitle="Run strategy simulations on historical or synthetic data"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Backtesting</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Run strategy simulations on historical or synthetic data</p>
-          </div>
-          <button
-            onClick={() => window.location.href = '/trader'}
-            className="px-4 py-2 bg-card border border-input text-foreground rounded-lg hover:bg-muted/50 font-medium text-sm"
+        <div className="lg:col-span-2 border border-border rounded-lg p-5 self-start">
+          <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setError(null); }}>
+            <TabsList className="w-full mb-4">
+              <TabsTrigger value="demo" className="flex-1">Demo</TabsTrigger>
+              <TabsTrigger value="real" className="flex-1">Real Data</TabsTrigger>
+              <TabsTrigger value="sweep" className="flex-1">Sweep</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {mode === 'demo' && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground bg-muted rounded-lg px-3 py-2">
+                Demo mode generates synthetic EUR/USD price data and runs a real SMA Crossover strategy through the NautilusTrader BacktestEngine.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Fast SMA Period</label>
+                  <Input type="number" min={2} max={50} value={fastPeriod}
+                    onChange={e => setFastPeriod(Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Slow SMA Period</label>
+                  <Input type="number" min={3} max={200} value={slowPeriod}
+                    onChange={e => setSlowPeriod(Number(e.target.value))} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Number of 1-min Bars</label>
+                <Select value={String(numBars)} onValueChange={v => setNumBars(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="200">200 bars (~3 hours)</SelectItem>
+                    <SelectItem value="500">500 bars (~8 hours)</SelectItem>
+                    <SelectItem value="1000">1 000 bars (~17 hours)</SelectItem>
+                    <SelectItem value="2000">2 000 bars (~33 hours)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Starting Balance ($)</label>
+                <Input type="number" min={1000} step={1000} value={demoBalance}
+                  onChange={e => setDemoBalance(Number(e.target.value))} />
+              </div>
+            </div>
+          )}
+
+          {mode === 'real' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Strategy</label>
+                {strategies.length === 0 ? (
+                  <div className="text-sm text-muted-foreground bg-muted rounded-lg px-3 py-2">
+                    No strategies yet.{' '}
+                    <a href="/trader/strategies" className="text-primary hover:underline">Create one</a>
+                  </div>
+                ) : (
+                  <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {strategies.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.name} ({s.type})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Start Date</label>
+                  <Input type="date" value={startDate}
+                    onChange={e => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">End Date</label>
+                  <Input type="date" value={endDate}
+                    onChange={e => setEndDate(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Starting Balance ($)</label>
+                <Input type="number" min={1000} step={1000} value={realBalance}
+                  onChange={e => setRealBalance(Number(e.target.value))} />
+              </div>
+            </div>
+          )}
+
+          {mode === 'sweep' && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2">
+                Grid search: tests all (fast, slow) SMA combinations. Ranked by P&L. Max 25 combinations.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fast Min</label>
+                  <Input type="number" min={2} max={100} value={sweepFastMin}
+                    onChange={e => setSweepFastMin(Number(e.target.value))} /></div>
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fast Max</label>
+                  <Input type="number" min={2} max={100} value={sweepFastMax}
+                    onChange={e => setSweepFastMax(Number(e.target.value))} /></div>
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fast Step</label>
+                  <Input type="number" min={1} max={50} value={sweepFastStep}
+                    onChange={e => setSweepFastStep(Number(e.target.value))} /></div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Slow Min</label>
+                  <Input type="number" min={3} max={500} value={sweepSlowMin}
+                    onChange={e => setSweepSlowMin(Number(e.target.value))} /></div>
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Slow Max</label>
+                  <Input type="number" min={3} max={500} value={sweepSlowMax}
+                    onChange={e => setSweepSlowMax(Number(e.target.value))} /></div>
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Slow Step</label>
+                  <Input type="number" min={1} max={100} value={sweepSlowStep}
+                    onChange={e => setSweepSlowStep(Number(e.target.value))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Starting Balance</label>
+                  <Input type="number" min={1000} step={1000} value={sweepBalance}
+                    onChange={e => setSweepBalance(Number(e.target.value))} /></div>
+                <div><label className="block text-xs font-medium text-muted-foreground mb-1">Num Bars</label>
+                  <Select value={String(sweepBars)} onValueChange={v => setSweepBars(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="200">200 bars</SelectItem>
+                      <SelectItem value="500">500 bars</SelectItem>
+                      <SelectItem value="1000">1 000 bars</SelectItem>
+                    </SelectContent>
+                  </Select></div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 bg-loss-bg border border-loss/30 text-loss rounded-lg px-3 py-2 text-sm">
+              {error}
+            </div>
+          )}
+
+          <Button
+            onClick={runBacktest}
+            disabled={running}
+            className="mt-5 w-full"
           >
-            ← Back
-          </button>
+            {running ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Running...</>
+            ) : (
+              <><Play className="h-4 w-4 mr-2" /> Run Backtest</>
+            )}
+          </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-
-          {/* ── Config Panel ──────────────────────────────────────── */}
-          <div className="lg:col-span-2 bg-card rounded-2xl shadow-sm border border-border/50 p-6 self-start">
-
-            {/* Mode tabs */}
-            <div className="flex rounded-xl overflow-hidden border border-border mb-5">
-              {([
-                { key: 'demo', label: '🧪 Demo' },
-                { key: 'real', label: '📊 Real Data' },
-                { key: 'sweep', label: '🔍 Sweep' },
-              ] as { key: Mode; label: string }[]).map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => { setMode(key); setError(null); }}
-                  className={`flex-1 py-2 text-sm font-semibold transition-colors ${
-                    mode === key
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-card text-muted-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+        <div className="lg:col-span-3 space-y-4">
+          {running && (
+            <div className="border border-border rounded-lg p-10 text-center">
+              <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-3" />
+              <div className="text-sm font-medium text-foreground">
+                {mode === 'sweep' ? 'Running parameter sweep...' : 'Running NautilusTrader backtest...'}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {mode === 'sweep' ? 'Testing SMA combinations' : 'Executing strategy against historical data'}
+              </div>
             </div>
+          )}
 
-            {mode === 'demo' && (
-              <div className="space-y-4">
-                <p className="text-xs text-muted-foreground bg-cyan-50 rounded-lg px-3 py-2">
-                  Demo mode generates synthetic EUR/USD price data and runs a real SMA Crossover strategy through the NautilusTrader BacktestEngine.
-                </p>
+          {!running && !result && !sweepResult && (
+            <div className="border border-border rounded-lg p-12 text-center">
+              <FlaskConical className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <div className="text-base font-semibold text-foreground mb-1">No Results Yet</div>
+              <div className="text-sm text-muted-foreground">Configure parameters and click Run Backtest</div>
+            </div>
+          )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast SMA Period</label>
-                    <input
-                      type="number" min={2} max={50}
-                      value={fastPeriod}
-                      onChange={e => setFastPeriod(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow SMA Period</label>
-                    <input
-                      type="number" min={3} max={200}
-                      value={slowPeriod}
-                      onChange={e => setSlowPeriod(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                    />
-                  </div>
+          {sweepResult && !running && mode === 'sweep' && (
+            <div className="space-y-4">
+              <div className="border border-border rounded-lg p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-foreground">Parameter Sweep Results</h3>
+                  <Badge variant="secondary" className="tabular-mono">{sweepResult.combinations_tested} tested</Badge>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Number of 1-min Bars</label>
-                  <select
-                    value={numBars}
-                    onChange={e => setNumBars(Number(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                  >
-                    <option value={200}>200 bars (~3 hours)</option>
-                    <option value={500}>500 bars (~8 hours)</option>
-                    <option value={1000}>1 000 bars (~17 hours)</option>
-                    <option value={2000}>2 000 bars (~33 hours)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Starting Balance ($)</label>
-                  <input
-                    type="number" min={1000} step={1000}
-                    value={demoBalance}
-                    onChange={e => setDemoBalance(Number(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                  />
-                </div>
-              </div>
-            )}
-
-            {mode === 'real' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Strategy</label>
-                  {strategies.length === 0 ? (
-                    <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-                      No strategies yet.{' '}
-                      <a href="/trader/strategies" className="text-cyan-600 hover:underline">Create one →</a>
+                {sweepResult.best && (
+                  <div className={`rounded-lg p-4 mb-3 ${
+                    sweepResult.best.total_pnl >= 0 ? 'bg-profit-bg border border-profit/30' : 'bg-loss-bg border border-loss/30'
+                  }`}>
+                    <div className="text-xs text-muted-foreground mb-1">Best Configuration</div>
+                    <div className={`tabular-mono text-xl font-bold ${
+                      sweepResult.best.total_pnl >= 0 ? 'text-profit' : 'text-loss'
+                    }`}>
+                      {sweepResult.best.total_pnl >= 0 ? '+' : ''}${sweepResult.best.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
-                  ) : (
-                    <select
-                      value={selectedStrategy}
-                      onChange={e => setSelectedStrategy(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                    >
-                      {strategies.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.type})</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Start Date</label>
-                    <input type="date" value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">End Date</label>
-                    <input type="date" value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1">Starting Balance ($)</label>
-                  <input type="number" min={1000} step={1000}
-                    value={realBalance}
-                    onChange={e => setRealBalance(Number(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-border rounded-lg focus:border-cyan-400 focus:outline-none text-sm"
-                  />
-                </div>
-              </div>
-            )}
-
-            {mode === 'sweep' && (
-              <div className="space-y-4">
-                <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  Grid search: tests all (fast, slow) SMA combinations. Ranked by P&L. Max 25 combinations.
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast Min</label>
-                    <input type="number" min={2} max={100} value={sweepFastMin}
-                      onChange={e => setSweepFastMin(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast Max</label>
-                    <input type="number" min={2} max={100} value={sweepFastMax}
-                      onChange={e => setSweepFastMax(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Fast Step</label>
-                    <input type="number" min={1} max={50} value={sweepFastStep}
-                      onChange={e => setSweepFastStep(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow Min</label>
-                    <input type="number" min={3} max={500} value={sweepSlowMin}
-                      onChange={e => setSweepSlowMin(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow Max</label>
-                    <input type="number" min={3} max={500} value={sweepSlowMax}
-                      onChange={e => setSweepSlowMax(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Slow Step</label>
-                    <input type="number" min={1} max={100} value={sweepSlowStep}
-                      onChange={e => setSweepSlowStep(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Starting Balance ($)</label>
-                    <input type="number" min={1000} step={1000} value={sweepBalance}
-                      onChange={e => setSweepBalance(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Num Bars</label>
-                    <select value={sweepBars} onChange={e => setSweepBars(Number(e.target.value))}
-                      className="w-full px-3 py-2 border-2 border-border rounded-lg text-sm focus:border-cyan-400 focus:outline-none">
-                      <option value={200}>200 bars</option>
-                      <option value={500}>500 bars</option>
-                      <option value={1000}>1 000 bars</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="mt-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={runBacktest}
-              disabled={running}
-              className="mt-5 w-full py-3 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {running ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                  </svg>
-                  Running…
-                </>
-              ) : mode === 'sweep' ? '🔍  Run Parameter Sweep' : '▶  Run Backtest'}
-            </button>
-          </div>
-
-          {/* ── Results Panel ─────────────────────────────────────── */}
-          <div className="lg:col-span-3 space-y-4">
-
-            {running && (
-              <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-10 text-center flex flex-col items-center justify-center">
-                <svg className="animate-spin h-10 w-10 text-cyan-600 mb-3" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                </svg>
-                <div className="text-cyan-800 font-semibold text-lg">
-                  {mode === 'sweep' ? 'Running parameter sweep…' : 'Running NautilusTrader backtest…'}
-                </div>
-                <div className="text-cyan-600 text-sm mt-1">
-                  {mode === 'sweep' ? 'Testing SMA combinations against synthetic data' : 'Executing strategy against historical data'}
-                </div>
-              </div>
-            )}
-
-            {!running && !result && !sweepResult && (
-              <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-12 text-center flex flex-col items-center justify-center">
-                <div className="text-5xl mb-3">🔬</div>
-                <div className="text-xl font-bold text-foreground mb-1">No Results Yet</div>
-                <div className="text-muted-foreground text-sm">Configure parameters and click Run Backtest</div>
-              </div>
-            )}
-
-            {/* Parameter Sweep Results */}
-            {sweepResult && !running && mode === 'sweep' && (
-              <div className="space-y-4">
-                {/* Summary */}
-                <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-foreground">Parameter Sweep Results</h3>
-                    <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-1 rounded-full font-semibold">
-                      {sweepResult.combinations_tested} tested
-                    </span>
-                  </div>
-                  {sweepResult.best && (
-                    <div className={`rounded-xl p-4 mb-3 ${sweepResult.best.total_pnl >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                      <div className="text-xs text-muted-foreground mb-1">Best Configuration</div>
-                      <div className={`text-2xl font-bold ${sweepResult.best.total_pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {sweepResult.best.total_pnl >= 0 ? '+' : ''}${sweepResult.best.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        SMA({sweepResult.best.fast_period}, {sweepResult.best.slow_period}) &nbsp;·&nbsp;
-                        Win rate: {sweepResult.best.win_rate.toFixed(1)}% &nbsp;·&nbsp;
-                        {sweepResult.best.total_trades} trades
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Rankings table */}
-                <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
-                  <div className="px-5 py-3 border-b border-border/50">
-                    <h3 className="text-sm font-bold text-foreground">All Combinations (ranked by P&L)</h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          {['Rank', 'Fast', 'Slow', 'Total P&L', 'Win Rate', 'Trades', 'Max DD', 'Sharpe'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left text-muted-foreground font-semibold uppercase tracking-wide">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {sweepResult.results.map((r, i) => (
-                          <tr key={i} className={`hover:bg-muted/50 ${i === 0 ? 'bg-amber-50' : ''}`}>
-                            <td className="px-3 py-2 font-bold text-muted-foreground">
-                              {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-foreground">{r.fast_period}</td>
-                            <td className="px-3 py-2 font-mono text-foreground">{r.slow_period}</td>
-                            <td className={`px-3 py-2 font-bold ${r.total_pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className={`px-3 py-2 font-semibold ${r.win_rate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                              {r.win_rate.toFixed(1)}%
-                            </td>
-                            <td className="px-3 py-2 text-foreground">{r.total_trades}</td>
-                            <td className="px-3 py-2 text-orange-600">{r.max_drawdown.toFixed(2)}%</td>
-                            <td className="px-3 py-2 text-foreground">
-                              {r.sharpe_ratio != null ? r.sharpe_ratio.toFixed(2) : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {result && !running && (
-              <>
-                {/* P&L banner */}
-                <div className={`rounded-2xl border p-5 ${pnlBg(result.total_pnl)}`}>
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-0.5">Total P&L</div>
-                      <div className={`text-4xl font-bold ${pnlColor(result.total_pnl)}`}>
-                        {result.total_pnl >= 0 ? '+' : ''}${result.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {((result.total_pnl / result.starting_balance) * 100).toFixed(2)}% return
-                        &nbsp;·&nbsp;
-                        ${result.starting_balance.toLocaleString()} → ${result.ending_balance.toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="text-right text-xs text-muted-foreground">
-                      {result.strategy_name && <div className="font-medium text-foreground mb-0.5">{result.strategy_name}</div>}
-                      <div>{result.start_date} → {result.end_date}</div>
-                      <div>Completed: {new Date(result.completed_at).toLocaleString()}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {METRIC('Total Trades', String(result.total_trades))}
-                  {METRIC('Win Rate', `${result.win_rate.toFixed(1)}%`, undefined, result.win_rate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}
-                  {METRIC('Max Drawdown', result.max_drawdown != null ? `${result.max_drawdown.toFixed(2)}%` : '-', undefined, 'text-orange-600')}
-                  {METRIC('Sharpe Ratio', result.sharpe_ratio != null ? result.sharpe_ratio.toFixed(2) : '-', undefined, result.sharpe_ratio && result.sharpe_ratio >= 1 ? 'text-green-600 dark:text-green-400' : 'text-foreground')}
-                </div>
-                {result.winning_trades != null && (
-                  <div className="grid grid-cols-3 gap-3">
-                    {METRIC('Winning Trades', String(result.winning_trades), undefined, 'text-green-600 dark:text-green-400')}
-                    {METRIC('Losing Trades', String(result.losing_trades ?? 0), undefined, 'text-red-600 dark:text-red-400')}
-                    {METRIC('Total Orders', String(result.total_orders ?? 0))}
-                  </div>
-                )}
-
-                {/* Equity curve */}
-                {equityCurve.length > 1 && (
-                  <div className="bg-card rounded-2xl border border-border/50 shadow-sm p-5">
-                    <h3 className="text-sm font-bold text-foreground mb-3">Equity Curve</h3>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={equityCurve} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis
-                          dataKey="time"
-                          tickFormatter={formatTime}
-                          tick={{ fontSize: 10, fill: '#9ca3af' }}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis
-                          tickFormatter={formatEquityLabel}
-                          tick={{ fontSize: 10, fill: '#9ca3af' }}
-                          width={60}
-                        />
-                        <Tooltip
-                          formatter={(value: number) => [`$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 'Equity']}
-                          labelFormatter={(label: string) => `Time: ${label}`}
-                          contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                        />
-                        <ReferenceLine y={startingBalance} stroke="#d1d5db" strokeDasharray="4 2" />
-                        <Line
-                          type="monotone"
-                          dataKey="equity"
-                          stroke={result.total_pnl >= 0 ? '#16a34a' : '#dc2626'}
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>Start: ${startingBalance.toLocaleString()}</span>
-                      <span>End: ${result.ending_balance.toLocaleString()}</span>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      SMA({sweepResult.best.fast_period}, {sweepResult.best.slow_period}) &nbsp;·&nbsp;
+                      Win rate: {sweepResult.best.win_rate.toFixed(1)}% &nbsp;·&nbsp;
+                      {sweepResult.best.total_trades} trades
                     </div>
                   </div>
                 )}
+              </div>
 
-                {/* Positions table (collapsible) */}
-                {result.positions && result.positions.length > 0 && (
-                  <div className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
-                    <button
-                      onClick={() => setShowPositions(v => !v)}
-                      className="w-full flex justify-between items-center px-5 py-4 text-sm font-bold text-foreground hover:bg-muted/50"
-                    >
-                      <span>Positions ({result.positions.length})</span>
-                      <span>{showPositions ? '▲' : '▼'}</span>
-                    </button>
-                    {showPositions && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-muted/50">
-                            <tr>
-                              {['Instrument', 'Side', 'Qty', 'Avg Open', 'Avg Close', 'Realized P&L', 'Status'].map(h => (
-                                <th key={h} className="px-4 py-2 text-left text-muted-foreground font-semibold uppercase tracking-wide">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="px-4 py-3 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground">All Combinations (ranked by P&L)</h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Rank</TableHead>
+                      <TableHead>Fast</TableHead>
+                      <TableHead>Slow</TableHead>
+                      <TableHead className="text-right">Total P&L</TableHead>
+                      <TableHead className="text-right">Win Rate</TableHead>
+                      <TableHead className="text-right">Trades</TableHead>
+                      <TableHead className="text-right">Max DD</TableHead>
+                      <TableHead className="text-right">Sharpe</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sweepResult.results.map((r, i) => (
+                      <TableRow key={i} className={i === 0 ? 'bg-muted/50' : ''}>
+                        <TableCell className="tabular-mono text-muted-foreground font-medium">#{i + 1}</TableCell>
+                        <TableCell className="tabular-mono">{r.fast_period}</TableCell>
+                        <TableCell className="tabular-mono">{r.slow_period}</TableCell>
+                        <TableCell className={`tabular-mono text-right font-medium ${
+                          r.total_pnl >= 0 ? 'text-profit' : 'text-loss'
+                        }`}>
+                          {r.total_pnl >= 0 ? '+' : ''}${r.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className={`tabular-mono text-right ${
+                          r.win_rate >= 50 ? 'text-profit' : 'text-muted-foreground'
+                        }`}>
+                          {r.win_rate.toFixed(1)}%
+                        </TableCell>
+                        <TableCell className="tabular-mono text-right">{r.total_trades}</TableCell>
+                        <TableCell className="tabular-mono text-right text-alert">{r.max_drawdown.toFixed(2)}%</TableCell>
+                        <TableCell className="tabular-mono text-right">
+                          {r.sharpe_ratio != null ? r.sharpe_ratio.toFixed(2) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {result && !running && (
+            <>
+              <div className={`rounded-lg border p-5 ${
+                result.total_pnl >= 0 ? 'bg-profit-bg border-profit/30' : 'bg-loss-bg border-loss/30'
+              }`}>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Total P&L</div>
+                    <div className={`tabular-mono text-3xl font-bold ${
+                      result.total_pnl >= 0 ? 'text-profit' : 'text-loss'
+                    }`}>
+                      {result.total_pnl >= 0 ? '+' : ''}${result.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {((result.total_pnl / result.starting_balance) * 100).toFixed(2)}% return
+                      &nbsp;·&nbsp;
+                      ${result.starting_balance.toLocaleString()} → ${result.ending_balance.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    {result.strategy_name && <div className="font-medium text-foreground mb-0.5">{result.strategy_name}</div>}
+                    <div>{result.start_date} → {result.end_date}</div>
+                    <div>Completed: {new Date(result.completed_at).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <MetricCard label="Total Trades" value={String(result.total_trades)} />
+                <MetricCard label="Win Rate" value={`${result.win_rate.toFixed(1)}%`}
+                  color={result.win_rate >= 50 ? 'text-profit' : 'text-loss'} />
+                <MetricCard label="Max Drawdown" value={result.max_drawdown != null ? `${result.max_drawdown.toFixed(2)}%` : '-'}
+                  color="text-alert" />
+                <MetricCard label="Sharpe Ratio" value={result.sharpe_ratio != null ? result.sharpe_ratio.toFixed(2) : '-'}
+                  color={result.sharpe_ratio && result.sharpe_ratio >= 1 ? 'text-profit' : undefined} />
+              </div>
+              {result.winning_trades != null && (
+                <div className="grid grid-cols-3 gap-3">
+                  <MetricCard label="Winning Trades" value={String(result.winning_trades)} color="text-profit" />
+                  <MetricCard label="Losing Trades" value={String(result.losing_trades ?? 0)} color="text-loss" />
+                  <MetricCard label="Total Orders" value={String(result.total_orders ?? 0)} />
+                </div>
+              )}
+
+              {equityCurve.length > 1 && (
+                <div className="border border-border rounded-lg p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Equity Curve</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={equityCurve} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                      <CartesianGrid {...chartDefaults.grid} />
+                      <XAxis
+                        dataKey="time"
+                        tickFormatter={formatTime}
+                        tick={chartDefaults.axis.tick}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tickFormatter={formatEquityLabel}
+                        tick={chartDefaults.axis.tick}
+                        width={60}
+                      />
+                      <Tooltip
+                        {...chartDefaults.tooltip}
+                        formatter={(value: number) => [`$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 'Equity']}
+                        labelFormatter={(label: string) => `Time: ${label}`}
+                      />
+                      <ReferenceLine y={startingBalance} stroke="hsl(var(--muted-foreground))" strokeDasharray="4 2" />
+                      <Line
+                        type="monotone"
+                        dataKey="equity"
+                        stroke={result.total_pnl >= 0 ? chartDefaults.profitStroke : chartDefaults.lossStroke}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>Start: ${startingBalance.toLocaleString()}</span>
+                    <span>End: ${result.ending_balance.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+
+              {result.positions && result.positions.length > 0 && (
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="positions" className="border border-border rounded-lg">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                      <span className="text-sm font-medium">Positions ({result.positions.length})</span>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="overflow-x-auto px-4 pb-4">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Instrument</TableHead>
+                              <TableHead>Side</TableHead>
+                              <TableHead className="text-right">Qty</TableHead>
+                              <TableHead className="text-right">Avg Open</TableHead>
+                              <TableHead className="text-right">Avg Close</TableHead>
+                              <TableHead className="text-right">Realized P&L</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
                             {result.positions.slice(0, 50).map((pos, i) => {
                               const side = String(pos.side ?? '');
                               const isBuy = side.includes('LONG') || side.includes('BUY');
                               return (
-                                <tr key={i} className="hover:bg-muted/50">
-                                  <td className="px-4 py-2 font-mono text-foreground">{pos.instrument_id}</td>
-                                  <td className="px-4 py-2">
-                                    <span className={`font-bold ${isBuy ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                      {isBuy ? 'LONG' : 'SHORT'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2 text-foreground">{Number(pos.quantity).toLocaleString()}</td>
-                                  <td className="px-4 py-2 text-foreground">{pos.avg_px_open?.toFixed(5) ?? '-'}</td>
-                                  <td className="px-4 py-2 text-foreground">{pos.avg_px_close?.toFixed(5) ?? '-'}</td>
-                                  <td className={`px-4 py-2 font-semibold ${pos.realized_pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                <TableRow key={i}>
+                                  <TableCell className="tabular-mono">{pos.instrument_id}</TableCell>
+                                  <TableCell>
+                                    <span className={`tabular-mono text-sm font-semibold ${
+                                      isBuy ? 'text-profit' : 'text-loss'
+                                    }`}>{isBuy ? 'LONG' : 'SHORT'}</span>
+                                  </TableCell>
+                                  <TableCell className="tabular-mono text-right">{Number(pos.quantity).toLocaleString()}</TableCell>
+                                  <TableCell className="tabular-mono text-right">{pos.avg_px_open?.toFixed(5) ?? '-'}</TableCell>
+                                  <TableCell className="tabular-mono text-right">{pos.avg_px_close?.toFixed(5) ?? '-'}</TableCell>
+                                  <TableCell className={`tabular-mono text-right font-medium ${
+                                    pos.realized_pnl >= 0 ? 'text-profit' : 'text-loss'
+                                  }`}>
                                     {pos.realized_pnl >= 0 ? '+' : ''}{pos.realized_pnl?.toFixed(2) ?? '0.00'}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${pos.is_closed ? 'bg-muted text-muted-foreground' : 'bg-green-100 text-green-700'}`}>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant={pos.is_closed ? 'outline' : 'default'}>
                                       {pos.is_closed ? 'CLOSED' : 'OPEN'}
-                                    </span>
-                                  </td>
-                                </tr>
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
                               );
                             })}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                         {result.positions.length > 50 && (
-                          <div className="text-center text-xs text-muted-foreground py-2">Showing 50 of {result.positions.length} positions</div>
+                          <div className="text-center text-xs text-muted-foreground py-2">
+                            Showing 50 of {result.positions.length} positions
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }

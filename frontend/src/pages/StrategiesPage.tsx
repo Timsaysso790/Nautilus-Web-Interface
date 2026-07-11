@@ -1,5 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
+import AppLayout from "@/components/AppLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Play, Square, Trash2, FlaskConical, BarChart3 } from "lucide-react";
 
 interface Strategy {
   id: string;
@@ -86,191 +112,174 @@ export default function StrategiesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-8">
-        <div className="text-center">Loading strategies...</div>
-      </div>
+      <AppLayout title="Strategy Management" subtitle="Manage and monitor your trading strategies">
+        <div className="text-center text-muted-foreground py-12">Loading strategies...</div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-7xl mx-auto">
-        {fetchError && (
-          <div className="mb-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-4 py-3 text-sm">
-            {fetchError}
-          </div>
-        )}
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">📈 Strategy Management</h1>
-            <p className="text-muted-foreground">Manage and monitor your trading strategies</p>
-          </div>
-          <div className="flex gap-4">
-            <button
-              onClick={() => window.location.href = '/trader'}
-              className="px-6 py-3 bg-card border-2 border-input text-foreground rounded-lg hover:bg-muted/50 transition-all font-semibold"
-            >
-              ← Back to Dashboard
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
-            >
-              + Add Strategy
-            </button>
-          </div>
+    <AppLayout
+      title="Strategies"
+      subtitle="Manage and monitor your trading strategies"
+      actions={
+        <Button onClick={() => setShowAddModal(true)} size="sm">
+          <Plus className="h-4 w-4 mr-1" />
+          Add Strategy
+        </Button>
+      }
+    >
+      {fetchError && (
+        <div className="mb-4 bg-loss-bg border border-loss/30 text-loss rounded-lg px-4 py-3 text-sm">
+          {fetchError}
         </div>
+      )}
 
-        {/* Strategies Grid */}
-        {strategies.length === 0 ? (
-          <div className="bg-card rounded-xl shadow-sm border p-12 text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <h3 className="text-2xl font-bold text-foreground mb-2">No Strategies Yet</h3>
-            <p className="text-muted-foreground mb-6">Add your first trading strategy to get started</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
-            >
-              + Add Strategy
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {strategies.map((strategy) => (
-              <div key={strategy.id} className="bg-card rounded-xl border p-6 hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start mb-4">
+      {strategies.length === 0 ? (
+        <div className="max-w-md mx-auto mt-12 text-center">
+          <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Strategies Yet</h3>
+          <p className="text-sm text-muted-foreground mb-6">Add your first trading strategy to get started</p>
+          <Button onClick={() => setShowAddModal(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Strategy
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {strategies.map((strategy) => (
+            <Card key={strategy.id} className="hover:border-primary/30 transition-all">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-xl font-bold text-foreground">{strategy.name}</h3>
-                    <p className="text-sm text-muted-foreground">{strategy.type}</p>
+                    <CardTitle className="text-base">{strategy.name}</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">{strategy.type}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    strategy.status === 'running' 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                      : 'bg-muted text-foreground'
-                  }`}>
+                  <Badge variant={strategy.status === 'running' ? 'default' : 'secondary'}>
                     {strategy.status}
-                  </span>
+                  </Badge>
                 </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {strategy.description || 'No description'}
+                </p>
 
-                <p className="text-muted-foreground text-sm mb-4">{strategy.description || 'No description'}</p>
-
-                {/* Performance Metrics */}
-                <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                <div className="bg-muted/50 rounded-lg p-3 mb-4">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <div className="text-xs text-muted-foreground">P&L</div>
-                      <div className={`font-bold ${(strategy.performance?.total_pnl ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      <div className={`tabular-mono text-sm font-semibold ${
+                        (strategy.performance?.total_pnl ?? 0) >= 0 ? 'text-profit' : 'text-loss'
+                      }`}>
                         ${(strategy.performance?.total_pnl ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Trades</div>
-                      <div className="font-bold text-foreground">{strategy.performance?.total_trades ?? 0}</div>
+                      <div className="tabular-mono text-sm font-semibold text-foreground">
+                        {strategy.performance?.total_trades ?? 0}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Win Rate</div>
-                      <div className="font-bold text-primary">{((strategy.performance?.win_rate ?? 0) * 100).toFixed(1)}%</div>
+                      <div className="tabular-mono text-sm font-semibold text-primary">
+                        {((strategy.performance?.win_rate ?? 0) * 100).toFixed(1)}%
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-2">
                   {strategy.status === 'stopped' ? (
-                    <button
+                    <Button
                       onClick={() => handleStartStrategy(strategy.id)}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-semibold text-sm"
+                      size="sm"
+                      className="flex-1"
                     >
-                      ▶ Start
-                    </button>
+                      <Play className="h-3 w-3 mr-1" />
+                      Start
+                    </Button>
                   ) : (
-                    <button
+                    <Button
                       onClick={() => handleStopStrategy(strategy.id)}
-                      className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all font-semibold text-sm"
+                      size="sm"
+                      variant="secondary"
+                      className="flex-1"
                     >
-                      ⏸ Stop
-                    </button>
+                      <Square className="h-3 w-3 mr-1" />
+                      Stop
+                    </Button>
                   )}
-                  <button
+                  <Button
                     onClick={() => handleDeleteStrategy(strategy.id)}
-                    className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all font-semibold text-sm"
+                    size="sm"
+                    variant="outline"
+                    className="text-loss hover:text-loss"
                   >
-                    🗑️
-                  </button>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {/* Add Strategy Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-card rounded-xl shadow-2xl p-8 max-w-md w-full">
-              <h2 className="text-2xl font-bold text-foreground mb-6">Add New Strategy</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-2">Strategy Name</label>
-                  <input
-                    type="text"
-                    value={newStrategy.name}
-                    onChange={(e) => setNewStrategy({ ...newStrategy, name: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder="My Trading Strategy"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-2">Strategy Type</label>
-                  <select
-                    value={newStrategy.type}
-                    onChange={(e) => setNewStrategy({ ...newStrategy, type: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="sma_crossover">SMA Crossover</option>
-                    <option value="rsi">RSI</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-2">Description</label>
-                  <textarea
-                    value={newStrategy.description}
-                    onChange={(e) => setNewStrategy({ ...newStrategy, description: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-input rounded-lg focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
-                    rows={3}
-                    placeholder="Describe your strategy..."
-                  />
-                </div>
-              </div>
-
-              {modalError && (
-                <div className="mt-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm">
-                  {modalError}
-                </div>
-              )}
-              <div className="flex gap-4 mt-6">
-                <button
-                  onClick={() => { setShowAddModal(false); setModalError(null); }}
-className="flex-1 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-all font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAddStrategy}
-                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all font-semibold"
-                  disabled={!newStrategy.name}
-                >
-                  Add Strategy
-                </button>
-              </div>
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Strategy</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Strategy Name</label>
+              <Input
+                value={newStrategy.name}
+                onChange={(e) => setNewStrategy({ ...newStrategy, name: e.target.value })}
+                placeholder="My Trading Strategy"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Strategy Type</label>
+              <Select
+                value={newStrategy.type}
+                onValueChange={(value) => setNewStrategy({ ...newStrategy, type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sma_crossover">SMA Crossover</SelectItem>
+                  <SelectItem value="rsi">RSI</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
+              <Textarea
+                value={newStrategy.description}
+                onChange={(e) => setNewStrategy({ ...newStrategy, description: e.target.value })}
+                rows={3}
+                placeholder="Describe your strategy..."
+              />
             </div>
           </div>
-        )}
-      </div>
-    </div>
+          {modalError && (
+            <div className="bg-loss-bg border border-loss/30 text-loss rounded-lg px-3 py-2 text-sm">
+              {modalError}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAddModal(false); setModalError(null); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddStrategy} disabled={!newStrategy.name}>
+              Add Strategy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AppLayout>
   );
 }
-

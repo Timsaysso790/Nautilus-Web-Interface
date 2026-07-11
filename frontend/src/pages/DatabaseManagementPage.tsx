@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useNotification } from "@/contexts/NotificationContext";
+import AppLayout from "@/components/AppLayout";
 import { dataLakeService, type TickerCoverage, type NvmeCacheEntry, type ConvertTaskStatus } from "@/services/dataLakeService";
 
 // ── Project types ─────────────────────────────────────────────────────────────
@@ -302,7 +303,7 @@ function ArchiveCacheTab() {
                       <tr key={t.ticker} className="border-b last:border-b-0">
                         <td className="py-3 font-semibold">{t.ticker}</td>
                         <td className="py-3">
-                          <Badge className="bg-green-100 text-green-700 text-[10px]">
+                          <Badge variant="default" className="text-[10px]">
                             {entry ? formatBytes(entry.size_bytes) : "—"}
                           </Badge>
                         </td>
@@ -496,7 +497,7 @@ function ProjectsTab() {
                           <div className="flex items-center gap-2">
                             <Badge className={f._file_type === "result"
                               ? "bg-blue-100 text-blue-700"
-                              : "bg-amber-100 text-amber-700"}>
+                              : "bg-alert/10 text-alert"}>
                               {f._file_type}
                             </Badge>
                             <span className="font-mono">{f._file}</span>
@@ -550,22 +551,10 @@ export default function DatabaseManagementPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Database Management</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage data downloads, archive, cache, and backtest projects
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => navigate("/admin")}>← Back to Admin</Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-6">
+    <AppLayout
+      title="Database Management"
+      subtitle="Manage data downloads, archive, cache, and backtest projects"
+    >
         <div className="flex gap-1 border-b">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -582,7 +571,6 @@ export default function DatabaseManagementPage() {
         {tab === "download" && <DataDownloadTab />}
         {tab === "archive" && <ArchiveCacheTab />}
         {tab === "projects" && <ProjectsTab />}
-      </main>
-    </div>
+    </AppLayout>
   );
 }

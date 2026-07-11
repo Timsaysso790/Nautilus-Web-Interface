@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useNotification } from "@/contexts/NotificationContext";
 import { dataLakeService, type DataSource } from "@/services/dataLakeService";
 import { API_CONFIG } from '@/config';
+import AppLayout from "@/components/AppLayout";
+import { RefreshCw } from "lucide-react";
 
 interface ApiEndpoint {
   id: number;
@@ -302,13 +304,13 @@ export default function ApiConfigPage() {
 
   const getMethodColor = (method: string) => {
     const colors: Record<string, string> = {
-      'GET': 'bg-blue-100 text-blue-700',
-      'POST': 'bg-green-100 text-green-700',
-      'PUT': 'bg-yellow-100 text-yellow-700',
-      'DELETE': 'bg-red-100 text-destructive',
-      'PATCH': 'bg-purple-100 text-purple-700'
+      'GET': 'text-primary',
+      'POST': 'text-profit',
+      'PUT': 'text-alert',
+      'DELETE': 'text-destructive',
+      'PATCH': 'text-alert'
     };
-    return colors[method] || 'bg-muted text-foreground';
+    return colors[method] || 'text-muted-foreground';
   };
 
   const getStatusBadge = (health: ApiHealth | undefined) => {
@@ -317,13 +319,13 @@ export default function ApiConfigPage() {
     switch (health.status) {
       case 'healthy':
         return (
-          <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">
+          <span className="px-2 py-1 text-xs rounded text-profit bg-profit-bg">
             ✓ Healthy ({health.response_time}ms)
           </span>
         );
       case 'unhealthy':
         return (
-          <span className="px-2 py-1 text-xs rounded bg-red-100 text-destructive">
+          <span className="px-2 py-1 text-xs rounded text-loss bg-loss-bg">
             ✗ Unhealthy {health.error && `(${health.error})`}
           </span>
         );
@@ -333,31 +335,16 @@ export default function ApiConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/50">
-      {/* Header */}
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">⚙️ API Configuration & Routes</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage backend API endpoints and their routes
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={loadEndpoints} variant="outline">
-                ↻ Refresh
-              </Button>
-              <Button onClick={() => window.history.back()} variant="outline">
-                ← Back
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+    <AppLayout
+      title="API Configuration & Routes"
+      subtitle="Manage backend API endpoints and their routes"
+      actions={
+        <Button onClick={loadEndpoints} variant="outline" size="sm">
+          <RefreshCw className="h-3.5 w-3.5 mr-1" />
+          Refresh
+        </Button>
+      }
+    >
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : (
@@ -423,7 +410,7 @@ export default function ApiConfigPage() {
                   <CardContent>
                     {/* Add Route Form */}
                     {showAddRoute && (
-                      <div className="mb-6 p-4 border border-green-200 rounded-lg bg-green-50">
+                      <div className="mb-6 p-4 border border-profit/30 rounded-lg bg-profit-bg">
                         <h4 className="font-semibold mb-3">Add New Route</h4>
                         <div className="grid grid-cols-2 gap-3 mb-3">
                           <div>
@@ -472,7 +459,7 @@ export default function ApiConfigPage() {
                           />
                         </div>
                         <div className="flex gap-2">
-                          <Button onClick={handleAddRoute} size="sm" className="bg-green-600 hover:bg-green-700">
+                          <Button onClick={handleAddRoute} size="sm">
                             💾 Save
                           </Button>
                           <Button onClick={() => setShowAddRoute(false)} size="sm" variant="outline">
@@ -524,7 +511,7 @@ export default function ApiConfigPage() {
                                 />
                               </div>
                               <div className="flex gap-2">
-                                <Button onClick={() => handleSaveRoute(route.id)} size="sm" className="bg-green-600">
+                                <Button onClick={() => handleSaveRoute(route.id)} size="sm">
                                   💾 Save
                                 </Button>
                                 <Button onClick={() => setEditingRoute(null)} size="sm" variant="outline">
@@ -547,7 +534,7 @@ export default function ApiConfigPage() {
                                     </span>
                                   )}
                                   {route.requires_auth === 1 && (
-                                    <span className="px-2 py-1 text-xs rounded bg-orange-100 text-orange-700">
+                                    <span className="px-2 py-1 text-xs rounded bg-alert/10 text-alert">
                                       🔒 Auth
                                     </span>
                                   )}
@@ -567,7 +554,7 @@ export default function ApiConfigPage() {
 
                               {testResults[route.id] && (
                                 <div className={`mb-3 p-2 rounded text-xs ${
-                                  testResults[route.id].success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                                  testResults[route.id].success ? 'bg-profit-bg border border-profit/30' : 'bg-loss-bg border border-loss/30'
                                 }`}>
                                   <div className="font-semibold mb-1">
                                     Test Result: {testResults[route.id].success ? '✓ Success' : '✗ Failed'}
@@ -602,7 +589,7 @@ export default function ApiConfigPage() {
                                   onClick={() => handleDeleteRoute(route.id)} 
                                   size="sm" 
                                   variant="outline"
-                                  className="text-red-600 dark:text-red-400 hover:text-destructive"
+                                  className="text-loss hover:text-destructive"
                                 >
                                   🗑️ Delete
                                 </Button>
@@ -648,7 +635,7 @@ export default function ApiConfigPage() {
             </CardHeader>
             <CardContent>
               {showAddSource && (
-                <div className="mb-6 p-4 border border-green-200 rounded-lg bg-green-50 space-y-3">
+                <div className="mb-6 p-4 border border-profit/30 rounded-lg bg-profit-bg space-y-3">
                   <div className="grid md:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-sm font-medium mb-1">Provider</label>
@@ -671,7 +658,7 @@ export default function ApiConfigPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={handleAddSource} size="sm" className="bg-green-600">Save</Button>
+                    <Button onClick={handleAddSource} size="sm">Save</Button>
                     <Button onClick={() => setShowAddSource(false)} size="sm" variant="outline">Cancel</Button>
                   </div>
                 </div>
@@ -702,8 +689,7 @@ export default function ApiConfigPage() {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+    </AppLayout>
   );
 }
 
