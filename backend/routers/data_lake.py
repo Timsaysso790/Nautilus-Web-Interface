@@ -448,7 +448,8 @@ async def start_batch_download(req: BatchDownloadRequest, background_tasks: Back
 @router.get("/thetadata/symbols")
 async def theta_symbols():
     try:
-        syms = list_symbols()
+        api_key = await _get_theta_api_key()
+        syms = list_symbols(api_key=api_key)
         return {"symbols": syms[:500]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -535,11 +536,11 @@ async def delete_ticker(ticker: str):
 # ── NVMe Cache endpoints ─────────────────────────────────────────────────────────
 
 def _run_cache_convert(task_id: str, ticker: str, archive_root: str, cache_root: str):
-    def cb(msg, converted, conv, skipped, errors, total):
+    def cb(msg, processed, converted, skipped, errors, total):
         _convert_tasks[task_id].update({
             "status": "running",
             "current_file": msg,
-            "processed": converted,
+            "processed": processed,
             "converted": converted,
             "skipped": skipped,
             "errors": errors,

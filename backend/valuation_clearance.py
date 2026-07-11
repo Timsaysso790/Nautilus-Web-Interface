@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import yfinance as yf
+
+import data_loader
 
 logger = logging.getLogger(__name__)
 
@@ -113,17 +114,14 @@ async def load_macro_data(
     end: str,
     symbols: Optional[List[str]] = None,
 ) -> Dict[str, pd.DataFrame]:
-    """Load daily OHLCV data for macro symbols."""
+    """Load daily OHLCV data for macro symbols from the theta archive."""
     if symbols is None:
         symbols = MACRO_SYMBOLS
     result: Dict[str, pd.DataFrame] = {}
     for sym in symbols:
-        tk = yf.Ticker(sym)
-        df = tk.history(start=start, end=end, interval="1d")
-        if not df.empty:
-            df.reset_index(inplace=True)
-            date_col = "Datetime" if "Datetime" in df.columns else "Date"
-            df[date_col] = pd.to_datetime(df[date_col])
-            df.rename(columns={date_col: "Date"}, inplace=True)
-        result[sym] = df
+        try:
+            result[sym] = data_loader.load_daily_prices(sym, start, end)
+        except FileNotFoundError:
+            logger.warning("No archive data for macro symbol %s", sym)
+            result[sym] = pd.DataFrame()
     return result

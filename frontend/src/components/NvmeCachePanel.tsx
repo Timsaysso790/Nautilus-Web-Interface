@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +30,8 @@ export default function NvmeCachePanel() {
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState<string | null>(null);
   const [convertProgress, setConvertProgress] = useState<ConvertTaskStatus | null>(null);
-  const [pollInterval, setPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const notify = useCallback((msg: string, type: "success" | "error" | "info" = "info") => {
     addNotification(type, msg);
@@ -50,23 +50,25 @@ export default function NvmeCachePanel() {
 
   useEffect(() => {
     loadCache();
-    return () => { if (pollInterval) clearInterval(pollInterval); };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
   const startPolling = useCallback((taskId: string) => {
-    if (pollInterval) clearInterval(pollInterval);
-    const interval = setInterval(async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
       try {
         const status = await dataLakeService.getConvertStatus(taskId);
         setConvertProgress(status);
         if (status.status === "completed") {
-          clearInterval(interval);
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
           setConverting(null);
           setConvertProgress(null);
           notify(`Converted: ${status.converted} records, ${status.errors} errors`, status.errors > 0 ? "error" : "success");
           loadCache();
         } else if (status.status === "error") {
-          clearInterval(interval);
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
           setConverting(null);
           setConvertProgress(null);
           notify(`Conversion failed: ${status.error_detail || "Unknown error"}`, "error");
@@ -75,7 +77,6 @@ export default function NvmeCachePanel() {
         // keep polling
       }
     }, 1000);
-    setPollInterval(interval);
   }, [notify, loadCache]);
 
   const handleConvert = async (ticker: string) => {

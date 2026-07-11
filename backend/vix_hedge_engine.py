@@ -10,8 +10,8 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import yfinance as yf
 
+import data_loader
 from option_service import calculate_bsm
 
 logger = logging.getLogger(__name__)
@@ -61,16 +61,14 @@ async def _vix_option_price(
 
 
 async def load_vix_data(start: str, end: str) -> pd.DataFrame:
-    """Load ^VIX daily data via yfinance."""
-    tk = yf.Ticker(VIX_DEFAULT)
-    df = tk.history(start=start, end=end, interval="1d")
-    if df.empty:
-        return df
-    df.reset_index(inplace=True)
-    date_col = "Datetime" if "Datetime" in df.columns else "Date"
-    df[date_col] = pd.to_datetime(df[date_col])
-    df.rename(columns={date_col: "Date"}, inplace=True)
-    return df
+    """Load VIX daily data from the theta archive."""
+    try:
+        return data_loader.load_daily_prices(VIX_DEFAULT, start, end)
+    except FileNotFoundError:
+        logger.error(
+            "VIX not in theta archive. Download it from the Data Harvest tab."
+        )
+        return pd.DataFrame()
 
 
 def compute_vix_ma(vix_prices: pd.Series, period: int = 20) -> float:

@@ -5,12 +5,10 @@ via ParquetDataCatalog.write_data().
 """
 
 import logging
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
-import pyarrow.parquet as pq
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +46,9 @@ def convert_ticker(
 
     try:
         from nautilus_trader.persistence.catalog import ParquetDataCatalog
+        from nautilus_trader.model.data import Bar, BarType
+        from nautilus_trader.model.identifiers import InstrumentId
+        from nautilus_trader.model.objects import Price, Quantity
     except ImportError:
         logger.error("nautilus_trader not available — cannot convert")
         stats["errors"] = 1
@@ -61,24 +62,23 @@ def convert_ticker(
     bars_dir = archive / "5min"
     if bars_dir.exists():
         bar_files = sorted(bars_dir.rglob("*.parquet"))
+        processed_files = 0
         for fpath in bar_files:
             try:
                 df = pd.read_parquet(fpath)
                 if df.empty:
                     stats["skipped"] += 1
+                    processed_files += 1
                     continue
 
                 bars = []
                 for _, row in df.iterrows():
-                    from nautilus_trader.model.data import Bar
-                    from nautilus_trader.model.identifiers import InstrumentId, Venue
-                    from nautilus_trader.model.objects import Price, Quantity
-                    from nautilus_trader.model.enums import BarAggregation, PriceType
-
                     iid = InstrumentId.from_str(f"{row['symbol']}.XNAS")
                     ts = _ts_nanos(row.get("ts_event", 0))
+
+                    bar_type = BarType.from_str(f"{iid}-5-MINUTE-LAST-EXTERNAL")
                     bar = Bar(
-                        instrument_id=iid,
+                        bar_type=bar_type,
                         open=Price.from_str(str(row["open"])),
                         high=Price.from_str(str(row["high"])),
                         low=Price.from_str(str(row["low"])),
@@ -86,42 +86,39 @@ def convert_ticker(
                         volume=Quantity.from_str(str(row["volume"])),
                         ts_event=ts,
                         ts_init=ts,
-                        bar_spec=Bar.BarSpec(
-                            step=5,
-                            aggregation=BarAggregation.MINUTE,
-                            price_type=PriceType.LAST,
-                        ),
                     )
                     bars.append(bar)
 
                 if bars:
                     catalog.write_data(bars)
                     stats["converted"] += len(bars)
+                processed_files += 1
             except Exception as e:
                 logger.exception("Error converting bars %s: %s", fpath, e)
                 stats["errors"] += 1
-
-        if progress_callback:
-            progress_callback(f"Converted bars for {ticker}", stats["converted"], stats["converted"], stats["skipped"], stats["errors"], len(bar_files))
+            finally:
+                if progress_callback:
+                    progress_callback(f"{fpath.name}", processed_files, stats["converted"], stats["skipped"], stats["errors"], len(bar_files))
 
     # Convert option Greeks EOD
     greeks_dir = archive / "option_greeks_eod"
     if greeks_dir.exists():
+        from nautilus_trader.model.data import OptionGreeks
+        from nautilus_trader.model.objects import Price
+        from nautilus_trader.model.enums import OptionKind, OptionActivation
+
         greek_files = sorted(greeks_dir.rglob("*.parquet"))
+        processed_files = 0
         for fpath in greek_files:
             try:
                 df = pd.read_parquet(fpath)
                 if df.empty:
                     stats["skipped"] += 1
+                    processed_files += 1
                     continue
 
                 records = []
                 for _, row in df.iterrows():
-                    from nautilus_trader.model.data import OptionGreeks, OptionContract
-                    from nautilus_trader.model.identifiers import InstrumentId, Venue
-                    from nautilus_trader.model.objects import Price
-                    from nautilus_trader.model.enums import OptionKind, OptionActivation
-
                     iid = InstrumentId.from_str(_instrument_id(
                         row.get("symbol", ticker),
                         row.get("expiration", ""),
@@ -134,12 +131,13 @@ def convert_ticker(
 
                     greeks = OptionGreeks(
                         instrument_id=iid,
-                        convention=OptionActivation.NORMAL,  # approximate
+                        convention=OptionActivation.NORMAL,
                         delta=float(row.get("delta", 0)),
                         gamma=float(row.get("gamma", 0)),
                         theta=float(row.get("theta", 0)),
                         vega=float(row.get("vega", 0)),
                         rho=float(row.get("rho", 0)),
+                        mark_price=float(row.get("close", 0)),
                         mark_iv=float(row.get("implied_vol", 0)),
                         underlying_price=Price.from_str(str(row.get("underlying_price", 0))),
                         ts_event=ts,
@@ -151,12 +149,13 @@ def convert_ticker(
                 if records:
                     catalog.write_data(records)
                     stats["converted"] += len(records)
+                processed_files += 1
             except Exception as e:
                 logger.exception("Error converting Greeks %s: %s", fpath, e)
                 stats["errors"] += 1
-
-        if progress_callback:
-            progress_callback(f"Converted Greeks for {ticker}", stats["converted"], stats["converted"], stats["skipped"], stats["errors"], len(greek_files))
+            finally:
+                if progress_callback:
+                    progress_callback(f"{fpath.name}", processed_files, stats["converted"], stats["skipped"], stats["errors"], len(greek_files))
 
     return stats
 

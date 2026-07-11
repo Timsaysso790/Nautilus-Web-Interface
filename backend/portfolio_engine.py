@@ -8,8 +8,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import yfinance as yf
 
+import data_loader
 import dividend_pipeline
 import margin_bridge
 import valuation_clearance
@@ -100,14 +100,11 @@ async def run_portfolio_backtest(config: Dict[str, Any]) -> Dict[str, Any]:
     # Equity price data for all configured tickers
     equity_data: Dict[str, pd.DataFrame] = {}
     for ticker in tickers:
-        tk = yf.Ticker(ticker)
-        df = tk.history(start=start_date, end=end_date, interval="1d")
-        if not df.empty:
-            df.reset_index(inplace=True)
-            date_col = "Datetime" if "Datetime" in df.columns else "Date"
-            df[date_col] = pd.to_datetime(df[date_col])
-            df.rename(columns={date_col: "Date"}, inplace=True)
-        equity_data[ticker] = df
+        try:
+            equity_data[ticker] = data_loader.load_daily_prices(ticker, start_date, end_date)
+        except FileNotFoundError:
+            logger.warning("No archive data for %s — skipping", ticker)
+            equity_data[ticker] = pd.DataFrame()
 
     # ── Warm dividend cache ────────────────────────────────────────────
     for ticker in tickers:

@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import yfinance as yf
 
+import data_loader
 from option_service import calculate_bsm, _norm_cdf
 from option_strategies import StrategyConfig, OptionLeg
 
@@ -19,22 +19,6 @@ logger = logging.getLogger(__name__)
 
 COMMISSION_PER_CONTRACT = 0.65
 CONTRACT_MULTIPLIER = 100
-
-
-def _load_data(symbol: str, start: str, end: str, resolution: str = "daily") -> pd.DataFrame:
-    """Load price data with resolution fallback: 1m -> 5m -> daily -> yfinance."""
-    tk = yf.Ticker(symbol)
-    interval = resolution if resolution in ("1m", "5m") else "1d"
-    df = tk.history(start=start, end=end, interval=interval)
-    if df.empty:
-        df = tk.history(start=start, end=end, interval="1d")
-    if df.empty:
-        return df
-    df.reset_index(inplace=True)
-    date_col = "Datetime" if "Datetime" in df.columns else "Date"
-    df[date_col] = pd.to_datetime(df[date_col])
-    df.rename(columns={date_col: "Date"}, inplace=True)
-    return df
 
 
 def _compute_rsi(prices: pd.Series, period: int = 14) -> float:
@@ -203,7 +187,10 @@ async def run_options_station(config: Dict[str, Any]) -> Dict[str, Any]:
     if not legs_config:
         return {"success": False, "error": "No legs configured"}
 
-    df = _load_data(symbol, start, end, resolution)
+    try:
+        df = data_loader.load_bars(symbol, start, end, resolution)
+    except FileNotFoundError as e:
+        return {"success": False, "error": str(e)}
     if df.empty:
         return {"success": False, "error": f"No price data for {symbol} in range {start} to {end}"}
 

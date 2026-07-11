@@ -168,13 +168,14 @@ def download_equity_bars(
                 progress_callback(f"EOD error: {e}", 0, 0, 0, 1, 0)
             return stats
 
+        monthly_bars: Dict[Tuple[int, int], List[dict]] = {}
         if df is not None and not df.empty:
             for _, row in df.iterrows():
                 ts = row.get("created") or row.get("timestamp")
                 if ts is None:
                     continue
                 ts_dt = pd.Timestamp(ts)
-                all_records.append({
+                rec = {
                     "symbol": symbol.upper(),
                     "ts_event": int(ts_dt.timestamp() * 1_000_000_000),
                     "open": float(row.get("open", 0)),
@@ -182,15 +183,19 @@ def download_equity_bars(
                     "low": float(row.get("low", 0)),
                     "close": float(row.get("close", 0)),
                     "volume": int(row.get("volume", 0)),
-                })
-            stats["converted"] = len(all_records)
+                }
+                key = (ts_dt.year, ts_dt.month)
+                monthly_bars.setdefault(key, []).append(rec)
+            stats["converted"] = len(df)
         else:
             stats["skipped"] = 1
 
         out_path = Path(output_dir) / "theta" / symbol.upper() / "5min"
-        _write_bar_month(all_records, out_path, 0, 0)
+        for (year, month), records in monthly_bars.items():
+            _write_bar_month(records, out_path, year, month)
         if progress_callback:
-            progress_callback(f"Done — {len(all_records)} bars written", 0, len(all_records), 0, stats["skipped"], 0)
+            total_records = sum(len(v) for v in monthly_bars.values())
+            progress_callback(f"Done — {total_records} bars written", 0, total_records, 0, stats["skipped"], 0)
         return stats
 
     # Value+ tier: day-by-day 1-min OHLC, aggregate to 5-min
@@ -516,11 +521,14 @@ def delete_ticker(catalog_path: str, ticker: str) -> int:
     return 0
 
 
-def list_symbols(catalog_path: Optional[str] = None) -> List[str]:
+def list_symbols(catalog_path: Optional[str] = None, api_key: Optional[str] = None) -> List[str]:
     if catalog_path is None:
         try:
             from thetadata import ThetaClient
-            client = ThetaClient()
+            kwargs = {}
+            if api_key:
+                kwargs["api_key"] = api_key
+            client = ThetaClient(**kwargs)
             syms = _to_pandas(client.stock_list_symbols())
             if syms is not None and not syms.empty:
                 return sorted(syms.iloc[:, 0].tolist())
