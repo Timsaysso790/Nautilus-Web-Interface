@@ -9,8 +9,7 @@ import { OptionsStationResults } from "./components/OptionsStationResults";
 import { ProcessingModal } from "./components/ProcessingModal";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { SaveTemplateDialog } from "./components/SaveTemplateDialog";
-import { PortfolioEngineForm } from "./components/PortfolioEngineForm";
-import { PortfolioEngineResults } from "./components/PortfolioEngineResults";
+import PortfolioEnginePage from "./PortfolioEnginePage";
 
 type Tab = "options" | "portfolio";
 
@@ -217,16 +216,7 @@ export default function BacktestStationPage() {
           </div>
         )}
 
-        {tab === "portfolio" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <PortfolioEngineForm />
-            </div>
-            <div className="lg:col-span-2">
-              <PortfolioEngineResults />
-            </div>
-          </div>
-        )}
+        {tab === "portfolio" && <PortfolioEnginePage />}
       </main>
 
       <NewProjectDialog

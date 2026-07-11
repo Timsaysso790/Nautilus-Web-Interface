@@ -193,6 +193,19 @@ async def init_db() -> None:
                 PRIMARY KEY (symbol)
             );
 
+            CREATE TABLE IF NOT EXISTS dividend_cache (
+                ticker      TEXT PRIMARY KEY,
+                dividends   TEXT NOT NULL,
+                fetched_at  TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS portfolio_asset_config (
+                id          TEXT PRIMARY KEY,
+                user_id     TEXT NOT NULL,
+                config_json TEXT NOT NULL,
+                created_at  TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS backtest_projects (
                 id          TEXT PRIMARY KEY,
                 name        TEXT NOT NULL,

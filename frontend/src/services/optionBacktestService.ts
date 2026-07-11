@@ -138,4 +138,22 @@ export const optionBacktestService = {
   async runOptionsStation(config: any) {
     return api.post<any>('/api/backtest/options-station/run', config);
   },
+
+  // ── Portfolio Engine Backtest ────────────────────────────────────────────
+
+  async runPortfolioBacktest(config: any) {
+    return api.post<any>('/api/backtest/portfolio/run', config);
+  },
+
+  async fetchDividends(ticker: string) {
+    return api.get<{ ticker: string; dividends: { date: string; amount: number }[]; cached: boolean }>(
+      `/api/backtest/portfolio/dividends?ticker=${ticker}`
+    );
+  },
+
+  async fetchMacroPrices(symbols = "QQQ,IWM") {
+    return api.get<{ symbols: Record<string, { close: number | null; date: string | null }> }>(
+      `/api/backtest/portfolio/macro-prices?symbols=${symbols}`
+    );
+  },
 };

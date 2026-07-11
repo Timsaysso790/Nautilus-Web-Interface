@@ -40,6 +40,7 @@ from routers import (
     alerts,
     auth as auth_router_module,
     backtest,
+    backtest_portfolio,
     backtest_projects,
     broker_orders,
     components,
@@ -296,6 +297,7 @@ app.include_router(users.router)
 app.include_router(options.router)
 app.include_router(stocks.router)
 app.include_router(data_lake.router)
+app.include_router(backtest_portfolio.router)
 app.include_router(backtest_projects.router)
 
 

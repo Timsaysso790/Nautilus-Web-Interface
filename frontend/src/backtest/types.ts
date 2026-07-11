@@ -101,3 +101,131 @@ export interface BacktestResult {
     attribution: { delta: number; gamma: number; theta: number; vega: number; unexplained: number };
   }[];
 }
+
+// ── Portfolio Engine Types ─────────────────────────────────────────────────
+
+export interface PortfolioAsset {
+  ticker: string;
+  allocation: number;
+  dripEnabled: boolean;
+}
+
+export interface LumpSumInjection {
+  date: string;
+  amount: number;
+  label: string;
+}
+
+export interface CashSchedule {
+  enabled: boolean;
+  paycheckAmount: number;
+  paycheckFrequency: "monthly" | "weekly" | "biweekly";
+  lumpSumInjections: LumpSumInjection[];
+}
+
+export interface ValuationClearanceConfig {
+  enabled: boolean;
+  rsiThreshold: number;
+  bbPeriod: number;
+  bbStdDev: number;
+  frontLoadMonths: number;
+}
+
+export interface MarginBridgeConfig {
+  enabled: boolean;
+  maxLeverage: number;
+  maintenanceRate: number;
+  borrowRate: number;
+  debtGovernorPct: number;
+  freezeDays: number;
+}
+
+export interface VixRatioBackspreadLeg {
+  dte: number;
+  action: "buy" | "sell";
+  right: "call" | "put";
+  quantity: number;
+  strikeModel: "atm" | "otm";
+}
+
+export interface SpikeHarvestTrigger {
+  enabled: boolean;
+  vixSpikeMultiplier: number;
+  vixMaPeriod: number;
+  reentryVixThreshold: number;
+}
+
+export interface VixHedgeConfig {
+  enabled: boolean;
+  vixTicker: string;
+  ladder45dte: VixRatioBackspreadLeg[];
+  ladder90dte: VixRatioBackspreadLeg[];
+  systematicRollThreshold: number;
+  opportunisticRollVixMin: number;
+  spikeHarvest: SpikeHarvestTrigger;
+}
+
+export interface PortfolioConfig {
+  assets: PortfolioAsset[];
+  cashSchedule: CashSchedule;
+  clearanceConfig: ValuationClearanceConfig;
+  marginConfig: MarginBridgeConfig;
+  vixConfig: VixHedgeConfig;
+  startDate: string;
+  endDate: string;
+  initialCash: number;
+}
+
+export type ClearanceState = "NORMAL" | "CLEARANCE_ACTIVE";
+
+export interface TimeMachineResult {
+  currentNav: number;
+  futureNav: number;
+  projectedDividends3m: number;
+  projectedPaychecks3m: number;
+  frontLoadCapacity: number;
+  clearanceActive: boolean;
+}
+
+export interface MarginState {
+  utilization: number;
+  isFrozen: boolean;
+  freezeStartDate: string;
+  thawDays: number;
+  totalDebt: number;
+  totalAssetValue: number;
+}
+
+export interface PortfolioSummary {
+  totalReturnPct: number;
+  totalDividendsCollected: number;
+  totalMarginPaid: number;
+  totalMarginInterestPaid: number;
+  spikeHarvestCount: number;
+  totalVixPnl: number;
+  clearanceEntryCount: number;
+  maxUtilization: number;
+  avgUtilization: number;
+  finalCash: number;
+  finalEquityValue: number;
+  finalDebt: number;
+}
+
+export interface PortfolioEquityPoint {
+  date: string;
+  cash: number;
+  equityValue: number;
+  totalDebt: number;
+  nav: number;
+  clearance: ClearanceState;
+}
+
+export interface PortfolioBacktestResult {
+  success: boolean;
+  summary: PortfolioSummary;
+  equityCurve: PortfolioEquityPoint[];
+  positions: { ticker: string; shares: number; avgCost: number }[];
+  clearanceEvents: { date: string; type: string; detail: string }[];
+  marginHistory: { date: string; utilization: number; isFrozen: boolean; debt: number }[];
+  vixLadderHistory: { date: string; ladderDte: number; status: string; pnl: number }[];
+}

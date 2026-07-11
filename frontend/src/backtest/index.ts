@@ -1,4 +1,5 @@
 export { default as BacktestStationPage } from "./BacktestStationPage";
+export { default as PortfolioEnginePage } from "./PortfolioEnginePage";
 export type {
   BacktestProject,
   BacktestTemplate,
@@ -9,4 +10,19 @@ export type {
   ExitRules,
   CompiledStrategy,
   BacktestResult,
+  PortfolioAsset,
+  CashSchedule,
+  LumpSumInjection,
+  ValuationClearanceConfig,
+  MarginBridgeConfig,
+  VixRatioBackspreadLeg,
+  SpikeHarvestTrigger,
+  VixHedgeConfig,
+  PortfolioConfig,
+  PortfolioSummary,
+  PortfolioEquityPoint,
+  PortfolioBacktestResult,
+  ClearanceState,
+  TimeMachineResult,
+  MarginState,
 } from "./types";
