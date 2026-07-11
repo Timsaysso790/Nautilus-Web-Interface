@@ -47,7 +47,7 @@ export default function AdminDashboard() {
           <p className="text-muted-foreground">System management tools</p>
         </div>
 
-        <div className="max-w-md mx-auto space-y-4">
+        <div className="max-w-lg mx-auto space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>🗄️ Database Management</CardTitle>
@@ -62,6 +62,24 @@ export default function AdminDashboard() {
               </p>
               <Button className="w-full" onClick={() => window.location.href = '/admin/db-management'}>
                 Open Database Management
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>👥 User Management</CardTitle>
+              <CardDescription>
+                Manage user accounts, roles, and passwords
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Create users with trader or admin roles, set passwords, deactivate accounts,
+                and enforce access control for the platform.
+              </p>
+              <Button className="w-full" onClick={() => window.location.href = '/admin/users'}>
+                Manage Users
               </Button>
             </CardContent>
           </Card>
