@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useNotification } from "@/contexts/NotificationContext";
 import { dataLakeService, type TickerCoverage, type NvmeCacheEntry, type ConvertTaskStatus } from "@/services/dataLakeService";
-import api from "@/lib/api";
 
 // ── Project types ─────────────────────────────────────────────────────────────
 
@@ -44,14 +43,14 @@ function DataDownloadTab() {
   const [downloadBars, setDownloadBars] = useState(true);
   const [downloadGreeks, setDownloadGreeks] = useState(false);
   const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [taskStatus, setTaskStatus] = useState<ConvertTaskStatus | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
 
   const handleDownload = async () => {
     const symList = symbols.split(/[,;\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
     if (!symList.length) return;
     setRunning(true);
-    setProgress("Starting batch download...");
+    setTaskStatus({ status: "pending", total_files: 0, processed: 0, current_file: "", converted: 0, skipped: 0, errors: 0 });
     try {
       const res = await dataLakeService.batchDownload({
         symbols: symList,
@@ -72,16 +71,18 @@ function DataDownloadTab() {
     if (!taskId) return;
     const interval = setInterval(async () => {
       try {
-        const res = await api.get<{ status: string; current_file?: string; converted?: number; errors?: number }>(
-          `/api/data-lake/thetadata/batch-download/status/${taskId}`
-        );
-        setProgress(`${res.status}: ${res.current_file || ""} (${res.converted || 0} records)`);
-        if (res.status === "completed" || res.status === "error") {
+        const status = await dataLakeService.getConvertStatus(taskId);
+        setTaskStatus(status);
+        if (status.status === "completed") {
           clearInterval(interval);
           setRunning(false);
           setTaskId(null);
-          addNotification(res.status === "completed" ? "success" : "error",
-            res.status === "completed" ? "Download complete" : `Download failed: ${res.errors} errors`);
+          addNotification("success", `Download complete — ${status.converted} records`);
+        } else if (status.status === "error") {
+          clearInterval(interval);
+          setRunning(false);
+          setTaskId(null);
+          addNotification("error", `Download failed: ${status.error_detail || "Unknown error"}`);
         }
       } catch { /* keep polling */ }
     }, 1000);
@@ -134,7 +135,24 @@ function DataDownloadTab() {
               Option Greeks EOD
             </label>
           </div>
-          {running && <p className="text-sm text-muted-foreground">{progress}</p>}
+          {running && taskStatus && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{taskStatus.current_file || "Starting..."}</span>
+                <span>{taskStatus.converted} records</span>
+              </div>
+              <Progress
+                value={taskStatus.total_files > 0
+                  ? (taskStatus.processed / taskStatus.total_files) * 100
+                  : undefined}
+              />
+              {taskStatus.skipped > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {taskStatus.skipped} tickers skipped (already in archive)
+                </p>
+              )}
+            </div>
+          )}
           <Button onClick={handleDownload} disabled={running || !symbols.trim()}>
             {running ? "Downloading..." : "Download"}
           </Button>
