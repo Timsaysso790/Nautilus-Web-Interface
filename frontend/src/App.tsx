@@ -19,9 +19,7 @@ import OrdersPage from "./pages/OrdersPage";
 import ApiConfigPage from "./pages/ApiConfigPage";
 import DatabaseMgmt from "./pages/DatabaseManagementPage";
 import MarketDataPage from "./pages/MarketDataPage";
-import BacktestingPage from "./pages/BacktestingPage";
 import UsersPage from "./pages/UsersPage";
-import OptionsPage from "./pages/OptionsPage";
 import StocksPage from "./pages/StocksPage";
 import LoginPage from "./pages/LoginPage";
 import DataLakePage from "./pages/DataLakePage";
@@ -47,11 +45,9 @@ function Router() {
       <Route path="/trader/strategies" component={StrategiesPage} />
       <Route path="/trader/orders" component={OrdersPage} />
       <Route path="/trader/backtest/:projectType/:projectId" component={BacktestViewRouter} />
-      <Route path="/trader/options" component={OptionsPage} />
       <Route path="/trader/broker-orders" component={BrokerOrdersPage} />
       <Route path="/trader/stocks" component={StocksPage} />
       <Route path="/trader/market-data" component={MarketDataPage} />
-      <Route path="/trader/backtesting" component={BacktestingPage} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
