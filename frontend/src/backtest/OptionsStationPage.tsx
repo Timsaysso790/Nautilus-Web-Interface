@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { optionBacktestService } from "@/services/optionBacktestService";
 import { useNotification } from "@/contexts/NotificationContext";
@@ -10,18 +11,25 @@ import { ProcessingModal } from "./components/ProcessingModal";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { SaveTemplateDialog } from "./components/SaveTemplateDialog";
 
-function parseProjectId(): string {
-  return new URLSearchParams(window.location.search).get("project") || "";
+interface Props {
+  projectId?: string;
+  sandbox?: boolean;
 }
 
-function updateUrl(project: string) {
-  const params = new URLSearchParams();
-  if (project) params.set("project", project);
-  window.history.replaceState(null, "", `/trader/options-station?${params.toString()}`);
-}
-
-export default function OptionsStationPage() {
+export default function OptionsStationPage({ projectId: propProjectId, sandbox }: Props = {}) {
   const { success, error: notifyError } = useNotification();
+  const [, navigate] = useLocation();
+
+  function parseProjectId(): string {
+    return propProjectId || new URLSearchParams(window.location.search).get("project") || "";
+  }
+
+  function updateUrl(id: string) {
+    if (id) {
+      navigate(`/trader/backtest/options/${id}`, { replace: true });
+    }
+  }
+
   const [projects, setProjects] = useState<BacktestProject[]>([]);
   const [templates, setTemplates] = useState<BacktestTemplate[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState(parseProjectId());
@@ -39,6 +47,7 @@ export default function OptionsStationPage() {
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
   const loadProjects = useCallback(async () => {
+    if (sandbox) return;
     setLoadingProjects(true);
     try {
       const res = await optionBacktestService.listProjects();
@@ -48,9 +57,10 @@ export default function OptionsStationPage() {
     } finally {
       setLoadingProjects(false);
     }
-  }, [notifyError]);
+  }, [notifyError, sandbox]);
 
   const loadTemplates = useCallback(async () => {
+    if (sandbox) return;
     setLoadingTemplates(true);
     try {
       const res = await optionBacktestService.listTemplates();
@@ -60,7 +70,7 @@ export default function OptionsStationPage() {
     } finally {
       setLoadingTemplates(false);
     }
-  }, [notifyError]);
+  }, [notifyError, sandbox]);
 
   useEffect(() => {
     loadProjects();
@@ -153,7 +163,7 @@ export default function OptionsStationPage() {
               <h1 className="text-2xl font-bold text-foreground">Options Station</h1>
               <p className="text-sm text-muted-foreground">Multi-leg options strategy backtesting with condition triggers</p>
             </div>
-            <Button variant="outline" onClick={() => window.location.href = '/trader'}>
+            <Button variant="outline" onClick={() => navigate('/trader')}>
               Back to Trader
             </Button>
           </div>
@@ -163,22 +173,24 @@ export default function OptionsStationPage() {
       <main className="container mx-auto px-4 py-8 space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 space-y-4">
-            <ProjectWorkspaceCard
-              projects={projects}
-              templates={templates}
-              selectedProjectId={selectedProjectId}
-              selectedTemplateId={selectedTemplateId}
-              loadingProjects={loadingProjects}
-              loadingTemplates={loadingTemplates}
-              onProjectChange={handleProjectChange}
-              onTemplateChange={handleTemplateChange}
-              onNewProject={() => setShowNewProject(true)}
-              onSaveTemplate={() => setShowSaveTemplate(true)}
-            />
+            {!sandbox && (
+              <ProjectWorkspaceCard
+                projects={projects}
+                templates={templates}
+                selectedProjectId={selectedProjectId}
+                selectedTemplateId={selectedTemplateId}
+                loadingProjects={loadingProjects}
+                loadingTemplates={loadingTemplates}
+                onProjectChange={handleProjectChange}
+                onTemplateChange={handleTemplateChange}
+                onNewProject={() => setShowNewProject(true)}
+                onSaveTemplate={() => setShowSaveTemplate(true)}
+              />
+            )}
             <OptionsStationForm
               key={formKey}
               projectId={selectedProjectId}
-              projectName={currentProject?.name || "Unnamed"}
+              projectName={currentProject?.name || (sandbox ? "Sandbox" : "Unnamed")}
               templateConfig={templateConfig}
               onCompile={handleCompile}
             />
@@ -201,17 +213,21 @@ export default function OptionsStationPage() {
         </div>
       </main>
 
-      <NewProjectDialog
-        open={showNewProject}
-        onOpenChange={setShowNewProject}
-        onConfirm={handleNewProject}
-      />
+      {!sandbox && (
+        <>
+          <NewProjectDialog
+            open={showNewProject}
+            onOpenChange={setShowNewProject}
+            onConfirm={handleNewProject}
+          />
 
-      <SaveTemplateDialog
-        open={showSaveTemplate}
-        onOpenChange={setShowSaveTemplate}
-        onConfirm={handleSaveTemplate}
-      />
+          <SaveTemplateDialog
+            open={showSaveTemplate}
+            onOpenChange={setShowSaveTemplate}
+            onConfirm={handleSaveTemplate}
+          />
+        </>
+      )}
 
       <ProcessingModal
         state={modalState}

@@ -1,25 +1,36 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from '@/hooks/useWebSocket';
 import AppLayout from "@/components/AppLayout";
 import NewProjectTypeDialog from "@/components/NewProjectTypeDialog";
 import OpenProjectDialog from "@/components/OpenProjectDialog";
+import QuickBacktestDialog from "@/components/QuickBacktestDialog";
 import { optionBacktestService } from "@/services/optionBacktestService";
+import { useNotification } from "@/contexts/NotificationContext";
 import { LayoutDashboard, LineChart, TestTube } from "lucide-react";
 
 export default function TraderDashboard() {
   const { connected: wsConnected } = useWebSocket();
+  const { success, error: notifyError } = useNotification();
+  const [, navigate] = useLocation();
   const [showNewProject, setShowNewProject] = useState(false);
   const [showOpenProject, setShowOpenProject] = useState(false);
+  const [showQuickBacktest, setShowQuickBacktest] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const handleNewProject = async (name: string, type: "options" | "portfolio") => {
+    setCreating(true);
     try {
       const res = await optionBacktestService.createProject(name, type);
-      const path = type === "portfolio" ? "/trader/option-backtest" : "/trader/options-station";
-      window.location.href = `${path}?project=${res.project.id}`;
-    } catch {
-      // error handled by service
+      setShowNewProject(false);
+      success(`Project "${name}" created — workspace ready`);
+      navigate(`/trader/backtest/${type}/${res.project.id}`);
+    } catch (e: any) {
+      notifyError(e?.detail || "Failed to create project");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -56,13 +67,13 @@ export default function TraderDashboard() {
                 Create and monitor strategies, place orders, track positions, and manage broker connections.
               </p>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={() => window.location.href = '/trader/strategies'}>
+                <Button variant="outline" onClick={() => navigate('/trader/strategies')}>
                   Strategies
                 </Button>
-                <Button variant="outline" onClick={() => window.location.href = '/trader/orders'}>
+                <Button variant="outline" onClick={() => navigate('/trader/orders')}>
                   Orders
                 </Button>
-                <Button variant="outline" onClick={() => window.location.href = '/trader/broker-orders'}>
+                <Button variant="outline" onClick={() => navigate('/trader/broker-orders')}>
                   Broker Orders
                 </Button>
               </div>
@@ -88,7 +99,7 @@ export default function TraderDashboard() {
                 <Button variant="outline" onClick={() => setShowOpenProject(true)}>
                   Open Project
                 </Button>
-                <Button variant="outline" onClick={() => window.location.href = '/trader/option-backtest'}>
+                <Button variant="outline" onClick={() => setShowQuickBacktest(true)}>
                   Quick Backtest
                 </Button>
               </div>
@@ -101,6 +112,7 @@ export default function TraderDashboard() {
         open={showNewProject}
         onOpenChange={setShowNewProject}
         onConfirm={handleNewProject}
+        creating={creating}
       />
 
       <OpenProjectDialog
@@ -110,6 +122,11 @@ export default function TraderDashboard() {
           setShowOpenProject(false);
           setTimeout(() => setShowNewProject(true), 100);
         }}
+      />
+
+      <QuickBacktestDialog
+        open={showQuickBacktest}
+        onOpenChange={setShowQuickBacktest}
       />
     </AppLayout>
   );

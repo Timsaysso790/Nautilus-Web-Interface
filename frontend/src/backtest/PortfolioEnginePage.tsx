@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,8 @@ import type {
 } from "./types";
 
 interface Props {
-  initialProjectId?: string;
+  projectId?: string;
+  sandbox?: boolean;
 }
 
 const DEFAULT_ASSETS: PortfolioAsset[] = [
@@ -72,8 +74,9 @@ const DEFAULT_VIX: VixHedgeConfig = {
   },
 };
 
-export default function PortfolioEnginePage({ initialProjectId }: Props) {
+export default function PortfolioEnginePage({ projectId: propProjectId, sandbox }: Props = {}) {
   const { success, error: notifyError } = useNotification();
+  const [, navigate] = useLocation();
   const [assets, setAssets] = useState<PortfolioAsset[]>(DEFAULT_ASSETS);
   const [cashSchedule, setCashSchedule] = useState<CashSchedule>(DEFAULT_CASH_SCHEDULE);
   const [clearanceConfig, setClearanceConfig] = useState<ValuationClearanceConfig>(DEFAULT_CLEARANCE);
@@ -91,11 +94,12 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
   // ── Project state ───────────────────────────────────────────────────────────
   const [projects, setProjects] = useState<BacktestProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState(
-    initialProjectId || new URLSearchParams(window.location.search).get("project") || ""
+    propProjectId || new URLSearchParams(window.location.search).get("project") || ""
   );
   const [loadingProjects, setLoadingProjects] = useState(false);
 
   const loadProjects = useCallback(async () => {
+    if (sandbox) return;
     setLoadingProjects(true);
     try {
       const res = await optionBacktestService.listProjects();
@@ -108,7 +112,7 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
     } finally {
       setLoadingProjects(false);
     }
-  }, [notifyError]);
+  }, [notifyError, sandbox]);
 
   useEffect(() => {
     loadProjects();
@@ -116,7 +120,7 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
 
   // Load project config when selectedProjectId changes
   useEffect(() => {
-    if (!selectedProjectId) return;
+    if (!selectedProjectId || sandbox) return;
     (async () => {
       try {
         const res = await optionBacktestService.loadProjectConfig(selectedProjectId, "config-portfolio");
@@ -133,7 +137,7 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
         // No saved config — use defaults
       }
     })();
-  }, [selectedProjectId]);
+  }, [selectedProjectId, sandbox]);
 
   const config: PortfolioConfig = useMemo(() => ({
     assets, cashSchedule, clearanceConfig, marginConfig, vixConfig,
@@ -152,7 +156,7 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
       return;
     }
 
-    const payload = { ...config, projectId: selectedProjectId };
+    const payload = { ...config, projectId: sandbox ? "" : selectedProjectId };
     setJsonPreview(JSON.stringify(config, null, 2));
     setModalState("submitting");
     setRunning(true);
@@ -165,8 +169,8 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
         `Portfolio backtest complete: ${res.summary.totalReturnPct >= 0 ? "+" : ""}${res.summary.totalReturnPct}% return`
       );
 
-      // Save config to project
-      if (selectedProjectId) {
+      // Save config to project (skip in sandbox)
+      if (selectedProjectId && !sandbox) {
         try {
           await optionBacktestService.saveProjectConfig(selectedProjectId, "config-portfolio", config);
         } catch {
@@ -180,7 +184,7 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
     } finally {
       setRunning(false);
     }
-  }, [config, selectedProjectId, success, notifyError]);
+  }, [config, selectedProjectId, sandbox, success, notifyError]);
 
   const handleModalClose = useCallback(() => {
     setModalState("idle");
@@ -191,10 +195,10 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
     const id = e.target.value;
     setSelectedProjectId(id);
     setResult(null);
-    const params = new URLSearchParams();
-    if (id) params.set("project", id);
-    window.history.replaceState(null, "", `/trader/option-backtest?${params.toString()}`);
-  }, []);
+    if (id) {
+      navigate(`/trader/backtest/portfolio/${id}`, { replace: true });
+    }
+  }, [navigate]);
 
   const currentProject = projects.find(p => p.id === selectedProjectId);
 
@@ -207,7 +211,7 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
               <h1 className="text-2xl font-bold text-foreground">Portfolio Engine</h1>
               <p className="text-sm text-muted-foreground">Equity portfolio backtesting with dividend automation and hedging</p>
             </div>
-            <Button variant="outline" onClick={() => window.location.href = '/trader'}>
+            <Button variant="outline" onClick={() => navigate('/trader')}>
               Back to Trader
             </Button>
           </div>
@@ -216,33 +220,35 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
       <main className="container mx-auto px-4 py-8 space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1 space-y-4">
-        {/* Project selector */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Project</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <select
-              value={selectedProjectId}
-              onChange={handleProjectSelect}
-              className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
-            >
-              <option value="">— No project (run only) —</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            {currentProject && (
-              <p className="text-[10px] text-muted-foreground mt-1">
-                {currentProject.project_type === "portfolio" ? "Stock Portfolio" : "Options Backtest"}
-                {currentProject.config_count > 0 && ` · ${currentProject.config_count} configs`}
-              </p>
-            )}
-            {loadingProjects && (
-              <p className="text-[10px] text-muted-foreground mt-1">Loading projects...</p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Project selector — hidden in sandbox */}
+        {!sandbox && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Project</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <select
+                value={selectedProjectId}
+                onChange={handleProjectSelect}
+                className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-foreground"
+              >
+                <option value="">— No project (run only) —</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {currentProject && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {currentProject.project_type === "portfolio" ? "Stock Portfolio" : "Options Backtest"}
+                  {currentProject.config_count > 0 && ` · ${currentProject.config_count} configs`}
+                </p>
+              )}
+              {loadingProjects && (
+                <p className="text-[10px] text-muted-foreground mt-1">Loading projects...</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Global params */}
         <Card>
@@ -472,6 +478,13 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Sandbox notice */}
+            {sandbox && result && (
+              <p className="text-xs text-muted-foreground text-center">
+                Sandbox mode — results are in-memory only. Create a project to save your work.
+              </p>
             )}
           </>
         )}

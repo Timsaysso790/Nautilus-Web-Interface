@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -24,6 +25,7 @@ interface ProjectItem {
 
 export default function OpenProjectDialog({ open, onOpenChange, onNewProject }: Props) {
   const { error: notifyError } = useNotification();
+  const [, navigate] = useLocation();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState("");
@@ -51,8 +53,8 @@ export default function OpenProjectDialog({ open, onOpenChange, onNewProject }: 
     if (!selectedId) return;
     const project = projects.find(p => p.id === selectedId);
     if (!project) return;
-    const path = project.project_type === "portfolio" ? "/trader/option-backtest" : "/trader/options-station";
-    window.location.href = `${path}?project=${project.id}`;
+    onOpenChange(false);
+    navigate(`/trader/backtest/${project.project_type}/${project.id}`);
   };
 
   return (

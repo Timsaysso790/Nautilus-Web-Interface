@@ -6,20 +6,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Loader2 } from "lucide-react";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (name: string, type: "options" | "portfolio") => void;
+  creating?: boolean;
 }
 
-export default function NewProjectTypeDialog({ open, onOpenChange, onConfirm }: Props) {
+export default function NewProjectTypeDialog({ open, onOpenChange, onConfirm, creating }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<"options" | "portfolio">("options");
 
   const handleConfirm = () => {
-    if (name.trim()) {
+    if (name.trim() && !creating) {
       onConfirm(name.trim(), type);
       setName("");
     }
@@ -47,6 +48,7 @@ export default function NewProjectTypeDialog({ open, onOpenChange, onConfirm }: 
               placeholder="e.g. QDTE Ladder Strategy"
               onKeyDown={e => e.key === "Enter" && handleConfirm()}
               autoFocus
+              disabled={creating}
             />
           </div>
 
@@ -76,8 +78,11 @@ export default function NewProjectTypeDialog({ open, onOpenChange, onConfirm }: 
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleConfirm} disabled={!name.trim()}>Create Project</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>Cancel</Button>
+          <Button onClick={handleConfirm} disabled={!name.trim() || creating}>
+            {creating && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+            {creating ? "Creating..." : "Create Project"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

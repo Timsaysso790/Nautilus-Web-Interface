@@ -1,5 +1,6 @@
 export { default as OptionsStationPage } from "./OptionsStationPage";
 export { default as PortfolioEnginePage } from "./PortfolioEnginePage";
+export { default as BacktestViewRouter } from "./BacktestViewRouter";
 export type {
   BacktestProject,
   BacktestTemplate,
