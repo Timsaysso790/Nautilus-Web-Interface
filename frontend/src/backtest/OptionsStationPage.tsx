@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Play } from "lucide-react";
 import { optionBacktestService } from "@/services/optionBacktestService";
 import { useNotification } from "@/contexts/NotificationContext";
 import type { BacktestProject, BacktestTemplate, CompiledStrategy, BacktestResult } from "./types";
@@ -137,6 +137,12 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
     }
   }, [templateConfig, success, notifyError, loadTemplates]);
 
+  const handleRun = useCallback(() => {
+    if (!formRef.current) return;
+    const config = formRef.current.getCurrentConfig();
+    handleCompile(config);
+  }, [handleCompile]);
+
   const handleSaveAsProject = useCallback(async () => {
     if (!saveName.trim() || !formRef.current) return;
     setSaving(true);
@@ -205,9 +211,9 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-4">
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-6">
             {!sandbox && (
               <ProjectWorkspaceCard
                 projects={projects}
@@ -228,24 +234,31 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
               projectId={selectedProjectId}
               projectName={currentProject?.name || (sandbox ? "Sandbox" : "Unnamed")}
               templateConfig={templateConfig}
-              onCompile={handleCompile}
             />
           </div>
-          <div className="lg:col-span-2">
-            {!result && !running && (
-              <div className="text-center py-16 text-muted-foreground">
-                <p className="text-lg">Configure your strategy and compile it.</p>
-                <p className="text-sm mt-2">Supports multi-leg option strategies with conditional entry triggers and configurable exit rules.</p>
-              </div>
-            )}
-            {running && (
-              <div className="space-y-4">
-                <div className="h-32 bg-card border rounded-lg animate-pulse" />
-                <div className="h-64 bg-card border rounded-lg animate-pulse" />
-              </div>
-            )}
-            {result && <OptionsStationResults result={result} />}
+          <div className="lg:col-span-4">
+            <div className="sticky top-6 bg-card border rounded-xl p-6 shadow-sm space-y-6">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Backtest Controls</h2>
+              <Button onClick={handleRun} className="w-full gap-2">
+                <Play className="h-4 w-4" /> Compile &amp; Run
+              </Button>
+            </div>
           </div>
+        </div>
+        <div className="mt-8">
+          {!result && !running && (
+            <div className="text-center py-16 text-muted-foreground">
+              <p className="text-lg">Configure your strategy and compile it.</p>
+              <p className="text-sm mt-2">Supports multi-leg option strategies with conditional entry triggers and configurable exit rules.</p>
+            </div>
+          )}
+          {running && (
+            <div className="space-y-4">
+              <div className="h-32 bg-card border rounded-lg animate-pulse" />
+              <div className="h-64 bg-card border rounded-lg animate-pulse" />
+            </div>
+          )}
+          {result && <OptionsStationResults result={result} />}
         </div>
       </main>
 

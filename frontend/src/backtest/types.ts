@@ -20,7 +20,7 @@ export interface OptionLeg {
   right: "call" | "put";
   quantity: number;
   dte: number;
-  strikeModel: "atm" | "otm" | "itm" | "fixed" | "locked_offset";
+  strikeModel: "atm" | "otm" | "itm" | "fixed" | "locked_offset" | "delta";
   strikeValue: number;
   parentLegId: string | null;
   lockedOffset: boolean;
@@ -52,6 +52,8 @@ export interface ExitRules {
   earlyExitDte: number | null;
   intradayCutoff: string;
   conflictResolution: "first_hit" | "best" | "worst";
+  closeRollDteEnabled: boolean;
+  closeRollDte: number;
 }
 
 export interface CompiledStrategy {
@@ -64,6 +66,7 @@ export interface CompiledStrategy {
     sizing: { strategy: "contracts" | "dollars" | "nav_pct"; value: number };
     slippageBps: number;
     dataResolution: "1m" | "5m" | "daily";
+    fillModel: "mid" | "natural" | "linear_split";
   };
   legs: OptionLeg[];
   entryConditions: ConditionGroup;

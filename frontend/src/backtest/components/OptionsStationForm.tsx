@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +12,6 @@ interface Props {
   projectId: string;
   projectName: string;
   templateConfig: CompiledStrategy | null;
-  onCompile: (config: CompiledStrategy) => void;
 }
 
 const DEFAULT_EXIT_RULES: ExitRules = {
@@ -24,6 +22,8 @@ const DEFAULT_EXIT_RULES: ExitRules = {
   earlyExitDte: null,
   intradayCutoff: "",
   conflictResolution: "first_hit",
+  closeRollDteEnabled: false,
+  closeRollDte: 21,
 };
 
 const DEFAULT_CONDITIONS: ConditionGroup = {
@@ -37,10 +37,17 @@ const SIZING_STRATEGIES = [
   { value: "nav_pct", label: "% of NAV" },
 ];
 
+const FILL_MODELS = [
+  { value: "mid", label: "Mid-Price (Theoretical)" },
+  { value: "natural", label: "Natural (Bid/Ask) (Worst Case)" },
+  { value: "linear_split", label: "Linear Split (50/50) (Realistic)" },
+];
+
 const STRIKE_MODELS = [
   { value: "atm", label: "ATM" },
   { value: "otm", label: "OTM" },
   { value: "itm", label: "ITM" },
+  { value: "delta", label: "Delta" },
   { value: "fixed", label: "Fixed" },
   { value: "locked_offset", label: "Locked Offset" },
 ];
@@ -70,7 +77,7 @@ export interface OptionsStationFormHandle {
 }
 
 export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
-  function OptionsStationForm({ projectId, projectName, templateConfig, onCompile }, ref) {
+  function OptionsStationForm({ projectId, projectName, templateConfig }, ref) {
   const [symbol, setSymbol] = useState("SPY");
   const [startDate, setStartDate] = useState("2024-01-01");
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
@@ -79,6 +86,7 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
   const [sizingValue, setSizingValue] = useState(1);
   const [slippageBps, setSlippageBps] = useState(0);
   const [dataResolution, setDataResolution] = useState<"1m" | "5m" | "daily">("daily");
+  const [fillModel, setFillModel] = useState<"mid" | "natural" | "linear_split">("mid");
   const [legs, setLegs] = useState<OptionLeg[]>([createLeg()]);
   const [entryConditions, setEntryConditions] = useState<ConditionGroup>(DEFAULT_CONDITIONS);
   const [exitRules, setExitRules] = useState<ExitRules>(DEFAULT_EXIT_RULES);
@@ -99,9 +107,14 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
       setSizingValue(templateConfig.global.sizing.value);
       setSlippageBps(templateConfig.global.slippageBps);
       setDataResolution(templateConfig.global.dataResolution);
+      setFillModel(templateConfig.global.fillModel || "mid");
       setLegs(templateConfig.legs.map(l => ({ ...l })));
       setEntryConditions({ ...templateConfig.entryConditions });
-      setExitRules({ ...templateConfig.exitRules });
+      setExitRules({
+        ...templateConfig.exitRules,
+        closeRollDteEnabled: templateConfig.exitRules.closeRollDteEnabled ?? false,
+        closeRollDte: templateConfig.exitRules.closeRollDte ?? 21,
+      });
     }
   }, [templateConfig]);
 
@@ -147,6 +160,7 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
         sizing: { strategy: sizingStrategy, value: sizingValue },
         slippageBps,
         dataResolution,
+        fillModel,
       },
       legs,
       entryConditions,
@@ -154,40 +168,21 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
     }),
   }));
 
-  const compile = () => {
-    const config: CompiledStrategy = {
-      projectId,
-      projectName,
-      global: {
-        symbol,
-        dateRange: { start: startDate, end: endDate },
-        initialCapital,
-        sizing: { strategy: sizingStrategy, value: sizingValue },
-        slippageBps,
-        dataResolution,
-      },
-      legs,
-      entryConditions,
-      exitRules,
-    };
-    onCompile(config);
-  };
-
   return (
     <div className="space-y-4">
       {/* ── Global Environment ── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Global Environment</CardTitle>
+          <CardTitle className="text-lg font-semibold tracking-tight text-foreground">Global Environment</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Symbol</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Symbol</Label>
               <Input value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} className="h-8 text-xs" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Data Resolution</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Data Resolution</Label>
               <Select value={dataResolution} onValueChange={(v: any) => setDataResolution(v)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -200,25 +195,36 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Start Date</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Start Date</Label>
               <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-8 text-xs" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">End Date</Label>
+              <Label className="text-xs font-medium text-muted-foreground">End Date</Label>
               <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-8 text-xs" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Initial Capital</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Initial Capital</Label>
               <Input type="number" value={initialCapital} onChange={e => setInitialCapital(Number(e.target.value))} className="h-8 text-xs" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Slippage (bps)</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Slippage (bps)</Label>
               <Input type="number" value={slippageBps} onChange={e => setSlippageBps(Number(e.target.value))} className="h-8 text-xs" />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Sizing Strategy</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Execution Fill Model</Label>
+              <Select value={fillModel} onValueChange={(v: any) => setFillModel(v)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FILL_MODELS.map(f => (
+                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-muted-foreground">Sizing Strategy</Label>
               <Select value={sizingStrategy} onValueChange={(v: any) => setSizingStrategy(v)}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
@@ -231,7 +237,7 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Sizing Value</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Sizing Value</Label>
               <Input type="number" value={sizingValue} onChange={e => setSizingValue(Number(e.target.value))} className="h-8 text-xs" />
             </div>
           </div>
@@ -242,20 +248,24 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Multi-Leg Builder</CardTitle>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addLeg}>
+            <CardTitle className="text-lg font-semibold tracking-tight text-foreground">Multi-Leg Builder</CardTitle>
+            <button
+              type="button"
+              onClick={addLeg}
+              className="inline-flex items-center gap-1 h-7 px-2 text-xs font-medium rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
+            >
               <Plus className="h-3 w-3" /> Add Leg
-            </Button>
+            </button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {legs.map((leg, idx) => {
             const siblings = siblingLegs(idx);
             return (
-              <div key={leg.id} className="border border-border rounded-md p-3 space-y-2 bg-muted/10">
+              <div key={leg.id} className="border border-border rounded-md p-3 space-y-3 bg-muted/10">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground">Leg {idx + 1}</span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <button
                       type="button"
                       onClick={() => updateLeg(idx, "lockedOffset", !leg.lockedOffset)}
@@ -265,17 +275,16 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
                     >
                       {leg.lockedOffset ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
                     </button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-destructive"
+                    <button
+                      type="button"
+                      className="p-1 rounded text-destructive hover:bg-destructive/10 transition-colors"
                       onClick={() => removeLeg(idx)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Action</Label>
                     <Select value={leg.action} onValueChange={(v: "buy" | "sell") => updateLeg(idx, "action", v)}>
@@ -340,6 +349,7 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
                     <Label className="text-[10px] text-muted-foreground">Strike Value</Label>
                     <Input
                       type="number"
+                      step={leg.strikeModel === "delta" ? 0.01 : 1}
                       value={leg.strikeValue}
                       onChange={e => updateLeg(idx, "strikeValue", Number(e.target.value))}
                       className="h-7 text-xs"
@@ -387,12 +397,6 @@ export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
       {/* ── Exit Rules ── */}
       <ExitRulesPanel value={exitRules} onChange={setExitRules} />
 
-      {/* ── Compile & Submit ── */}
-      <div className="flex gap-2">
-        <Button onClick={compile} className="flex-1">
-          Compile & Run
-        </Button>
-      </div>
     </div>
   );
 });
