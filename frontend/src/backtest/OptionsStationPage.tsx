@@ -5,13 +5,13 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Save, Loader2, Play } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import { optionBacktestService } from "@/services/optionBacktestService";
 import { useNotification } from "@/contexts/NotificationContext";
 import type { BacktestProject, BacktestTemplate, CompiledStrategy, BacktestResult } from "./types";
 import { ProjectWorkspaceCard } from "./components/ProjectWorkspaceCard";
 import { OptionsStationForm, type OptionsStationFormHandle } from "./components/OptionsStationForm";
-import { OptionsStationResults } from "./components/OptionsStationResults";
+import OptionsStationResultsPanel from "./components/OptionsStationResultsPanel";
 import { ProcessingModal } from "./components/ProcessingModal";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { SaveTemplateDialog } from "./components/SaveTemplateDialog";
@@ -139,6 +139,8 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
 
   const handleRun = useCallback(() => {
     if (!formRef.current) return;
+    setRunning(true);
+    setResult(null);
     const config = formRef.current.getCurrentConfig();
     handleCompile(config);
   }, [handleCompile]);
@@ -163,21 +165,14 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
   }, [saveName, success, notifyError, navigate]);
 
   const handleCompile = useCallback(async (config: CompiledStrategy) => {
-    setJsonPreview(JSON.stringify(config, null, 2));
-    setModalState("idle");
-    setModalError("");
-    setResult(null);
-
-    setModalState("submitting");
     try {
       const res = await optionBacktestService.runOptionsStation(config);
       setResult(res);
-      setModalState("success");
       success(`Backtest complete: ${res.summary.total_trades} trades, P&L ${res.summary.total_pnl >= 0 ? "+" : ""}$${res.summary.total_pnl}`);
     } catch (e: any) {
-      setModalError(e?.detail || "Backtest failed");
-      setModalState("error");
       notifyError(e?.detail || "Backtest failed");
+    } finally {
+      setRunning(false);
     }
   }, [success, notifyError]);
 
@@ -237,28 +232,12 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
             />
           </div>
           <div className="lg:col-span-4">
-            <div className="sticky top-6 bg-card border rounded-xl p-6 shadow-sm space-y-6">
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">Backtest Controls</h2>
-              <Button onClick={handleRun} className="w-full gap-2">
-                <Play className="h-4 w-4" /> Compile &amp; Run
-              </Button>
-            </div>
+            <OptionsStationResultsPanel
+              running={running}
+              result={result}
+              onRun={handleRun}
+            />
           </div>
-        </div>
-        <div className="mt-8">
-          {!result && !running && (
-            <div className="text-center py-16 text-muted-foreground">
-              <p className="text-lg">Configure your strategy and compile it.</p>
-              <p className="text-sm mt-2">Supports multi-leg option strategies with conditional entry triggers and configurable exit rules.</p>
-            </div>
-          )}
-          {running && (
-            <div className="space-y-4">
-              <div className="h-32 bg-card border rounded-lg animate-pulse" />
-              <div className="h-64 bg-card border rounded-lg animate-pulse" />
-            </div>
-          )}
-          {result && <OptionsStationResults result={result} />}
         </div>
       </main>
 
