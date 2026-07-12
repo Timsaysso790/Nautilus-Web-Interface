@@ -206,6 +206,8 @@ async def init_db() -> None:
             "ALTER TABLE orders ADD COLUMN exchange_order_id TEXT",
             "ALTER TABLE users ADD COLUMN totp_secret TEXT",
             "ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE backtest_projects ADD COLUMN project_type TEXT DEFAULT 'options'",
+            "ALTER TABLE backtest_projects ADD COLUMN project_slug TEXT DEFAULT ''",
         ]:
             try:
                 await db.execute(migration)

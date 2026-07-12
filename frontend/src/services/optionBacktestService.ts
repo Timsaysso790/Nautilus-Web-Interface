@@ -49,6 +49,12 @@ export const optionBacktestService = {
     );
   },
 
+  async savePrimaryConfig(projectId: string, config: any) {
+    return api.post<{ success: boolean }>(
+      `/api/backtest/projects/${projectId}/config/primary`, config
+    );
+  },
+
   // ── Portfolio Engine Backtest ────────────────────────────────────────────
 
   async runPortfolioBacktest(config: any) {

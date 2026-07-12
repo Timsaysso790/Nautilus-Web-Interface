@@ -7,7 +7,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -55,12 +55,40 @@ async def _require_project(project_id: str) -> None:
         raise HTTPException(status_code=404, detail="Project not found")
 
 
+async def _get_project_slug(project_id: str) -> str:
+    async with db._execute_async(
+        "SELECT project_slug FROM backtest_projects WHERE id = ?", (project_id,)
+    ) as cur:
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return row[0] or project_id  # fallback to project_id for legacy rows
+
+
+async def _generate_unique_slug(name: str) -> str:
+    base = bps.slugify(name)
+    slug = base
+    counter = 2
+    while True:
+        try:
+            async with db._execute_async(
+                "SELECT 1 FROM backtest_projects WHERE project_slug = ?", (slug,)
+            ) as cur:
+                exists = cur.fetchone() is not None
+        except Exception:
+            exists = False
+        if not exists:
+            return slug
+        slug = f"{base}-{counter}"
+        counter += 1
+
+
 # ── Project CRUD ──────────────────────────────────────────────────────────────
 
 @router.get("/projects")
 async def list_projects(_user: dict = Depends(get_current_user)):
     async with db._execute_async(
-        "SELECT id, name, project_type, created_at, updated_at, config_count FROM backtest_projects ORDER BY updated_at DESC"
+        "SELECT id, name, project_type, project_slug, created_at, updated_at, config_count FROM backtest_projects ORDER BY updated_at DESC"
     ) as cur:
         rows = cur.fetchall()
     return {
@@ -69,9 +97,10 @@ async def list_projects(_user: dict = Depends(get_current_user)):
                 "id": r[0],
                 "name": r[1],
                 "project_type": r[2],
-                "created_at": r[3],
-                "updated_at": r[4],
-                "config_count": r[5],
+                "project_slug": r[3],
+                "created_at": r[4],
+                "updated_at": r[5],
+                "config_count": r[6],
             }
             for r in rows
         ]
@@ -81,22 +110,23 @@ async def list_projects(_user: dict = Depends(get_current_user)):
 @router.post("/projects")
 async def create_project(request: CreateProjectRequest, _user: dict = Depends(get_current_user)):
     project_id = f"PRJ-{uuid.uuid4().hex[:8].upper()}"
+    slug = await _generate_unique_slug(request.name)
     now = datetime.now(timezone.utc).isoformat()
     try:
         async with db._execute_async(
-            "INSERT INTO backtest_projects (id, name, project_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (project_id, request.name, request.type, now, now),
+            "INSERT INTO backtest_projects (id, name, project_type, project_slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (project_id, request.name, request.type, slug, now, now),
             commit=True,
         ):
             pass
     except Exception as e:
         raise HTTPException(status_code=409, detail=f"Project creation failed: {str(e)}")
 
-    bps.create_project_folder(project_id)
+    bps.create_project_folder(slug)
 
-    initial_config = {"type": request.type, "name": request.name, "created_at": now}
+    initial_config = {"type": request.type, "name": request.name, "slug": slug, "created_at": now}
     try:
-        bps.save_project_config(project_id, "config-init", initial_config)
+        bps.save_primary_config(slug, initial_config)
     except Exception as e:
         logger.warning(f"Failed to save initial config for project {project_id}: {e}")
 
@@ -112,6 +142,7 @@ async def create_project(request: CreateProjectRequest, _user: dict = Depends(ge
             "id": project_id,
             "name": request.name,
             "project_type": request.type,
+            "project_slug": slug,
             "created_at": now,
             "updated_at": now,
             "config_count": 1,
@@ -121,13 +152,14 @@ async def create_project(request: CreateProjectRequest, _user: dict = Depends(ge
 
 @router.delete("/projects/{project_id}")
 async def delete_project(project_id: str, _user: dict = Depends(get_current_user)):
+    slug = await _get_project_slug(project_id)
     async with db._execute_async(
         "DELETE FROM backtest_projects WHERE id = ?", (project_id,), commit=True
     ) as cur:
         deleted = cur.rowcount > 0
     if not deleted:
         raise HTTPException(status_code=404, detail="Project not found")
-    bps.delete_project_folder(project_id)
+    bps.delete_project_folder(slug)
     return {"success": True}
 
 
@@ -188,20 +220,22 @@ async def delete_template(template_id: str, _user: dict = Depends(get_current_us
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, _user: dict = Depends(get_current_user)):
     await _require_project(project_id)
+    slug = await _get_project_slug(project_id)
     async with db._execute_async(
-        "SELECT id, name, project_type, created_at, updated_at, config_count FROM backtest_projects WHERE id = ?",
+        "SELECT id, name, project_type, project_slug, created_at, updated_at, config_count FROM backtest_projects WHERE id = ?",
         (project_id,),
     ) as cur:
         row = cur.fetchone()
-    files = bps.list_project_files(project_id)
+    files = bps.list_project_files(slug)
     return {
         "project": {
             "id": row[0],
             "name": row[1],
             "project_type": row[2],
-            "created_at": row[3],
-            "updated_at": row[4],
-            "config_count": row[5],
+            "project_slug": row[3],
+            "created_at": row[4],
+            "updated_at": row[5],
+            "config_count": row[6],
             "files": files,
         }
     }
@@ -210,14 +244,16 @@ async def get_project(project_id: str, _user: dict = Depends(get_current_user)):
 @router.get("/projects/{project_id}/files")
 async def list_project_files(project_id: str, _user: dict = Depends(get_current_user)):
     await _require_project(project_id)
-    files = bps.list_project_files(project_id)
+    slug = await _get_project_slug(project_id)
+    files = bps.list_project_files(slug)
     return {"files": files}
 
 
 @router.get("/projects/{project_id}/files/{file_id}")
 async def get_project_file(project_id: str, file_id: str, _user: dict = Depends(get_current_user)):
     await _require_project(project_id)
-    data = bps.load_project_file(project_id, file_id)
+    slug = await _get_project_slug(project_id)
+    data = bps.load_project_file(slug, file_id)
     if data is None:
         raise HTTPException(status_code=404, detail="File not found")
     return data
@@ -226,7 +262,8 @@ async def get_project_file(project_id: str, file_id: str, _user: dict = Depends(
 @router.delete("/projects/{project_id}/files/{file_id}")
 async def delete_project_file(project_id: str, file_id: str, _user: dict = Depends(get_current_user)):
     await _require_project(project_id)
-    deleted = bps.delete_project_file(project_id, file_id)
+    slug = await _get_project_slug(project_id)
+    deleted = bps.delete_project_file(slug, file_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="File not found")
     now = datetime.now(timezone.utc).isoformat()
@@ -247,8 +284,9 @@ async def save_project_config(
 ):
     """Save a configuration to a project's filesystem folder."""
     await _require_project(project_id)
+    slug = await _get_project_slug(project_id)
     try:
-        bps.save_project_config(project_id, request.config_id, request.config)
+        bps.save_project_config(slug, request.config_id, request.config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save config: {str(e)}")
     now = datetime.now(timezone.utc).isoformat()
@@ -261,6 +299,29 @@ async def save_project_config(
     return {"success": True, "config_id": request.config_id}
 
 
+@router.post("/projects/{project_id}/config/primary")
+async def save_primary_config(
+    project_id: str,
+    config: Dict[str, Any],
+    _user: dict = Depends(get_current_user),
+):
+    """Save the primary config.json for a project."""
+    await _require_project(project_id)
+    slug = await _get_project_slug(project_id)
+    try:
+        bps.save_primary_config(slug, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save primary config: {str(e)}")
+    now = datetime.now(timezone.utc).isoformat()
+    async with db._execute_async(
+        "UPDATE backtest_projects SET config_count = config_count + 1, updated_at = ? WHERE id = ?",
+        (now, project_id),
+        commit=True,
+    ):
+        pass
+    return {"success": True}
+
+
 @router.get("/projects/{project_id}/config/{config_id}")
 async def load_project_config(
     project_id: str,
@@ -269,7 +330,8 @@ async def load_project_config(
 ):
     """Load a configuration from a project's filesystem folder."""
     await _require_project(project_id)
-    data = bps.load_project_config(project_id, config_id)
+    slug = await _get_project_slug(project_id)
+    data = bps.load_project_config(slug, config_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Config not found")
     return {"config": data, "config_id": config_id}
@@ -288,7 +350,8 @@ async def run_options_station(config: Dict[str, Any], _user: dict = Depends(get_
             project_id = config.get("projectId", "")
             if project_id:
                 try:
-                    bps.save_project_result(project_id, f"result-{uuid.uuid4().hex[:8]}", result)
+                    slug = await _get_project_slug(project_id)
+                    bps.save_result(slug, result)
                 except Exception as e:
                     logger.warning(f"Failed to save result for project {project_id}: {e}")
 

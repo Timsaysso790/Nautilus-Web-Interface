@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -65,7 +65,12 @@ function createLeg(parentId?: string): OptionLeg {
   };
 }
 
-export function OptionsStationForm({ projectId, projectName, templateConfig, onCompile }: Props) {
+export interface OptionsStationFormHandle {
+  getCurrentConfig: () => CompiledStrategy;
+}
+
+export const OptionsStationForm = forwardRef<OptionsStationFormHandle, Props>(
+  function OptionsStationForm({ projectId, projectName, templateConfig, onCompile }, ref) {
   const [symbol, setSymbol] = useState("SPY");
   const [startDate, setStartDate] = useState("2024-01-01");
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
@@ -130,6 +135,24 @@ export function OptionsStationForm({ projectId, projectName, templateConfig, onC
 
   const siblingLegs = (currentIdx: number) =>
     legs.filter((_, i) => i !== currentIdx);
+
+  useImperativeHandle(ref, () => ({
+    getCurrentConfig: () => ({
+      projectId,
+      projectName,
+      global: {
+        symbol,
+        dateRange: { start: startDate, end: endDate },
+        initialCapital,
+        sizing: { strategy: sizingStrategy, value: sizingValue },
+        slippageBps,
+        dataResolution,
+      },
+      legs,
+      entryConditions,
+      exitRules,
+    }),
+  }));
 
   const compile = () => {
     const config: CompiledStrategy = {
@@ -372,4 +395,4 @@ export function OptionsStationForm({ projectId, projectName, templateConfig, onC
       </div>
     </div>
   );
-}
+});

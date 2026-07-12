@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Save, Loader2 } from "lucide-react";
 import { optionBacktestService } from "@/services/optionBacktestService";
 import { useNotification } from "@/contexts/NotificationContext";
 import type { BacktestProject, BacktestTemplate, CompiledStrategy, BacktestResult } from "./types";
 import { ProjectWorkspaceCard } from "./components/ProjectWorkspaceCard";
-import { OptionsStationForm } from "./components/OptionsStationForm";
+import { OptionsStationForm, type OptionsStationFormHandle } from "./components/OptionsStationForm";
 import { OptionsStationResults } from "./components/OptionsStationResults";
 import { ProcessingModal } from "./components/ProcessingModal";
 import { NewProjectDialog } from "./components/NewProjectDialog";
@@ -43,8 +48,12 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
   const [modalState, setModalState] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [modalError, setModalError] = useState("");
   const [jsonPreview, setJsonPreview] = useState("");
+  const formRef = useRef<OptionsStationFormHandle>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const loadProjects = useCallback(async () => {
     if (sandbox) return;
@@ -128,6 +137,25 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
     }
   }, [templateConfig, success, notifyError, loadTemplates]);
 
+  const handleSaveAsProject = useCallback(async () => {
+    if (!saveName.trim() || !formRef.current) return;
+    setSaving(true);
+    try {
+      const config = formRef.current.getCurrentConfig();
+      const res = await optionBacktestService.createProject(saveName.trim(), "options");
+      const pid = res.project.id;
+      await optionBacktestService.savePrimaryConfig(pid, config);
+      setShowSaveAs(false);
+      setSaveName("");
+      success(`Project "${saveName.trim()}" saved`);
+      navigate(`/trader/backtest/options/${pid}`);
+    } catch (e: any) {
+      notifyError(e?.detail || e?.message || "Failed to save project");
+    } finally {
+      setSaving(false);
+    }
+  }, [saveName, success, notifyError, navigate]);
+
   const handleCompile = useCallback(async (config: CompiledStrategy) => {
     setJsonPreview(JSON.stringify(config, null, 2));
     setModalState("idle");
@@ -163,9 +191,16 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
               <h1 className="text-2xl font-bold text-foreground">Options Station</h1>
               <p className="text-sm text-muted-foreground">Multi-leg options strategy backtesting with condition triggers</p>
             </div>
-            <Button variant="outline" onClick={() => navigate('/trader')}>
-              Back to Trader
-            </Button>
+            <div className="flex items-center gap-2">
+              {sandbox && (
+                <Button onClick={() => setShowSaveAs(true)} className="gap-2">
+                  <Save className="h-4 w-4" /> Save as Project
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => navigate('/trader')}>
+                Back to Trader
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -188,6 +223,7 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
               />
             )}
             <OptionsStationForm
+              ref={formRef}
               key={formKey}
               projectId={selectedProjectId}
               projectName={currentProject?.name || (sandbox ? "Sandbox" : "Unnamed")}
@@ -228,6 +264,33 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
           />
         </>
       )}
+
+      <Dialog open={showSaveAs} onOpenChange={(v) => { if (!saving) setShowSaveAs(v); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Save className="h-5 w-5" /> Save as Project
+            </DialogTitle>
+            <DialogDescription>
+              Save your current sandbox config as a persistent project with full disk storage.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={saveName}
+            onChange={e => setSaveName(e.target.value)}
+            placeholder="Project name"
+            onKeyDown={e => e.key === "Enter" && !saving && handleSaveAsProject()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveAs(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSaveAsProject} disabled={!saveName.trim() || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ProcessingModal
         state={modalState}
