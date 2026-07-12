@@ -21,11 +21,12 @@ import DatabaseMgmt from "./pages/DatabaseManagementPage";
 import MarketDataPage from "./pages/MarketDataPage";
 import BacktestingPage from "./pages/BacktestingPage";
 import UsersPage from "./pages/UsersPage";
-import { BacktestStationPage } from "./backtest";
 import OptionsPage from "./pages/OptionsPage";
 import StocksPage from "./pages/StocksPage";
 import LoginPage from "./pages/LoginPage";
 import DataLakePage from "./pages/DataLakePage";
+import OptionsStationPage from "./backtest/OptionsStationPage";
+import { PortfolioEnginePage } from "./backtest";
 import { API_CONFIG } from "./config";
 
 function Router() {
@@ -46,7 +47,8 @@ function Router() {
       <Route path="/trader" component={TraderDashboard} />
       <Route path="/trader/strategies" component={StrategiesPage} />
       <Route path="/trader/orders" component={OrdersPage} />
-      <Route path="/trader/option-backtest" component={BacktestStationPage} />
+      <Route path="/trader/option-backtest" component={PortfolioEnginePage} />
+      <Route path="/trader/options-station" component={OptionsStationPage} />
       <Route path="/trader/options" component={OptionsPage} />
       <Route path="/trader/broker-orders" component={BrokerOrdersPage} />
       <Route path="/trader/stocks" component={StocksPage} />

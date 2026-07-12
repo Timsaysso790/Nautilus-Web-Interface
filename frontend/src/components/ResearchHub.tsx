@@ -24,8 +24,8 @@ export default function ResearchHub({ view, onNavigate }: Props) {
       const res = await optionBacktestService.createProject(name, type);
       setShowNewProject(false);
       success(`Project "${name}" created`);
-      const tab = type === "options" ? "options" : "portfolio";
-      window.location.href = `/trader/option-backtest?tab=${tab}&project=${res.project.id}`;
+      const path = type === "options" ? "/trader/options-station" : "/trader/option-backtest";
+      window.location.href = `${path}?project=${res.project.id}`;
     } catch (e: any) {
       notifyError(e?.detail || "Failed to create project");
     }

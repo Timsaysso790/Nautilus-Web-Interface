@@ -51,8 +51,8 @@ export default function OpenProjectDialog({ open, onOpenChange, onNewProject }: 
     if (!selectedId) return;
     const project = projects.find(p => p.id === selectedId);
     if (!project) return;
-    const tab = project.project_type === "portfolio" ? "portfolio" : "options";
-    window.location.href = `/trader/option-backtest?tab=${tab}&project=${project.id}`;
+    const path = project.project_type === "portfolio" ? "/trader/option-backtest" : "/trader/options-station";
+    window.location.href = `${path}?project=${project.id}`;
   };
 
   return (

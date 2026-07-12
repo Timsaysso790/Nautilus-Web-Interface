@@ -90,7 +90,9 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
 
   // ── Project state ───────────────────────────────────────────────────────────
   const [projects, setProjects] = useState<BacktestProject[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId || "");
+  const [selectedProjectId, setSelectedProjectId] = useState(
+    initialProjectId || new URLSearchParams(window.location.search).get("project") || ""
+  );
   const [loadingProjects, setLoadingProjects] = useState(false);
 
   const loadProjects = useCallback(async () => {
@@ -189,17 +191,30 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
     const id = e.target.value;
     setSelectedProjectId(id);
     setResult(null);
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams();
     if (id) params.set("project", id);
-    else params.delete("project");
     window.history.replaceState(null, "", `/trader/option-backtest?${params.toString()}`);
   }, []);
 
   const currentProject = projects.find(p => p.id === selectedProjectId);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left Column: Configuration */}
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Portfolio Engine</h1>
+              <p className="text-sm text-muted-foreground">Equity portfolio backtesting with dividend automation and hedging</p>
+            </div>
+            <Button variant="outline" onClick={() => window.location.href = '/trader'}>
+              Back to Trader
+            </Button>
+          </div>
+        </div>
+      </header>
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1 space-y-4">
         {/* Project selector */}
         <Card>
@@ -469,6 +484,8 @@ export default function PortfolioEnginePage({ initialProjectId }: Props) {
         onClose={handleModalClose}
         onSubmit={() => {}}
       />
+      </div>
+      </main>
     </div>
   );
 }

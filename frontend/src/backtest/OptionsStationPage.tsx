@@ -8,35 +8,23 @@ import { OptionsStationForm } from "./components/OptionsStationForm";
 import { OptionsStationResults } from "./components/OptionsStationResults";
 import { ProcessingModal } from "./components/ProcessingModal";
 import { NewProjectDialog } from "./components/NewProjectDialog";
-import AppLayout from "@/components/AppLayout";
 import { SaveTemplateDialog } from "./components/SaveTemplateDialog";
-import PortfolioEnginePage from "./PortfolioEnginePage";
 
-type Tab = "options" | "portfolio";
-
-function parseUrlParams() {
-  const params = new URLSearchParams(window.location.search);
-  const tab = params.get("tab") as Tab | null;
-  const project = params.get("project") || "";
-  return {
-    tab: tab && ["options", "portfolio"].includes(tab) ? tab : "options",
-    project,
-  };
+function parseProjectId(): string {
+  return new URLSearchParams(window.location.search).get("project") || "";
 }
 
-function updateUrl(tab: Tab, project: string) {
+function updateUrl(project: string) {
   const params = new URLSearchParams();
-  params.set("tab", tab);
   if (project) params.set("project", project);
-  window.history.replaceState(null, "", `/trader/option-backtest?${params.toString()}`);
+  window.history.replaceState(null, "", `/trader/options-station?${params.toString()}`);
 }
 
-export default function BacktestStationPage() {
+export default function OptionsStationPage() {
   const { success, error: notifyError } = useNotification();
-  const [tab, setTab] = useState<Tab>(parseUrlParams().tab);
   const [projects, setProjects] = useState<BacktestProject[]>([]);
   const [templates, setTemplates] = useState<BacktestTemplate[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState(parseUrlParams().project);
+  const [selectedProjectId, setSelectedProjectId] = useState(parseProjectId());
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateConfig, setTemplateConfig] = useState<CompiledStrategy | null>(null);
   const [formKey, setFormKey] = useState(0);
@@ -49,12 +37,6 @@ export default function BacktestStationPage() {
   const [jsonPreview, setJsonPreview] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-
-  useEffect(() => {
-    const initial = parseUrlParams();
-    if (initial.tab !== tab) setTab(initial.tab);
-    if (initial.project !== selectedProjectId) setSelectedProjectId(initial.project);
-  }, []);
 
   const loadProjects = useCallback(async () => {
     setLoadingProjects(true);
@@ -85,20 +67,14 @@ export default function BacktestStationPage() {
     loadTemplates();
   }, []);
 
-  const handleTabChange = useCallback((newTab: Tab) => {
-    setTab(newTab);
-    setResult(null);
-    updateUrl(newTab, selectedProjectId);
-  }, [selectedProjectId]);
-
   const handleProjectChange = useCallback((id: string) => {
     setSelectedProjectId(id);
     setSelectedTemplateId("");
     setTemplateConfig(null);
     setResult(null);
     setFormKey(prev => prev + 1);
-    updateUrl(tab, id);
-  }, [tab]);
+    updateUrl(id);
+  }, []);
 
   const handleTemplateChange = useCallback((id: string) => {
     setSelectedTemplateId(id);
@@ -116,20 +92,20 @@ export default function BacktestStationPage() {
 
   const handleNewProject = useCallback(async (name: string) => {
     try {
-      const res = await optionBacktestService.createProject(name);
+      const res = await optionBacktestService.createProject(name, "options");
       setShowNewProject(false);
       await loadProjects();
       if (res.project) {
         setSelectedProjectId(res.project.id);
         setResult(null);
         setFormKey(prev => prev + 1);
-        updateUrl(tab, res.project.id);
+        updateUrl(res.project.id);
       }
       success(`Project "${name}" created`);
     } catch (e: any) {
       notifyError(e?.detail || "Failed to create project");
     }
-  }, [success, notifyError, loadProjects, tab]);
+  }, [success, notifyError, loadProjects]);
 
   const handleSaveTemplate = useCallback(async (name: string) => {
     setShowSaveTemplate(false);
@@ -169,74 +145,61 @@ export default function BacktestStationPage() {
   const currentProject = projects.find(p => p.id === selectedProjectId);
 
   return (
-    <AppLayout
-      title="Backtest Station"
-      subtitle="Multi-leg options strategy backtesting with condition triggers"
-    >
-        {/* Tabs */}
-        <div className="flex gap-1 border-b">
-          {[
-            { key: "options" as Tab, label: "Options Station" },
-            { key: "portfolio" as Tab, label: "Portfolio Engine" },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => handleTabChange(t.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.key
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {tab === "options" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-4">
-              <ProjectWorkspaceCard
-                projects={projects}
-                templates={templates}
-                selectedProjectId={selectedProjectId}
-                selectedTemplateId={selectedTemplateId}
-                loadingProjects={loadingProjects}
-                loadingTemplates={loadingTemplates}
-                onProjectChange={handleProjectChange}
-                onTemplateChange={handleTemplateChange}
-                onNewProject={() => setShowNewProject(true)}
-                onSaveTemplate={() => {
-                  setShowSaveTemplate(true);
-                }}
-              />
-              <OptionsStationForm
-                key={formKey}
-                projectId={selectedProjectId}
-                projectName={currentProject?.name || "Unnamed"}
-                templateConfig={templateConfig}
-                onCompile={handleCompile}
-              />
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Options Station</h1>
+              <p className="text-sm text-muted-foreground">Multi-leg options strategy backtesting with condition triggers</p>
             </div>
-            <div className="lg:col-span-2">
-              {!result && !running && (
-                <div className="text-center py-16 text-muted-foreground">
-                  <p className="text-lg">Configure your strategy and compile it.</p>
-                  <p className="text-sm mt-2">Supports multi-leg option strategies with conditional entry triggers and configurable exit rules.</p>
-                </div>
-              )}
-              {running && (
-                <div className="space-y-4">
-                  <div className="h-32 bg-card border rounded-lg animate-pulse" />
-                  <div className="h-64 bg-card border rounded-lg animate-pulse" />
-                </div>
-              )}
-              {result && <OptionsStationResults result={result} />}
-            </div>
+            <Button variant="outline" onClick={() => window.location.href = '/trader'}>
+              Back to Trader
+            </Button>
           </div>
-        )}
+        </div>
+      </header>
 
-        {tab === "portfolio" && <PortfolioEnginePage initialProjectId={selectedProjectId} />}
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-4">
+            <ProjectWorkspaceCard
+              projects={projects}
+              templates={templates}
+              selectedProjectId={selectedProjectId}
+              selectedTemplateId={selectedTemplateId}
+              loadingProjects={loadingProjects}
+              loadingTemplates={loadingTemplates}
+              onProjectChange={handleProjectChange}
+              onTemplateChange={handleTemplateChange}
+              onNewProject={() => setShowNewProject(true)}
+              onSaveTemplate={() => setShowSaveTemplate(true)}
+            />
+            <OptionsStationForm
+              key={formKey}
+              projectId={selectedProjectId}
+              projectName={currentProject?.name || "Unnamed"}
+              templateConfig={templateConfig}
+              onCompile={handleCompile}
+            />
+          </div>
+          <div className="lg:col-span-2">
+            {!result && !running && (
+              <div className="text-center py-16 text-muted-foreground">
+                <p className="text-lg">Configure your strategy and compile it.</p>
+                <p className="text-sm mt-2">Supports multi-leg option strategies with conditional entry triggers and configurable exit rules.</p>
+              </div>
+            )}
+            {running && (
+              <div className="space-y-4">
+                <div className="h-32 bg-card border rounded-lg animate-pulse" />
+                <div className="h-64 bg-card border rounded-lg animate-pulse" />
+              </div>
+            )}
+            {result && <OptionsStationResults result={result} />}
+          </div>
+        </div>
+      </main>
 
       <NewProjectDialog
         open={showNewProject}
@@ -257,6 +220,6 @@ export default function BacktestStationPage() {
         onClose={handleModalClose}
         onSubmit={() => {}}
       />
-    </AppLayout>
+    </div>
   );
 }
