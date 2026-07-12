@@ -1,11 +1,27 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from '@/hooks/useWebSocket';
 import AppLayout from "@/components/AppLayout";
+import NewProjectTypeDialog from "@/components/NewProjectTypeDialog";
+import OpenProjectDialog from "@/components/OpenProjectDialog";
+import { optionBacktestService } from "@/services/optionBacktestService";
 import { LayoutDashboard, LineChart, TestTube } from "lucide-react";
 
 export default function TraderDashboard() {
   const { connected: wsConnected } = useWebSocket();
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [showOpenProject, setShowOpenProject] = useState(false);
+
+  const handleNewProject = async (name: string, type: "options" | "portfolio") => {
+    try {
+      const res = await optionBacktestService.createProject(name, type);
+      const path = type === "portfolio" ? "/trader/option-backtest" : "/trader/options-station";
+      window.location.href = `${path}?project=${res.project.id}`;
+    } catch {
+      // error handled by service
+    }
+  };
 
   return (
     <AppLayout
@@ -66,13 +82,13 @@ export default function TraderDashboard() {
                 Explore market data, analyze stocks and options, run backtests, and review trading performance.
               </p>
               <div className="grid grid-cols-1 gap-2">
-                <Button variant="outline" onClick={() => window.location.href = '/admin/data-lake?tab=research&view=new'}>
+                <Button variant="outline" onClick={() => setShowNewProject(true)}>
                   New Project
                 </Button>
-                <Button variant="outline" onClick={() => window.location.href = '/admin/data-lake?tab=research&view=projects'}>
+                <Button variant="outline" onClick={() => setShowOpenProject(true)}>
                   Open Project
                 </Button>
-                <Button variant="outline" onClick={() => window.location.href = '/admin/data-lake?tab=research&view=quick-backtest'}>
+                <Button variant="outline" onClick={() => window.location.href = '/trader/option-backtest'}>
                   Quick Backtest
                 </Button>
               </div>
@@ -80,6 +96,21 @@ export default function TraderDashboard() {
           </Card>
         </div>
       </div>
+
+      <NewProjectTypeDialog
+        open={showNewProject}
+        onOpenChange={setShowNewProject}
+        onConfirm={handleNewProject}
+      />
+
+      <OpenProjectDialog
+        open={showOpenProject}
+        onOpenChange={setShowOpenProject}
+        onNewProject={() => {
+          setShowOpenProject(false);
+          setTimeout(() => setShowNewProject(true), 100);
+        }}
+      />
     </AppLayout>
   );
 }

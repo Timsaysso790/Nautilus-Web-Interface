@@ -2,6 +2,7 @@
 Portfolio Engine API router — endpoints for portfolio backtesting.
 """
 
+import asyncio
 import logging
 import uuid
 from typing import List, Optional
@@ -11,13 +12,14 @@ from pydantic import BaseModel, Field
 
 import portfolio_engine
 import backtest_project_service as bps
+from backtest_project_service import _sanitize_id
 from auth_jwt import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/backtest/portfolio", tags=["backtest-portfolio"])
 
-_backtest_lock = False
+_backtest_lock = asyncio.Lock()
 
 
 class PortfolioAssetRequest(BaseModel):
@@ -98,34 +100,34 @@ async def run_portfolio_backtest(
     request: PortfolioBacktestRequest,
     _user: dict = Depends(get_current_user),
 ):
-    global _backtest_lock
-    if _backtest_lock:
-        raise HTTPException(status_code=409, detail="A backtest is already running. Please wait.")
-    _backtest_lock = True
-    try:
-        config = request.model_dump()
-        project_id = config.pop("projectId", "")
+    async with _backtest_lock:
+        try:
+            config = request.model_dump()
 
-        result = await portfolio_engine.run_portfolio_backtest(config)
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error", "Portfolio backtest failed"))
+            project_id = config.get("projectId", "") or ""
+            if project_id:
+                try:
+                    _sanitize_id(project_id, "projectId")
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
 
-        # Save config and result to project folder if projectId is present
-        if project_id:
-            try:
-                bps.save_project_config(project_id, "config-portfolio", config)
-                bps.save_project_result(project_id, f"result-{uuid.uuid4().hex[:8]}", result)
-            except Exception as e:
-                logger.warning(f"Failed to save portfolio result for project {project_id}: {e}")
+            result = await portfolio_engine.run_portfolio_backtest(config)
+            if not result.get("success"):
+                raise HTTPException(status_code=400, detail=result.get("error", "Portfolio backtest failed"))
 
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Portfolio backtest error")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        _backtest_lock = False
+            if project_id:
+                try:
+                    bps.save_project_config(project_id, "config-portfolio", config)
+                    bps.save_project_result(project_id, f"result-{uuid.uuid4().hex[:8]}", result)
+                except Exception as e:
+                    logger.warning(f"Failed to save portfolio result for project {project_id}: {e}")
+
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception("Portfolio backtest error")
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/dividends")
