@@ -326,14 +326,14 @@ export function OptionsStationForm({ projectId, projectName, templateConfig, onC
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Parent Leg</Label>
                     <Select
-                      value={leg.parentLegId || ""}
-                      onValueChange={(v) => updateLeg(idx, "parentLegId", v || null)}
+                      value={leg.parentLegId || "none"}
+                      onValueChange={(v) => updateLeg(idx, "parentLegId", v === "none" ? null : v)}
                     >
                       <SelectTrigger className="h-7 text-xs">
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {siblings.map(s => (
                           <SelectItem key={s.id} value={s.id}>Leg {legs.indexOf(s) + 1}</SelectItem>
                         ))}
