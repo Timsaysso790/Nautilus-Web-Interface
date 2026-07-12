@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -19,10 +19,17 @@ export default function NewProjectTypeDialog({ open, onOpenChange, onConfirm, cr
   const [name, setName] = useState("");
   const [type, setType] = useState<"options" | "portfolio">("options");
 
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setType("options");
+    }
+  }, [open]);
+
   const handleConfirm = () => {
     if (name.trim() && !creating) {
+      console.log("[NewProjectDialog] Confirm clicked:", { name: name.trim(), type });
       onConfirm(name.trim(), type);
-      setName("");
     }
   };
 

@@ -21,14 +21,17 @@ export default function TraderDashboard() {
   const [creating, setCreating] = useState(false);
 
   const handleNewProject = async (name: string, type: "options" | "portfolio") => {
+    console.log("[NewProject] Submission started:", { name, type });
     setCreating(true);
     try {
       const res = await optionBacktestService.createProject(name, type);
+      console.log("[NewProject] API success:", res);
       setShowNewProject(false);
       success(`Project "${name}" created — workspace ready`);
       navigate(`/trader/backtest/${type}/${res.project.id}`);
     } catch (e: any) {
-      notifyError(e?.detail || "Failed to create project");
+      console.error("[NewProject] API error:", e);
+      notifyError(e?.detail || e?.message || "Failed to create project");
     } finally {
       setCreating(false);
     }
