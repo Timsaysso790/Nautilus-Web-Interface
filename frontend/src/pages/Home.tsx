@@ -16,7 +16,7 @@ export default function Home() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-16">
-          <Card className="border-border hover:border-primary/50 transition-all">
+          <Card className="border-border hover:border-foreground/30 transition-all">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <LayoutDashboard className="h-5 w-5 text-primary" />
