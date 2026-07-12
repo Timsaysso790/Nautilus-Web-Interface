@@ -21,7 +21,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://localhost:8000",
+        target: process.env.VITE_WS_PROXY_TARGET || "ws://localhost:8000",
         ws: true,
       },
     },

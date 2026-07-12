@@ -14,12 +14,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
-RUN mkdir -p /app/data \
-    && addgroup --system appgroup \
-    && adduser --system --ingroup appgroup --no-create-home appuser \
-    && chown -R appuser:appgroup /app
-
-USER appuser
+RUN mkdir -p /app/data
 
 EXPOSE 8000
 
