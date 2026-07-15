@@ -1,6 +1,6 @@
 """
 NVMe filesystem management for backtest project workspaces.
-Each project gets a slug-named subdirectory under /data/projects/.
+Each project gets a slug-named subdirectory under PROJECTS_ROOT (default: /app/data/projects).
 """
 
 import json
@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-PROJECTS_ROOT = Path("/data/projects")
+PROJECTS_ROOT = Path(os.getenv("PROJECTS_ROOT", "/app/data/projects"))
 
 _SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 

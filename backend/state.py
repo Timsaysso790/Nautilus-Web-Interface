@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import List
 from fastapi import WebSocket
 
-backend_dir = Path(__file__).parent
-catalog_path = str(backend_dir.parent / "nautilus_data" / "catalog")
+_default_catalog = str(Path(__file__).parent.parent / "nautilus_data" / "catalog")
+catalog_path = os.getenv("NAUTILUS_CATALOG_PATH", _default_catalog)
 os.environ.setdefault("NAUTILUS_CATALOG_PATH", catalog_path)
 
 from nautilus_core import NautilusTradingSystem  # noqa: E402
