@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 import portfolio_engine
 import backtest_project_service as bps
-from backtest_project_service import _sanitize_id
+from backtest_project_service import _sanitize_slug
 from auth_jwt import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ async def run_portfolio_backtest(
             project_id = config.get("projectId", "") or ""
             if project_id:
                 try:
-                    _sanitize_id(project_id, "projectId")
+                    _sanitize_slug(project_id, "projectId")
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=str(e))
 
