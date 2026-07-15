@@ -5,6 +5,7 @@ Each project gets a slug-named subdirectory under PROJECTS_ROOT (default: /app/d
 
 import json
 import logging
+import os
 import re
 import shutil
 import uuid
