@@ -16,6 +16,8 @@ import ResearchLanding from "./pages/ResearchLanding";
 import OptionsLab from "./pages/OptionsLab";
 import BacktestingPage from "./pages/BacktestingPage";
 import PortfolioDesigner from "./pages/PortfolioDesigner";
+import BacktestDetail from "./pages/BacktestDetail";
+import ChartPage from "./pages/ChartPage";
 import DataCatalog from "./pages/DataCatalog";
 import StrategyScreener from "./pages/StrategyScreener";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -51,6 +53,12 @@ function ResearchPages() {
       break;
     case "/data-catalog":
       content = <DataCatalog />;
+      break;
+    case "/chart":
+      content = <ChartPage />;
+      break;
+    case "/backtest-visualizer":
+      content = <BacktestDetail />;
       break;
     case "/screener":
       content = <StrategyScreener />;

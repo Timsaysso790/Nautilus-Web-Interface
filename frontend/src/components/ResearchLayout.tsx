@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
   FlaskConical, LayoutDashboard, Database, LineChart,
-  BarChart3, Search, Activity, Wrench, LogOut, FolderOpen, Brain
+  BarChart3, Search, Activity, Wrench, LogOut, FolderOpen, Brain, TrendingUp
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -15,6 +15,8 @@ const NAV_ITEMS = [
   { href: "/research/projects", label: "Projects", icon: FolderOpen },
   { href: "/research/data-catalog", label: "Data Catalog", icon: Database },
   { href: "/research/screener", label: "Strategy Screener", icon: Search },
+  { href: "/research/chart", label: "Charts", icon: BarChart3 },
+  { href: "/research/backtest-visualizer", label: "Backtest Visualizer", icon: TrendingUp },
   { href: "/research/ai-assistant", label: "AI Assistant", icon: Brain },
 ];
 

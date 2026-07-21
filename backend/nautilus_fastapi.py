@@ -43,6 +43,7 @@ from routers import (
     backtest_portfolio,
     backtest_projects,
     broker_orders,
+    chart,
     data_ingestion,
     data_lake,
     database_ops,
@@ -290,6 +291,7 @@ app.include_router(backtest_options.router)
 app.include_router(backtest_portfolio.router)
 app.include_router(backtest_projects.router)
 app.include_router(broker_orders.router)
+app.include_router(chart.router)
 app.include_router(data_ingestion.router)
 app.include_router(data_lake.router)
 app.include_router(database_ops.router)
