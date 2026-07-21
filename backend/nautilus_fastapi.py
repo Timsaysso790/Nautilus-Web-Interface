@@ -36,6 +36,7 @@ import auth as _auth_module
 from auth import ApiKeyMiddleware
 from auth_jwt import decode_token
 from routers import (
+    ai_assistant,
     auth as auth_router_module,
     backtest,
     backtest_options,
@@ -276,6 +277,7 @@ async def _count_requests(request: Request, call_next):
 
 # ── Include routers ───────────────────────────────────────────────────────────
 
+app.include_router(ai_assistant.router)
 app.include_router(auth_router_module.router)
 app.include_router(strategies.router)
 app.include_router(orders.router)

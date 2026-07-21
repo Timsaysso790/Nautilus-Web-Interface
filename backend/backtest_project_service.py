@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-PROJECTS_ROOT = Path(os.getenv("PROJECTS_ROOT", "/app/data/projects"))
+PROJECTS_ROOT = Path(os.getenv("PROJECTS_ROOT", "/opt/data/nautilus_projects"))
 
 _SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 

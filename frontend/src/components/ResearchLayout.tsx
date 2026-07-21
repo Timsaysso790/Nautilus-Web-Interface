@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
-  FlaskConical, LineChart, LayoutDashboard, Database,
-  BarChart3, Search, Activity, Wrench, LogOut
+  FlaskConical, LayoutDashboard, Database, LineChart,
+  BarChart3, Search, Activity, Wrench, LogOut, FolderOpen, Brain
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -12,8 +12,10 @@ const NAV_ITEMS = [
   { href: "/research/options-lab", label: "Options Lab", icon: Activity },
   { href: "/research/backtesting", label: "Backtesting", icon: BarChart3 },
   { href: "/research/portfolio-designer", label: "Portfolio Designer", icon: LineChart },
+  { href: "/research/projects", label: "Projects", icon: FolderOpen },
   { href: "/research/data-catalog", label: "Data Catalog", icon: Database },
   { href: "/research/screener", label: "Strategy Screener", icon: Search },
+  { href: "/research/ai-assistant", label: "AI Assistant", icon: Brain },
 ];
 
 export default function ResearchLayout({ children }: { children: ReactNode }) {

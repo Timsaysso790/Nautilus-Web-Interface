@@ -18,6 +18,8 @@ import BacktestingPage from "./pages/BacktestingPage";
 import PortfolioDesigner from "./pages/PortfolioDesigner";
 import DataCatalog from "./pages/DataCatalog";
 import StrategyScreener from "./pages/StrategyScreener";
+import ProjectsPage from "./pages/ProjectsPage";
+import AIAssistant from "./pages/AIAssistant";
 import LiveLanding from "./pages/LiveLanding";
 import LivePositions from "./pages/LivePositions";
 import LiveOrders from "./pages/LiveOrders";
@@ -52,6 +54,12 @@ function ResearchPages() {
       break;
     case "/screener":
       content = <StrategyScreener />;
+      break;
+    case "/projects":
+      content = <ProjectsPage />;
+      break;
+    case "/ai-assistant":
+      content = <AIAssistant />;
       break;
     default:
       content = <NotFound />;

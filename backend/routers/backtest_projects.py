@@ -47,7 +47,7 @@ async def _project_exists(project_id: str) -> bool:
     async with db._execute_async(
         "SELECT 1 FROM backtest_projects WHERE id = ?", (project_id,)
     ) as cur:
-        return cur.fetchone() is not None
+        return await cur.fetchone() is not None
 
 
 async def _require_project(project_id: str) -> None:
@@ -59,7 +59,7 @@ async def _get_project_slug(project_id: str) -> str:
     async with db._execute_async(
         "SELECT project_slug FROM backtest_projects WHERE id = ?", (project_id,)
     ) as cur:
-        row = cur.fetchone()
+        row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")
     return row[0] or project_id  # fallback to project_id for legacy rows
@@ -74,7 +74,7 @@ async def _generate_unique_slug(name: str) -> str:
             async with db._execute_async(
                 "SELECT 1 FROM backtest_projects WHERE project_slug = ?", (slug,)
             ) as cur:
-                exists = cur.fetchone() is not None
+                exists = await cur.fetchone() is not None
         except Exception:
             exists = False
         if not exists:
@@ -90,7 +90,7 @@ async def list_projects(_user: dict = Depends(get_current_user)):
     async with db._execute_async(
         "SELECT id, name, project_type, project_slug, created_at, updated_at, config_count FROM backtest_projects ORDER BY updated_at DESC"
     ) as cur:
-        rows = cur.fetchall()
+        rows = await cur.fetchall()
     return {
         "projects": [
             {
@@ -156,7 +156,8 @@ async def delete_project(project_id: str, _user: dict = Depends(get_current_user
     async with db._execute_async(
         "DELETE FROM backtest_projects WHERE id = ?", (project_id,), commit=True
     ) as cur:
-        deleted = cur.rowcount > 0
+        await cur.execute("SELECT changes()")
+        deleted = (await cur.fetchone())[0] > 0
     if not deleted:
         raise HTTPException(status_code=404, detail="Project not found")
     bps.delete_project_folder(slug)
@@ -170,7 +171,7 @@ async def list_templates(_user: dict = Depends(get_current_user)):
     async with db._execute_async(
         "SELECT id, name, config, created_at FROM backtest_templates ORDER BY created_at DESC"
     ) as cur:
-        rows = cur.fetchall()
+        rows = await cur.fetchall()
     return {
         "templates": [
             {
@@ -209,7 +210,8 @@ async def delete_template(template_id: str, _user: dict = Depends(get_current_us
     async with db._execute_async(
         "DELETE FROM backtest_templates WHERE id = ?", (template_id,), commit=True
     ) as cur:
-        deleted = cur.rowcount > 0
+        await cur.execute("SELECT changes()")
+        deleted = (await cur.fetchone())[0] > 0
     if not deleted:
         raise HTTPException(status_code=404, detail="Template not found")
     return {"success": True}
@@ -225,7 +227,7 @@ async def get_project(project_id: str, _user: dict = Depends(get_current_user)):
         "SELECT id, name, project_type, project_slug, created_at, updated_at, config_count FROM backtest_projects WHERE id = ?",
         (project_id,),
     ) as cur:
-        row = cur.fetchone()
+        row = await cur.fetchone()
     files = bps.list_project_files(slug)
     return {
         "project": {
