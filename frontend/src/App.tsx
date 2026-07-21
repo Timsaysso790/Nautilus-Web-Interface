@@ -2,57 +2,104 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { useEffect, useState } from "react";
 import { loadApiConfig } from "./config";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Router, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { NotificationContainer } from "./components/NotificationContainer";
+import ResearchLayout from "./components/ResearchLayout";
+import LiveLayout from "./components/LiveLayout";
+
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
-import AdminDashboard from "./pages/AdminDashboard";
-import TraderDashboard from "./pages/TraderDashboard";
-import BrokerOrdersPage from "./pages/BrokerOrdersPage";
-
-import SettingsPage from "./pages/SettingsPage";
-import StrategiesPage from "./pages/StrategiesPage";
-import OrdersPage from "./pages/OrdersPage";
-import ApiConfigPage from "./pages/ApiConfigPage";
-import DatabaseMgmt from "./pages/DatabaseManagementPage";
-import MarketDataPage from "./pages/MarketDataPage";
+import ResearchLanding from "./pages/ResearchLanding";
+import OptionsLab from "./pages/OptionsLab";
 import BacktestingPage from "./pages/BacktestingPage";
-import UsersPage from "./pages/UsersPage";
-import OptionsPage from "./pages/OptionsPage";
-import StocksPage from "./pages/StocksPage";
+import PortfolioDesigner from "./pages/PortfolioDesigner";
+import DataCatalog from "./pages/DataCatalog";
+import StrategyScreener from "./pages/StrategyScreener";
+import LiveLanding from "./pages/LiveLanding";
+import LivePositions from "./pages/LivePositions";
+import LiveOrders from "./pages/LiveOrders";
+import OrderTicket from "./pages/OrderTicket";
+import BrokerConnections from "./pages/BrokerConnections";
 import LoginPage from "./pages/LoginPage";
-import DataLakePage from "./pages/DataLakePage";
-import BacktestViewRouter from "./backtest/BacktestViewRouter";
-import { API_CONFIG } from "./config";
+import AdminDashboard from "./pages/AdminDashboard";
+import SettingsPage from "./pages/SettingsPage";
 
-function Router() {
-  useEffect(() => {
-    loadApiConfig();
-  }, []);
+// Research routes all wrapped in ResearchLayout
+function ResearchPages() {
+  const [location] = useLocation();
+  const page = location.replace("/research", "") || "/";
 
+  let content;
+  switch (page) {
+    case "/":
+    case "":
+      content = <ResearchLanding />;
+      break;
+    case "/options-lab":
+      content = <OptionsLab />;
+      break;
+    case "/backtesting":
+      content = <BacktestingPage />;
+      break;
+    case "/portfolio-designer":
+      content = <PortfolioDesigner />;
+      break;
+    case "/data-catalog":
+      content = <DataCatalog />;
+      break;
+    case "/screener":
+      content = <StrategyScreener />;
+      break;
+    default:
+      content = <NotFound />;
+  }
+
+  return <ResearchLayout>{content}</ResearchLayout>;
+}
+
+// Live routes all wrapped in LiveLayout
+function LivePages() {
+  const [location] = useLocation();
+  const page = location.replace("/live", "") || "/";
+
+  let content;
+  switch (page) {
+    case "/":
+    case "":
+      content = <LiveLanding />;
+      break;
+    case "/positions":
+      content = <LivePositions />;
+      break;
+    case "/orders":
+      content = <LiveOrders />;
+      break;
+    case "/order-ticket":
+      content = <OrderTicket />;
+      break;
+    case "/brokers":
+      content = <BrokerConnections />;
+      break;
+    default:
+      content = <NotFound />;
+  }
+
+  return <LiveLayout>{content}</LiveLayout>;
+}
+
+function RouterOutlet() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/research" component={ResearchPages} />
+      <Route path="/research/:rest*" component={ResearchPages} />
+      <Route path="/live" component={LivePages} />
+      <Route path="/live/:rest*" component={LivePages} />
       <Route path="/admin" component={AdminDashboard} />
-
       <Route path="/admin/settings" component={SettingsPage} />
-      <Route path="/admin/api-config" component={ApiConfigPage} />
-      <Route path="/admin/db-management" component={DatabaseMgmt} />
-      <Route path="/admin/users" component={UsersPage} />
-      <Route path="/admin/data-lake" component={DataLakePage} />
-      <Route path="/trader" component={TraderDashboard} />
-      <Route path="/trader/strategies" component={StrategiesPage} />
-      <Route path="/trader/orders" component={OrdersPage} />
-      <Route path="/trader/backtest/:projectType/:projectId" component={BacktestViewRouter} />
-      <Route path="/trader/options" component={OptionsPage} />
-      <Route path="/trader/broker-orders" component={BrokerOrdersPage} />
-      <Route path="/trader/stocks" component={StocksPage} />
-      <Route path="/trader/market-data" component={MarketDataPage} />
-      <Route path="/trader/backtesting" component={BacktestingPage} />
-      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -62,9 +109,7 @@ function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const onUnauthorized = () => {
-      setAuthenticated(false);
-    };
+    const onUnauthorized = () => setAuthenticated(false);
     window.addEventListener('nautilus:unauthorized', onUnauthorized);
     return () => window.removeEventListener('nautilus:unauthorized', onUnauthorized);
   }, []);
@@ -95,18 +140,16 @@ function App() {
     }
   }, []);
 
-  const handleLogin = (token: string, role: string) => {
-    localStorage.setItem('nautilus_token', token);
-    localStorage.setItem('nautilus_role', role);
-    setAuthenticated(true);
-  };
-
   if (authenticated === null) return null;
 
   if (!authenticated) {
     return (
       <ErrorBoundary>
-        <LoginPage onLogin={handleLogin} />
+        <LoginPage onLogin={(token, role) => {
+          localStorage.setItem('nautilus_token', token);
+          localStorage.setItem('nautilus_role', role);
+          setAuthenticated(true);
+        }} />
       </ErrorBoundary>
     );
   }
@@ -118,7 +161,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <NotificationContainer />
-            <Router />
+            <RouterOutlet />
           </TooltipProvider>
         </NotificationProvider>
       </ThemeProvider>

@@ -41,10 +41,13 @@ from routers import (
     backtest_portfolio,
     backtest_projects,
     broker_orders,
+    data_ingestion,
     data_lake,
     database_ops,
+    live_trading,
     market_data,
     options,
+    options_lab,
     orders,
     positions,
     stocks,
@@ -280,14 +283,17 @@ app.include_router(market_data.router)
 app.include_router(system.router)
 app.include_router(backtest.router)
 
-app.include_router(broker_orders.router)
-app.include_router(database_ops.router)
-app.include_router(users.router)
-app.include_router(options.router)
-app.include_router(stocks.router)
-app.include_router(data_lake.router)
 app.include_router(backtest_portfolio.router)
 app.include_router(backtest_projects.router)
+app.include_router(broker_orders.router)
+app.include_router(data_ingestion.router)
+app.include_router(data_lake.router)
+app.include_router(database_ops.router)
+app.include_router(live_trading.router)
+app.include_router(options.router)
+app.include_router(options_lab.router)
+app.include_router(stocks.router)
+app.include_router(users.router)
 
 
 # ── Root endpoint ─────────────────────────────────────────────────────────────

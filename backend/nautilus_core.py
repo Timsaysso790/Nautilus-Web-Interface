@@ -40,7 +40,10 @@ class NautilusTradingSystem:
             catalog_path: Path to Nautilus data catalog
         """
         self.trader_id = TraderId("TRADER-001")
-        self.catalog_path = catalog_path or "/home/ubuntu/nautilus_data/catalog"
+        self.catalog_path = catalog_path or os.getenv(
+            "NAUTILUS_CATALOG_PATH",
+            "/workspace/Archive/Nautilus_Archive5min"
+        )
         
         # Engine
         self.engine: Optional[BacktestEngine] = None
