@@ -23,7 +23,7 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
     // Poll broker status from backend
     const fetchStatus = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/live/summary");
+        const res = await fetch("/api/live/summary");
         if (res.ok) {
           const data = await res.json();
           setBrokerStatus(data.broker_status || {});
@@ -77,7 +77,7 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
             className="w-full text-xs gap-1.5 bg-red-900/30 hover:bg-red-800/50 border border-red-800/40 text-red-400"
             onClick={() => {
               if (window.confirm("⚠️ Cancel ALL open orders on all brokers?")) {
-                fetch("http://localhost:8000/api/live/cancel-all", { method: "POST" });
+                fetch("/api/live/cancel-all", { method: "POST" });
               }
             }}
           >

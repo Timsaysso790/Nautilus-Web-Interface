@@ -38,6 +38,7 @@ from auth_jwt import decode_token
 from routers import (
     auth as auth_router_module,
     backtest,
+    backtest_options,
     backtest_portfolio,
     backtest_projects,
     broker_orders,
@@ -283,6 +284,7 @@ app.include_router(market_data.router)
 app.include_router(system.router)
 app.include_router(backtest.router)
 
+app.include_router(backtest_options.router)
 app.include_router(backtest_portfolio.router)
 app.include_router(backtest_projects.router)
 app.include_router(broker_orders.router)

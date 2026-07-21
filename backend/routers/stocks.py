@@ -35,7 +35,7 @@ async def get_quote(symbol: str):
 @router.get("/{symbol}/history")
 async def get_history(
     symbol: str,
-    interval: str = Query("1d", regex="^(1m|5m|15m|30m|1h|1d|1wk|1mo)$"),
+    interval: str = Query("1d", pattern="^(1m|5m|15m|30m|1h|1d|1wk|1mo)$"),
     start: Optional[str] = None,
     end: Optional[str] = None,
 ):

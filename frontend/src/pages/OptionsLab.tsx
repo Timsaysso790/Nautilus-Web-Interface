@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
 const YEAR = "2025";
 
 /* ───────── types ───────── */

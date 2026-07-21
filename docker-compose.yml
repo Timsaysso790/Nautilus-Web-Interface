@@ -4,52 +4,28 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    expose:
-      - "8000"
+    ports:
+      - "${NAUTILUS_API_PORT:-8000}:8000"
     environment:
       SECRET_KEY: "${SECRET_KEY:-dev-secret-key-CHANGE-IN-PRODUCTION-min-32-chars}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin}"
       ENVIRONMENT: "${ENVIRONMENT:-development}"
-      API_KEY: "${API_KEY:-}"
       NAUTILUS_API_PORT: "8000"
       RATE_LIMIT_PER_MINUTE: "${RATE_LIMIT_PER_MINUTE:-200}"
       LOGIN_RATE_LIMIT_PER_MINUTE: "${LOGIN_RATE_LIMIT_PER_MINUTE:-5}"
       THETADATA_API_KEY: "${THETADATA_API_KEY:-}"
       FRED_API_KEY: "${FRED_API_KEY:-}"
-      NAUTILUS_CATALOG_PATH: /app/catalog
+      OPTIONS_ARCHIVE_PATH: "${OPTIONS_ARCHIVE_PATH:-/data/archive/Nautilus_Archive5min}"
+      EQUITY_ARCHIVE_PATH: "${EQUITY_ARCHIVE_PATH:-/data/archive/Equity_Archive}"
     volumes:
       - "${NAUTILUS_DATA_DIR:-./data}/backend:/app/data"
       - "${NAUTILUS_CATALOG_PATH:-./data_lake}:/app/catalog"
+      - "${ARCHIVE_PATH:-./archive}:/data/archive"
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: "1.0"
+    mem_limit: 1g
+    cpus: "2.0"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - nautilus-net
-
-  admin_db_api:
-    container_name: nautilus-admin-db
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: ["python3", "admin_db_api.py"]
-    expose:
-      - "8001"
-    environment:
-      ADMIN_DB_API_PORT: "8001"
-      DB_PATH: "/app/data/admin_panel.db"
-      ADMIN_API_KEY: "${ADMIN_API_KEY:-}"
-    volumes:
-      - "${NAUTILUS_DATA_DIR:-./data}/admin:/app/data"
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: "0.5"
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/admin/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -65,7 +41,6 @@ services:
       - "${NAUTILUS_WEB_PORT:-8080}:80"
     depends_on:
       - backend
-      - admin_db_api
     restart: unless-stopped
     mem_limit: 64m
     cpus: "0.25"
