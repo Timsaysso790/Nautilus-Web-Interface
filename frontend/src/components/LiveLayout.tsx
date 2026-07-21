@@ -70,28 +70,35 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        {/* Kill Switch */}
-        <div className="px-3 py-3 border-t border-gray-800/60 space-y-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            className="w-full text-xs gap-1.5 bg-red-900/30 hover:bg-red-800/50 border border-red-800/40 text-red-400"
-            onClick={() => {
-              if (window.confirm("⚠️ Cancel ALL open orders on all brokers?")) {
-                fetch("/api/live/cancel-all", { method: "POST" });
-              }
-            }}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Kill Switch
-          </Button>
-          <a
-            href="/"
-            className="flex items-center gap-2 px-3 py-1.5 rounded text-xs text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Back to Hub
-          </a>
+        {/* Bottom section */}
+        <div className="border-t border-gray-800/60">
+          {/* Kill Switch — separated and clearly dangerous */}
+          <div className="px-3 pt-3 pb-1">
+            <div className="text-[10px] text-red-500/60 uppercase tracking-wider font-medium mb-1.5 px-1">⚠ Danger Zone</div>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full text-xs gap-1.5 bg-red-900/30 hover:bg-red-800/50 border border-red-800/40 text-red-400"
+              onClick={() => {
+                if (window.confirm("⚠️ Cancel ALL open orders on all brokers?")) {
+                  fetch("/api/live/cancel-all", { method: "POST" });
+                }
+              }}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Kill Switch
+            </Button>
+          </div>
+          {/* Back to Hub — cleanly below with a separator */}
+          <div className="px-3 pb-3 pt-1 border-t border-gray-800/40">
+            <a
+              href="/"
+              className="flex items-center gap-2 px-3 py-1.5 rounded text-xs text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Back to Hub
+            </a>
+          </div>
         </div>
       </aside>
 

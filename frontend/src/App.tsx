@@ -13,6 +13,7 @@ import LiveLayout from "./components/LiveLayout";
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import ResearchLanding from "./pages/ResearchLanding";
+import ResearchWorkspace from "./pages/ResearchWorkspace";
 import OptionsLab from "./pages/OptionsLab";
 import BacktestingPage from "./pages/BacktestingPage";
 import PortfolioDesigner from "./pages/PortfolioDesigner";
@@ -44,7 +45,7 @@ function ResearchPages() {
       content = <ResearchLanding />;
       break;
     case "/options-lab":
-      content = <OptionsLab />;
+      content = <ResearchWorkspace />;
       break;
     case "/backtesting":
       content = <BacktestingPage />;

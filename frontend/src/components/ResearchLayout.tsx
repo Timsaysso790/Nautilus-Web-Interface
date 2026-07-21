@@ -9,7 +9,7 @@ import {
 
 const NAV_ITEMS = [
   { href: "/research", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/research/options-lab", label: "Options Lab", icon: Activity },
+  { href: "/research/options-lab", label: "Research Workspace", icon: Activity },
   { href: "/research/backtesting", label: "Backtesting", icon: BarChart3 },
   { href: "/research/portfolio-designer", label: "Portfolio Designer", icon: LineChart },
   { href: "/research/projects", label: "Projects", icon: FolderOpen },
