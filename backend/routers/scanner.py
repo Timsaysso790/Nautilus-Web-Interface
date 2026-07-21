@@ -18,13 +18,19 @@ router = APIRouter(prefix="/api/scanner", tags=["scanner"])
 
 SCANNER_OUTPUT = Path(os.getenv("SCANNER_OUTPUT_PATH", "/opt/data/.mcp_scanner_output.json"))
 
+# Also check the docker-mounted path as fallback
+_DOCKER_SCANNER_PATH = Path("/data/scanner/.mcp_scanner_output.json")
+
 
 def _load_scanner_output() -> Dict[str, Any]:
     """Load the latest scanner output from the relay file."""
-    if not SCANNER_OUTPUT.exists():
+    path = SCANNER_OUTPUT
+    if not path.exists() and _DOCKER_SCANNER_PATH.exists():
+        path = _DOCKER_SCANNER_PATH
+    if not path.exists():
         return {"status": "no_data", "message": "No scanner output file found. Run a scan first."}
     try:
-        data = json.loads(SCANNER_OUTPUT.read_text())
+        data = json.loads(path.read_text())
         return data
     except Exception as e:
         return {"status": "error", "message": f"Failed to parse scanner output: {e}"}

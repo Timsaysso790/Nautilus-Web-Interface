@@ -17,10 +17,13 @@ services:
       FRED_API_KEY: "${FRED_API_KEY:-}"
       OPTIONS_ARCHIVE_PATH: "${OPTIONS_ARCHIVE_PATH:-/data/archive/Nautilus_Archive5min}"
       EQUITY_ARCHIVE_PATH: "${EQUITY_ARCHIVE_PATH:-/data/archive/Equity_Archive}"
+      SCANNER_OUTPUT_PATH: "/data/scanner/.mcp_scanner_output.json"
+      PROJECTS_ROOT: "/app/data/projects"
     volumes:
       - "${NAUTILUS_DATA_DIR:-./data}/backend:/app/data"
       - "${NAUTILUS_CATALOG_PATH:-./data_lake}:/app/catalog"
       - "${ARCHIVE_PATH:-./archive}:/data/archive"
+      - "${SCANNER_DATA_DIR:-./scanner_data}:/data/scanner"
     restart: unless-stopped
     mem_limit: 1g
     cpus: "2.0"
