@@ -20,8 +20,10 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState({
     THETADATA_API_KEY: "",
     FRED_API_KEY: "",
-    OLLAMA_BASE_URL: "http://localhost:11434",
-    OLLAMA_MODEL: "llama3.2:latest",
+    LLM_BASE_URL: "http://localhost:8080",
+    LLM_MODEL: "llama",
+    LLM_TYPE: "llama",
+    LLM_API_KEY: "",
     RATE_LIMIT_PER_MINUTE: 200,
     JWT_EXPIRE_HOURS: 8,
     OPTIONS_ARCHIVE_PATH: "/workspace/Archive/Nautilus_Archive5min",
@@ -155,25 +157,45 @@ export default function SettingsPage() {
           <div className="space-y-3 mt-4">
             <Card className="bg-[#0d1321] border-gray-800/60">
               <CardHeader className="p-3 pb-0">
-                <CardTitle className="text-xs text-gray-400">Ollama Configuration</CardTitle>
+                <CardTitle className="text-xs text-gray-400">LLM Configuration</CardTitle>
               </CardHeader>
               <CardContent className="p-3 space-y-3">
                 <div>
-                  <label className="text-[11px] text-gray-500 block mb-1">Ollama URL</label>
+                  <label className="text-[11px] text-gray-500 block mb-1">LLM Server URL (llama-server or Ollama)</label>
                   <Input
-                    value={settings.OLLAMA_BASE_URL}
-                    onChange={e => setSettings(s => ({ ...s, OLLAMA_BASE_URL: e.target.value }))}
-                    placeholder="http://localhost:11434"
+                    value={settings.LLM_BASE_URL}
+                    onChange={e => setSettings(s => ({ ...s, LLM_BASE_URL: e.target.value }))}
+                    placeholder="http://localhost:8080"
                     className="w-full h-8 text-xs bg-[#0a0e17] border-gray-700"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">Model</label>
+                    <Input
+                      value={settings.LLM_MODEL}
+                      onChange={e => setSettings(s => ({ ...s, LLM_MODEL: e.target.value }))}
+                      placeholder="llama"
+                      className="w-full h-8 text-xs bg-[#0a0e17] border-gray-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">Type</label>
+                    <Input
+                      value={settings.LLM_TYPE}
+                      onChange={e => setSettings(s => ({ ...s, LLM_TYPE: e.target.value }))}
+                      placeholder="llama or ollama"
+                      className="w-full h-8 text-xs bg-[#0a0e17] border-gray-700"
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="text-[11px] text-gray-500 block mb-1">Default Model</label>
+                  <label className="text-[11px] text-gray-500 block mb-1">API Key (if required)</label>
                   <Input
-                    value={settings.OLLAMA_MODEL}
-                    onChange={e => setSettings(s => ({ ...s, OLLAMA_MODEL: e.target.value }))}
-                    placeholder="llama3.2:latest"
-                    className="w-full h-8 text-xs bg-[#0a0e17] border-gray-700"
+                    type="password"
+                    value={settings.LLM_API_KEY}
+                    onChange={e => setSettings(s => ({ ...s, LLM_API_KEY: e.target.value }))}
+                    className="w-full h-8 text-xs bg-[#0a0e17] border-gray-700 font-mono"
                   />
                 </div>
 

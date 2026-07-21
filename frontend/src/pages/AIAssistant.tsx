@@ -169,7 +169,7 @@ export default function AIAssistant() {
           <div className="flex items-start gap-2">
             <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[10px] text-gray-500">
-              <span className="text-gray-400 font-medium">Setup:</span> Install Ollama (<code className="text-amber-400">ollama pull llama3.2</code>) and set <code className="text-amber-400">OLLAMA_BASE_URL</code> in your .env. The assistant runs 100% locally — no data leaves your server.
+              <span className="text-gray-400 font-medium">Setup:</span> Point <code className="text-amber-400">LLM_BASE_URL</code> at your llama-server instance (default: <code className="text-amber-400">http://localhost:8080</code>). The assistant runs 100% locally — no data leaves your server.
             </div>
           </div>
         </CardContent>

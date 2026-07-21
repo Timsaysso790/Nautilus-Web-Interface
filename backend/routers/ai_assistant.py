@@ -1,6 +1,7 @@
 """
 Local AI Assistant router.
-Forwards backtest results and prompts to a local LLM (Ollama by default).
+Supports llama-server (OpenAI-compatible API) or Ollama.
+Point LLM_BASE_URL at your running instance.
 """
 import json
 import logging
@@ -16,13 +17,66 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai-assistant"])
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
-OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+# For llama-server (default): http://localhost:8080
+# For Ollama: http://localhost:11434
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", os.getenv("OLLAMA_BASE_URL", "http://localhost:8080"))
+LLM_MODEL = os.getenv("LLM_MODEL", os.getenv("OLLAMA_MODEL", "llama"))
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
+LLM_TYPE = os.getenv("LLM_TYPE", "llama")  # "llama" for llama-server, "ollama" for Ollama
+
+
+def _get_llm_headers() -> dict:
+    """Get auth headers if LLM_API_KEY is set."""
+    api_key = os.getenv("LLM_API_KEY", "")
+    if api_key:
+        return {"Authorization": f"Bearer {api_key}"}
+    return {}
+
+
+async def _call_llm(messages: list, temperature: float = 0.3, max_tokens: int = 2000) -> str:
+    """Call the LLM via llama-server or Ollama API."""
+    import httpx
+
+    headers = {"Content-Type": "application/json", **_get_llm_headers()}
+
+    if LLM_TYPE == "ollama":
+        # Ollama API format
+        url = f"{LLM_BASE_URL}/api/chat"
+        payload = {
+            "model": LLM_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": max_tokens},
+        }
+        async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code != 200:
+                raise HTTPException(502, f"LLM error: {resp.status_code} {resp.text[:200]}")
+            data = resp.json()
+            return data.get("message", {}).get("content", "")
+    else:
+        # llama-server / OpenAI-compatible API format (default)
+        url = f"{LLM_BASE_URL}/v1/chat/completions"
+        payload = {
+            "model": LLM_MODEL,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code != 200:
+                raise HTTPException(502, f"LLM error: {resp.status_code} {resp.text[:200]}")
+            data = resp.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise HTTPException(502, "LLM returned no choices")
+            return choices[0].get("message", {}).get("content", "")
 
 
 class ChatMessage(BaseModel):
-    role: str = "user"  # "user" or "assistant"
+    role: str = "user"
     content: str
 
 
@@ -40,72 +94,45 @@ class BacktestAnalysisRequest(BaseModel):
 
 @router.post("/chat")
 async def chat(req: AIRequest, user: dict = Depends(get_current_user)):
-    """Chat with the local AI assistant. Context can include backtest results, market data, etc."""
+    """Chat with the local AI assistant using llama-server or Ollama."""
     try:
-        import httpx
-
         system_prompt = """You are a quantitative trading assistant. You analyze backtest results, 
 option strategies, and portfolio data. You provide specific, actionable advice based on the data.
 You are direct and quantitative — cite numbers, don't be vague. You understand options greeks,
 portfolio theory, and risk management. Keep responses concise unless asked for detail."""
 
-        # Build messages for Ollama
-        ollama_messages = [{"role": "system", "content": system_prompt}]
+        messages = [{"role": "system", "content": system_prompt}]
 
-        # Add context if provided
         if req.context:
             context_str = json.dumps(req.context, indent=2, default=str)
-            ollama_messages.append({
+            messages.append({
                 "role": "system",
                 "content": f"Context data:\n```json\n{context_str[:8000]}\n```"
             })
 
         for msg in req.messages:
-            ollama_messages.append({"role": msg.role, "content": msg.content})
+            messages.append({"role": msg.role, "content": msg.content})
 
-        # Call Ollama
-        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
-            resp = await client.post(
-                f"{OLLAMA_BASE_URL}/api/chat",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "messages": ollama_messages,
-                    "stream": False,
-                    "options": {
-                        "temperature": req.temperature,
-                        "num_predict": req.max_tokens,
-                    },
-                },
-            )
-            if resp.status_code != 200:
-                raise HTTPException(502, f"Ollama error: {resp.status_code} {resp.text[:200]}")
-
-            data = resp.json()
-            return {
-                "response": data.get("message", {}).get("content", ""),
-                "model": OLLAMA_MODEL,
-                "provider": "ollama",
-            }
+        response = await _call_llm(messages, req.temperature, req.max_tokens)
+        return {"response": response, "model": LLM_MODEL, "provider": LLM_TYPE}
 
     except ImportError:
         raise HTTPException(503, "httpx not installed. Run: pip install httpx")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(502, f"AI assistant unavailable: {str(e)[:200]}")
 
 
 @router.post("/analyze-backtest")
 async def analyze_backtest(req: BacktestAnalysisRequest, user: dict = Depends(get_current_user)):
-    """Analyze backtest results using the local AI."""
+    """Analyze backtest results using the local LLM."""
     try:
-        import httpx
-
-        # Extract key metrics for the prompt
         metrics = req.backtest_results.get("metrics", {})
         trades = req.backtest_results.get("trades", [])
         ticker = req.backtest_results.get("ticker", "Unknown")
         strategy = req.backtest_results.get("strategy", "Unknown")
 
-        # Build a compact summary
         summary = {
             "ticker": ticker,
             "strategy": strategy,
@@ -114,7 +141,7 @@ async def analyze_backtest(req: BacktestAnalysisRequest, user: dict = Depends(ge
             "total_trades": len(trades),
         }
 
-        system_prompt = f"""You are a quantitative trading assistant analyzing backtest results.
+        prompt = f"""You are a quantitative trading assistant analyzing backtest results.
 
 Backtest Summary:
 ```json
@@ -125,50 +152,54 @@ Backtest Summary:
 
 Provide specific, data-driven observations. Reference the numbers. Be direct."""
 
-        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
-            resp = await client.post(
-                f"{OLLAMA_BASE_URL}/api/chat",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "messages": [{"role": "user", "content": system_prompt}],
-                    "stream": False,
-                    "options": {"temperature": 0.2, "num_predict": 2000},
-                },
-            )
-            if resp.status_code != 200:
-                raise HTTPException(502, f"Ollama error: {resp.status_code}")
-
-            data = resp.json()
-            return {
-                "analysis": data.get("message", {}).get("content", ""),
-                "model": OLLAMA_MODEL,
-                "metrics": metrics,
-            }
+        response = await _call_llm(
+            [{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=2000,
+        )
+        return {"analysis": response, "model": LLM_MODEL, "metrics": metrics}
 
     except ImportError:
         raise HTTPException(503, "httpx not installed")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(502, f"Analysis unavailable: {str(e)[:200]}")
 
 
 @router.get("/status")
 async def ai_status(user: dict = Depends(get_current_user)):
-    """Check if the local AI is available."""
+    """Check if the local LLM is available (llama-server or Ollama)."""
     try:
         import httpx
+        headers = _get_llm_headers()
+
+        if LLM_TYPE == "ollama":
+            url = f"{LLM_BASE_URL}/api/tags"
+        else:
+            url = f"{LLM_BASE_URL}/v1/models"
+
         async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+            resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
-                models = resp.json().get("models", [])
-                available_models = [m["name"] for m in models]
+                data = resp.json()
+                if LLM_TYPE == "ollama":
+                    models = data.get("models", [])
+                    available = [m["name"] for m in models]
+                else:
+                    models = data.get("data", data.get("models", []))
+                    available = [m.get("id", m.get("name", "unknown")) for m in models]
+
                 return {
                     "available": True,
-                    "ollama_url": OLLAMA_BASE_URL,
-                    "default_model": OLLAMA_MODEL,
-                    "available_models": available_models,
-                    "model_loaded": OLLAMA_MODEL in available_models,
+                    "llm_url": LLM_BASE_URL,
+                    "type": LLM_TYPE,
+                    "default_model": LLM_MODEL,
+                    "available_models": available,
+                    "model_loaded": LLM_MODEL in available,
                 }
-            return {"available": False, "detail": "Ollama not responding"}
+            return {"available": False, "detail": f"LLM returned {resp.status_code}"}
+
     except ImportError:
         return {"available": False, "detail": "httpx not installed"}
     except Exception as e:
