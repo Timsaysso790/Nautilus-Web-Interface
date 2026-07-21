@@ -27,6 +27,7 @@ import LivePositions from "./pages/LivePositions";
 import LiveOrders from "./pages/LiveOrders";
 import OrderTicket from "./pages/OrderTicket";
 import BrokerConnections from "./pages/BrokerConnections";
+import ScannerDashboard from "./pages/ScannerDashboard";
 import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SettingsPage from "./pages/SettingsPage";
@@ -98,6 +99,9 @@ function LivePages() {
       break;
     case "/brokers":
       content = <BrokerConnections />;
+      break;
+    case "/scanner":
+      content = <ScannerDashboard />;
       break;
     default:
       content = <NotFound />;

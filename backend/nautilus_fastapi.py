@@ -53,6 +53,7 @@ from routers import (
     options_lab,
     orders,
     positions,
+    scanner,
     stocks,
     strategies,
     system,
@@ -298,6 +299,7 @@ app.include_router(database_ops.router)
 app.include_router(live_trading.router)
 app.include_router(options.router)
 app.include_router(options_lab.router)
+app.include_router(scanner.router)
 app.include_router(stocks.router)
 app.include_router(users.router)
 

@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
   Zap, LayoutDashboard, Crosshair, Activity,
-  FileText, Radio, LogOut, AlertTriangle
+  FileText, Radio, LogOut, AlertTriangle, Search
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/live/orders", label: "Orders", icon: FileText },
   { href: "/live/order-ticket", label: "Order Ticket", icon: Activity },
   { href: "/live/brokers", label: "Broker Connections", icon: Radio },
+  { href: "/live/scanner", label: "Market Scanner", icon: Search },
 ];
 
 export default function LiveLayout({ children }: { children: ReactNode }) {
