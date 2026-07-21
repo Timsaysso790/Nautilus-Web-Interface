@@ -135,9 +135,9 @@ export default function OptionsLab() {
     if (!symbol) return;
     setLoadingExpirations(true);
     setExpiration("");
-    api.get<string[]>(`${API_BASE}/api/options-lab/expirations/${symbol}?year=${YEAR}`)
-      .then((dates) => {
-        const list = Array.isArray(dates) ? dates : [];
+    api.get<any>(`${API_BASE}/api/options-lab/expirations/${symbol}?year=${YEAR}`)
+      .then((data) => {
+        const list = data?.expirations ?? (Array.isArray(data) ? data : []);
         setExpirations(list);
         if (list.length > 0) setExpiration(list[0]);
       })
