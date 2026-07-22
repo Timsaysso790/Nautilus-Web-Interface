@@ -4,6 +4,7 @@ Reads 5-min bar data, simulates multi-leg option strategies bar-by-bar.
 """
 import logging
 import math
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,7 +14,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-ARCHIVE_PATH = Path("/workspace/Archive/Nautilus_Archive5min")
+ARCHIVE_PATH = Path(os.getenv("OPTIONS_ARCHIVE_PATH", "/workspace/Archive/Nautilus_Archive5min"))
 COMMISSION = 0.65  # Per contract
 
 

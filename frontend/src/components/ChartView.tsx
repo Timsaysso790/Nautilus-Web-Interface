@@ -191,7 +191,7 @@ export default function ChartView({
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [ticker, trades.length]);
+  }, [ticker, trades.length, startDate, endDate, indicators]);
 
   return (
     <div className="relative">

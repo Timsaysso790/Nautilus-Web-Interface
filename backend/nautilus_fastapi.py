@@ -18,15 +18,18 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Load .env before any other module reads environment variables
-# (optional — python-dotenv may not be installed everywhere)
+# Load .env from the project root (same directory docker-compose.yml lives in).
+# One .env file works for both local dev and Docker Compose.
 try:
     from dotenv import load_dotenv
     dotenv_path = Path(__file__).parent.parent / ".env"
     if dotenv_path.exists():
         load_dotenv(dotenv_path)
+        print(f"[env] Loaded {dotenv_path}")
+    else:
+        print(f"[env] No .env at {dotenv_path} — using env vars / defaults")
 except ImportError:
-    pass
+    print("[env] python-dotenv not installed — using env vars / defaults")
 
 # Ensure backend dir is on the path so routers can import sibling modules
 sys.path.insert(0, str(Path(__file__).parent))

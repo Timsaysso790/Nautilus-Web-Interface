@@ -70,12 +70,15 @@ interface StrategyLeg {
 
 interface BacktestMetrics {
   total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
   win_rate: number;
   total_pnl: number;
-  sharpe: number;
-  max_drawdown: number;
+  avg_pnl: number;
   profit_factor: number;
-  avg_hold_days: number;
+  sharpe_ratio: number;
+  max_drawdown_pct: number;
+  avg_days_held: number;
 }
 
 interface BacktestResult {
@@ -980,13 +983,13 @@ export default function ResearchWorkspace() {
                             />
                             <MetricBox
                               label="Sharpe"
-                              value={backtestResult.metrics.sharpe.toFixed(2)}
-                              color={metricColor(backtestResult.metrics.sharpe, "higher_better", 1.0, 0.0)}
+                              value={backtestResult.metrics.sharpe_ratio.toFixed(2)}
+                               color={metricColor(backtestResult.metrics.sharpe_ratio, "higher_better", 1.0, 0.0)}
                             />
                             <MetricBox
                               label="Max DD"
-                              value={`${(backtestResult.metrics.max_drawdown * 100).toFixed(1)}%`}
-                              color={metricColor(backtestResult.metrics.max_drawdown, "lower_better", -0.1, -0.3)}
+                              value={`${(backtestResult.metrics.max_drawdown_pct).toFixed(1)}%`}
+                               color={metricColor(backtestResult.metrics.max_drawdown_pct, "lower_better", 10, 30)}
                             />
                             <MetricBox
                               label="Profit Factor"
@@ -995,7 +998,7 @@ export default function ResearchWorkspace() {
                             />
                             <MetricBox
                               label="Avg Hold"
-                              value={`${backtestResult.metrics.avg_hold_days.toFixed(0)}d`}
+                              value={`${backtestResult.metrics.avg_days_held.toFixed(0)}d`}
                               color="text-gray-200"
                             />
                           </div>
