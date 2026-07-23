@@ -83,6 +83,21 @@ async def get_backtest_result(result_id: str, user: dict = Depends(get_current_u
     return result
 
 
+@router.get("/tickers")
+async def list_available_tickers(user: dict = Depends(get_current_user)):
+    """List all tickers available in the options archive for backtesting."""
+    from pathlib import Path
+    import os
+    archive = Path(os.getenv("OPTIONS_ARCHIVE_PATH", "/workspace/Archive/Nautilus_Archive5min"))
+    if not archive.exists():
+        return {"tickers": [], "archive_path": str(archive), "found": False}
+    tickers = sorted(
+        d.name for d in archive.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    )
+    return {"tickers": tickers, "archive_path": str(archive), "count": len(tickers), "found": True}
+
+
 @router.post("/walk-forward")
 async def walk_forward(req: BacktestRequest, user: dict = Depends(get_current_user)):
     """Run backtest on each year independently."""

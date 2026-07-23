@@ -36,6 +36,7 @@ import {
   Tooltip as RechartTooltip, ResponsiveContainer,
 } from "recharts";
 import api from "@/lib/api";
+import { TickerSelect } from "@/components/backtest/TickerSelect";
 
 /* ════════════════════════════════════════════════ */
 /*  TYPES                                          */
@@ -723,10 +724,10 @@ export default function ResearchWorkspace() {
                       <div className="flex items-center gap-3">
                         <div className="space-y-1">
                           <Label className="text-[11px] text-gray-500">Ticker</Label>
-                          <Input
+                          <TickerSelect
                             value={ticker}
-                            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                            className="w-20 h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200"
+                            onChange={setTicker}
+                            className="w-32"
                           />
                         </div>
                       </div>
