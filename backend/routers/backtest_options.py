@@ -37,6 +37,15 @@ class BacktestRequest(BaseModel):
     entry_frequency_days: int = Field(7, ge=1, le=90)
     start_year: int = Field(2018, ge=2018, le=2026)
     end_year: int = Field(2026, ge=2018, le=2026)
+    # New institutional features
+    delta_min: float = Field(0.0, ge=0.0, le=1.0)
+    delta_max: float = Field(1.0, ge=0.0, le=1.0)
+    allow_overlapping: bool = False
+    slippage_model: str = Field("mid", pattern="^(mid|spread_pct|aggressive|random)$")
+    slippage_pct: float = Field(0.1, ge=0.0, le=100.0)
+    profit_target_pct: Optional[float] = Field(None, ge=0.0, le=1000.0)
+    stop_loss_pct: Optional[float] = Field(None, ge=0.0, le=1000.0)
+    max_days_in_trade: int = Field(60, ge=1, le=365)
 
 
 @router.post("/run")
@@ -54,6 +63,14 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                 entry_frequency_days=req.entry_frequency_days,
                 start_year=req.start_year,
                 end_year=req.end_year,
+                delta_min=req.delta_min,
+                delta_max=req.delta_max,
+                allow_overlapping=req.allow_overlapping,
+                slippage_model=req.slippage_model,
+                slippage_pct=req.slippage_pct,
+                profit_target_pct=req.profit_target_pct,
+                stop_loss_pct=req.stop_loss_pct,
+                max_days_in_trade=req.max_days_in_trade,
             )
 
             # Run in thread pool to avoid blocking

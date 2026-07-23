@@ -76,15 +76,27 @@ interface BacktestMetrics {
   win_rate: number;
   total_pnl: number;
   avg_pnl: number;
+  avg_win: number;
+  avg_loss: number;
+  payoff_ratio: number;
   profit_factor: number;
+  expectancy: number;
   sharpe_ratio: number;
+  sortino_ratio: number;
+  calmar_ratio: number;
+  cagr_pct: number;
+  total_return_pct: number;
   max_drawdown_pct: number;
+  avg_drawdown_pct: number;
+  drawdown_count: number;
   avg_days_held: number;
 }
 
 interface BacktestResult {
+  ticker: string;
+  strategy: string;
   metrics: BacktestMetrics;
-  equity_curve: { date: string; value: number }[];
+  equity_curve: { date: string; equity: number; underlying: number; open_positions: number; margin_used: number }[];
   trades: TradeRecord[];
 }
 
@@ -92,10 +104,26 @@ interface TradeRecord {
   id: number;
   entry_date: string;
   exit_date: string;
-  dte: number;
+  expiration: string;
+  dte_at_entry: number;
+  dte_at_exit: number;
   days_held: number;
+  underlying_entry: number;
+  underlying_exit: number;
+  entry_cost: number;
+  exit_cost: number;
+  net_credit: number;
   pnl: number;
+  margin_required: number;
+  commission: number;
   exit_reason: string;
+  greeks: {
+    delta: number;
+    gamma: number;
+    theta: number;
+    vega: number;
+    rho: number;
+  };
 }
 
 interface ChatMessage {
@@ -970,12 +998,12 @@ export default function ResearchWorkspace() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                             <MetricBox label="Total Trades" value={backtestResult.metrics.total_trades.toString()} color="text-gray-200" />
                             <MetricBox
                               label="Win Rate"
-                              value={`${(backtestResult.metrics.win_rate * 100).toFixed(1)}%`}
-                              color={metricColor(backtestResult.metrics.win_rate, "higher_better", 0.5, 0.3)}
+                              value={`${backtestResult.metrics.win_rate.toFixed(1)}%`}
+                              color={metricColor(backtestResult.metrics.win_rate, "higher_better", 50, 30)}
                             />
                             <MetricBox
                               label="Total PnL"
@@ -983,22 +1011,47 @@ export default function ResearchWorkspace() {
                               color={pnlColor(backtestResult.metrics.total_pnl)}
                             />
                             <MetricBox
-                              label="Sharpe"
-                              value={backtestResult.metrics.sharpe_ratio.toFixed(2)}
-                               color={metricColor(backtestResult.metrics.sharpe_ratio, "higher_better", 1.0, 0.0)}
-                            />
-                            <MetricBox
-                              label="Max DD"
-                              value={`${(backtestResult.metrics.max_drawdown_pct).toFixed(1)}%`}
-                               color={metricColor(backtestResult.metrics.max_drawdown_pct, "lower_better", 10, 30)}
-                            />
-                            <MetricBox
                               label="Profit Factor"
                               value={backtestResult.metrics.profit_factor.toFixed(2)}
                               color={metricColor(backtestResult.metrics.profit_factor, "higher_better", 1.5, 1.0)}
                             />
                             <MetricBox
-                              label="Avg Hold"
+                              label="Sharpe"
+                              value={backtestResult.metrics.sharpe_ratio.toFixed(2)}
+                              color={metricColor(backtestResult.metrics.sharpe_ratio, "higher_better", 1.0, 0.0)}
+                            />
+                            <MetricBox
+                              label="Sortino"
+                              value={backtestResult.metrics.sortino_ratio.toFixed(2)}
+                              color={metricColor(backtestResult.metrics.sortino_ratio, "higher_better", 1.0, 0.0)}
+                            />
+                            <MetricBox
+                              label="Max DD"
+                              value={`${backtestResult.metrics.max_drawdown_pct.toFixed(1)}%`}
+                              color={metricColor(backtestResult.metrics.max_drawdown_pct, "lower_better", 10, 30)}
+                            />
+                            <MetricBox
+                              label="Avg DD"
+                              value={`${backtestResult.metrics.avg_drawdown_pct.toFixed(1)}%`}
+                              color={metricColor(backtestResult.metrics.avg_drawdown_pct, "lower_better", 5, 15)}
+                            />
+                            <MetricBox
+                              label="Calmar"
+                              value={backtestResult.metrics.calmar_ratio.toFixed(2)}
+                              color={metricColor(backtestResult.metrics.calmar_ratio, "higher_better", 0.5, 0.0)}
+                            />
+                            <MetricBox
+                              label="Avg Win"
+                              value={`$${backtestResult.metrics.avg_win.toFixed(2)}`}
+                              color="text-emerald-400"
+                            />
+                            <MetricBox
+                              label="Avg Loss"
+                              value={`-$${backtestResult.metrics.avg_loss.toFixed(2)}`}
+                              color="text-red-400"
+                            />
+                            <MetricBox
+                              label="Avg Days"
                               value={`${backtestResult.metrics.avg_days_held.toFixed(0)}d`}
                               color="text-gray-200"
                             />
@@ -1064,7 +1117,7 @@ export default function ResearchWorkspace() {
                             <RechartLine
                               data={backtestResult.equity_curve.map((p) => ({
                                 ...p,
-                                value: Number(p.value.toFixed(2)),
+                                value: Number(p.equity.toFixed(2)),
                               }))}
                               margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
                             >
@@ -1189,7 +1242,7 @@ export default function ResearchWorkspace() {
                                     {formatDate(trade.exit_date)}
                                   </TableCell>
                                   <TableCell className="text-xs text-gray-300 h-8 text-right tabular-mono">
-                                    {trade.dte}
+                                    {trade.dte_at_entry}
                                   </TableCell>
                                   <TableCell className="text-xs text-gray-300 h-8 text-right tabular-mono">
                                     {trade.days_held}
