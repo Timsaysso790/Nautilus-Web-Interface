@@ -12,7 +12,9 @@ def compute_sharpe(returns: List[float], risk_free_rate: float = 0.05) -> float:
         return 0.0
     mean_r = sum(returns) / len(returns)
     var = sum((r - mean_r) ** 2 for r in returns) / (len(returns) - 1)
-    std = math.sqrt(var) if var > 0 else 1e-10
+    if var < 1e-12:
+        return 0.0  # flat equity curve — no volatility to measure
+    std = math.sqrt(var)
     daily_rf = risk_free_rate / 252
     return (mean_r - daily_rf) / std * math.sqrt(252)
 
@@ -27,7 +29,9 @@ def compute_sortino(returns: List[float], risk_free_rate: float = 0.05) -> float
     if not downside:
         return mean_r * 252  # no downside → infinite, cap at linear return
     down_var = sum(d ** 2 for d in downside) / len(returns)
-    down_std = math.sqrt(down_var) if down_var > 0 else 1e-10
+    if down_var < 1e-12:
+        return 0.0
+    down_std = math.sqrt(down_var)
     return (mean_r - daily_rf) / down_std * math.sqrt(252)
 
 

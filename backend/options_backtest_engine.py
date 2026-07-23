@@ -273,7 +273,7 @@ class OptionsBacktestEngine:
             return None
 
         # Calculate exit P&L
-        exit_cost = self._calc_entry_cost(trade_day_data, is_entry=False, apply_slippage=True)
+        exit_cost = self._calc_entry_cost(trade_day_data, is_entry=False, use_slippage=True)
         pnl = self._compute_pnl(pos, exit_cost)
         commission_total = self.strategy.total_contracts * COMMISSION * 2
         pnl -= commission_total
@@ -325,7 +325,7 @@ class OptionsBacktestEngine:
             return None
 
         exp_data = eligible[eligible["expiration"] == target_exp]
-        entry_cost = self._calc_entry_cost(exp_data, is_entry=True, apply_slippage=True)
+        entry_cost = self._calc_entry_cost(exp_data, is_entry=True, use_slippage=True)
         is_credit = entry_cost > 0
 
         margin = self.strategy.margin_requirement(
@@ -345,7 +345,7 @@ class OptionsBacktestEngine:
         }
 
     def _calc_entry_cost(
-        self, day_data: pd.DataFrame, is_entry: bool = True, apply_slippage: bool = False
+        self, day_data: pd.DataFrame, is_entry: bool = True, use_slippage: bool = False
     ) -> float:
         """Calculate net cost/credit for the strategy on a given day's data."""
         total = 0.0
@@ -361,7 +361,7 @@ class OptionsBacktestEngine:
             ask = float(row.get("ask", 0) or 0)
             mid = (bid + ask) / 2 if (bid + ask) > 0 else float(row.get("close", 0) or 0)
 
-            if apply_slippage:
+            if use_slippage:
                 mid = apply_slippage(
                     mid_price=mid,
                     model=self.slippage_model,
