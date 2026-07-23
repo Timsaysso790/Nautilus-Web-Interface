@@ -37,6 +37,9 @@ import {
 } from "recharts";
 import api from "@/lib/api";
 import { TickerSelect } from "@/components/backtest/TickerSelect";
+import {
+  PortfolioConfigPanel, PortfolioMetricsBar, PortfolioChart, PortfolioLedger,
+} from "@/components/portfolio/PortfolioPanels";
 
 /* ════════════════════════════════════════════════ */
 /*  TYPES                                          */
@@ -259,25 +262,48 @@ function CreateProjectDialog({ open, onOpenChange, onCreated }: CreateDialogProp
           </div>
           <div className="space-y-1.5">
             <Label className="text-gray-400">Project Type</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger className="w-full bg-[#0a0e17] border-gray-700 text-gray-200">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
-                <SelectItem value="options">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-violet-400" />
-                    Options Strategy
-                  </span>
-                </SelectItem>
-                <SelectItem value="portfolio">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-400" />
-                    Stock Portfolio
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setType("options")}
+                className={[
+                  "flex flex-col items-center gap-2 rounded-lg border p-3 transition-all duration-150 text-left",
+                  type === "options"
+                    ? "border-violet-500/50 bg-violet-500/10"
+                    : "border-gray-700 bg-[#0a0e17] hover:border-gray-600",
+                ].join(" ")}
+              >
+                <span className="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0"
+                  style={type === "options" ? { borderColor: "#a78bfa", background: "#a78bfa" } : { borderColor: "#52525b" }}
+                >
+                  {type === "options" && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </span>
+                <div className="text-center">
+                  <div className="text-xs font-medium text-gray-200">Options Strategy</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">Multi-leg options backtesting</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setType("portfolio")}
+                className={[
+                  "flex flex-col items-center gap-2 rounded-lg border p-3 transition-all duration-150 text-left",
+                  type === "portfolio"
+                    ? "border-blue-500/50 bg-blue-500/10"
+                    : "border-gray-700 bg-[#0a0e17] hover:border-gray-600",
+                ].join(" ")}
+              >
+                <span className="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0"
+                  style={type === "portfolio" ? { borderColor: "#3b82f6", background: "#3b82f6" } : { borderColor: "#52525b" }}
+                >
+                  {type === "portfolio" && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </span>
+                <div className="text-center">
+                  <div className="text-xs font-medium text-gray-200">Portfolio / Margin</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">Leveraged equity/ETF income portfolio</div>
+                </div>
+              </button>
+            </div>
           </div>
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
@@ -416,6 +442,9 @@ export default function ResearchWorkspace() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const aiBottomRef = useRef<HTMLDivElement>(null);
+
+  /* ── Portfolio state ── */
+  const [portfolioResult, setPortfolioResult] = useState<any>(null);
 
   /* ── Workspace tab ── */
   const [workspaceTab, setWorkspaceTab] = useState("config");
@@ -717,7 +746,78 @@ export default function ResearchWorkspace() {
                 </div>
               </div>
 
-              {/* Tabs */}
+              {/* Tabs — different content based on project type */}
+              {activeProject.project_type === "portfolio" ? (
+                <>
+                  <Tabs value={workspaceTab} onValueChange={setWorkspaceTab} className="w-full">
+                    <TabsList className="h-8 bg-[#0d1321] border border-gray-800/60 mb-4">
+                      <TabsTrigger value="config" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
+                        <Settings2 className="h-3.5 w-3.5 mr-1.5" />
+                        Portfolio Config
+                      </TabsTrigger>
+                      <TabsTrigger value="backtest" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
+                        <BarChart4 className="h-3.5 w-3.5 mr-1.5" />
+                        Results
+                      </TabsTrigger>
+                      <TabsTrigger value="chart" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
+                        <LineChart className="h-3.5 w-3.5 mr-1.5" />
+                        Chart
+                      </TabsTrigger>
+                      <TabsTrigger value="history" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
+                        <History className="h-3.5 w-3.5 mr-1.5" />
+                        Ledger
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="config" className="mt-0">
+                      <PortfolioConfigPanel onResult={(r) => { setPortfolioResult(r); setWorkspaceTab("backtest"); }} />
+                    </TabsContent>
+
+                    <TabsContent value="backtest" className="mt-0">
+                      {!portfolioResult ? (
+                        <Card className="bg-[#0d1321] border-gray-800/60">
+                          <CardContent className="py-12 text-center">
+                            <BarChart4 className="h-10 w-10 text-gray-700 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500">No portfolio results yet</p>
+                            <p className="text-xs text-gray-600 mt-1">Configure your portfolio and click "Run Portfolio Backtest" above.</p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="space-y-4">
+                          <PortfolioMetricsBar metrics={portfolioResult.metrics} />
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="chart" className="mt-0">
+                      {portfolioResult ? (
+                        <PortfolioChart data={portfolioResult.equity_curve} />
+                      ) : (
+                        <Card className="bg-[#0d1321] border-gray-800/60">
+                          <CardContent className="py-12 text-center">
+                            <LineChart className="h-10 w-10 text-gray-700 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500">Run a portfolio backtest to see the chart</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="history" className="mt-0">
+                      {portfolioResult ? (
+                        <PortfolioLedger ledger={portfolioResult.ledger} />
+                      ) : (
+                        <Card className="bg-[#0d1321] border-gray-800/60">
+                          <CardContent className="py-12 text-center">
+                            <History className="h-10 w-10 text-gray-700 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500">Run a portfolio backtest to see the ledger</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </>
+              ) : (
+              /* Original options strategy tabs */
               <Tabs value={workspaceTab} onValueChange={setWorkspaceTab} className="w-full">
                 <TabsList className="h-8 bg-[#0d1321] border border-gray-800/60 mb-4">
                   <TabsTrigger value="config" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
@@ -1261,6 +1361,7 @@ export default function ResearchWorkspace() {
                   </Card>
                 </TabsContent>
               </Tabs>
+              )}
             </>
           )}
         </div>

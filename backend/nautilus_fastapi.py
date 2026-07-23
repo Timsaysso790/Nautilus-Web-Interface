@@ -55,6 +55,7 @@ from routers import (
     options,
     options_lab,
     orders,
+    portfolio_backtest,
     positions,
     scanner,
     scanner_dashboard,
@@ -303,6 +304,7 @@ app.include_router(database_ops.router)
 app.include_router(live_trading.router)
 app.include_router(options.router)
 app.include_router(options_lab.router)
+app.include_router(portfolio_backtest.router)
 app.include_router(scanner.router)
 app.include_router(scanner_dashboard.router)
 app.include_router(stocks.router)
