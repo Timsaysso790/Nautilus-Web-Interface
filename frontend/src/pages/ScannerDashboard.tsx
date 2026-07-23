@@ -2,13 +2,24 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Search, RefreshCw, Loader2, TrendingDown,
   Activity, CheckCircle, XCircle, AlertTriangle, Zap,
-  Table, Filter,
+  Table, Filter, BookOpen, Download,
 } from "lucide-react";
 import api from "@/lib/api";
+
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi"));
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <span key={i} className="text-amber-400 font-medium">{part}</span>
+      : part
+  );
+}
 
 interface SpreadSetup {
   ticker?: string;
@@ -32,6 +43,13 @@ export default function ScannerDashboard() {
   const [running, setRunning] = useState(false);
   const [tab, setTab] = useState("setups");
 
+  // Trade Ideas state
+  const [transcripts, setTranscripts] = useState<any>(null);
+  const [transcriptsLoading, setTranscriptsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [fetchingTranscripts, setFetchingTranscripts] = useState(false);
+
   const loadResults = async () => {
     setLoading(true);
     try {
@@ -42,6 +60,34 @@ export default function ScannerDashboard() {
   };
 
   useEffect(() => { loadResults(); }, []);
+
+  const loadTranscripts = async () => {
+    setTranscriptsLoading(true);
+    try {
+      const d = await api.get("/api/scanner-dashboard/transcripts");
+      setTranscripts(d);
+    } catch {}
+    setTranscriptsLoading(false);
+  };
+
+  const doSearch = async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      const d = await api.get(`/api/scanner-dashboard/transcripts/search?q=${encodeURIComponent(searchQuery)}`);
+      setSearchResults(d);
+    } catch {}
+  };
+
+  const handleFetchTranscripts = async () => {
+    setFetchingTranscripts(true);
+    try {
+      await api.post("/api/scanner-dashboard/transcripts/fetch");
+      await loadTranscripts();
+    } catch {}
+    setFetchingTranscripts(false);
+  };
+
+  useEffect(() => { loadTranscripts(); }, []);
 
   const handleRun = async () => {
     setRunning(true);
@@ -121,6 +167,7 @@ export default function ScannerDashboard() {
             <TabsTrigger value="signals" className="text-xs">Signals ({tier2.length})</TabsTrigger>
             <TabsTrigger value="priced" className="text-xs">Priced ({phase4.length})</TabsTrigger>
             <TabsTrigger value="universe" className="text-xs">Universe ({data?.tier1?.count || 0})</TabsTrigger>
+            <TabsTrigger value="ideas" className="text-xs">Trade Ideas ({transcripts ? Object.keys(transcripts.transcripts || {}).length : "?"})</TabsTrigger>
           </TabsList>
 
           {/* Spread Setups — most important */}
@@ -291,6 +338,142 @@ export default function ScannerDashboard() {
                 </div>
               )}
             </Card>
+          )}
+
+          {/* Trade Ideas — TastyLive Transcripts */}
+          {tab === "ideas" && (
+            <div className="mt-3 space-y-4">
+              <Card className="bg-[#0d1321] border-gray-800/60">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-amber-400/70" />
+                    TastyLive Trade Ideas
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {!transcripts?.available && (
+                      <span className="text-[10px] text-gray-500">Fetcher not configured</span>
+                    )}
+                    {transcripts?.available && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleFetchTranscripts}
+                        disabled={fetchingTranscripts}
+                        className="h-7 text-[10px] border-gray-700 text-gray-400"
+                      >
+                        {fetchingTranscripts ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+                        {fetchingTranscripts ? "Fetching..." : "Fetch All"}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {transcriptsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 text-amber-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* Status */}
+                      <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
+                        <span>{transcripts?.library?.length || 0} videos in library</span>
+                        <span>·</span>
+                        <span>{transcripts ? Object.keys(transcripts.transcripts || {}).length : 0} cached</span>
+                      </div>
+
+                      {/* Search */}
+                      <div className="flex gap-2 mb-4">
+                        <Input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && doSearch()}
+                          placeholder="Search transcripts for a strategy idea..."
+                          className="flex-1 h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={doSearch}
+                          disabled={!searchQuery.trim()}
+                          className="h-8 text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30"
+                        >
+                          <Search className="h-3 w-3 mr-1" />
+                          Search
+                        </Button>
+                      </div>
+
+                      {/* Search results */}
+                      {searchResults && (
+                        <div className="space-y-2 mb-4">
+                          <p className="text-xs text-gray-500">{searchResults.total} result{searchResults.total !== 1 ? "s" : ""}</p>
+                          {searchResults.results?.map((r: any, i: number) => (
+                            <Card key={i} className="bg-[#0a0e17] border-gray-800/40">
+                              <CardContent className="p-3">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <p className="text-xs font-medium text-gray-200">{r.title}</p>
+                                    <p className="text-[10px] text-gray-500">{r.matches} matching segments</p>
+                                  </div>
+                                  <a
+                                    href={`https://www.youtube.com/watch?v=${r.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-blue-400 hover:underline"
+                                  >
+                                    Watch →
+                                  </a>
+                                </div>
+                                {r.snippets?.map((snippet: string, j: number) => (
+                                  <p key={j} className="text-[11px] text-gray-400 leading-relaxed mb-1 last:mb-0">
+                                    {highlightMatch(snippet, searchQuery)}
+                                  </p>
+                                ))}
+                              </CardContent>
+                            </Card>
+                          ))}
+                          {searchResults.total === 0 && (
+                            <p className="text-xs text-gray-500 text-center py-4">No matches found</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Video library */}
+                      {transcripts?.library?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">Video Library</p>
+                          <div className="space-y-1">
+                            {transcripts.library.map((v: any, i: number) => (
+                              <div key={v.id} className="flex items-center justify-between px-3 py-2 rounded bg-[#0a0e17] border border-gray-800/40">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-[10px] text-gray-600 w-6">{i + 1}.</span>
+                                  <span className="text-xs text-gray-300 truncate">{v.title}</span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Badge className={`text-[9px] ${
+                                    v.status === "ok" ? "bg-emerald-900/30 text-emerald-400" :
+                                    v.status === "not_fetched" ? "bg-gray-800 text-gray-500" :
+                                    "bg-red-900/30 text-red-400"
+                                  }`}>
+                                    {v.status === "ok" ? `${v.chars.toLocaleString()} chars` : v.status}
+                                  </Badge>
+                                  <a
+                                    href={`https://www.youtube.com/watch?v=${v.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] text-blue-400 hover:underline"
+                                  >
+                                    Watch
+                                  </a>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
         </Tabs>
       )}
