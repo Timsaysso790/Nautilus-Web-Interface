@@ -15,8 +15,10 @@ services:
       LOGIN_RATE_LIMIT_PER_MINUTE: "${LOGIN_RATE_LIMIT_PER_MINUTE:-5}"
       THETADATA_API_KEY: "${THETADATA_API_KEY:-}"
       FRED_API_KEY: "${FRED_API_KEY:-}"
-      OPTIONS_ARCHIVE_PATH: "${OPTIONS_ARCHIVE_PATH:-/data/archive/Nautilus_Archive5min}"
-      EQUITY_ARCHIVE_PATH: "${EQUITY_ARCHIVE_PATH:-/data/archive/Equity_Archive}"
+      # Container-internal paths — these match the volume mounts below.
+      # Only set ARCHIVE_PATH (volume mount) in your .env, not these.
+      OPTIONS_ARCHIVE_PATH: "/data/archive/Nautilus_Archive5min"
+      EQUITY_ARCHIVE_PATH: "/data/archive/Equity_Archive"
       SCANNER_OUTPUT_PATH: "/data/scanner/.mcp_scanner_output.json"
       PROJECTS_ROOT: "/app/data/projects"
     volumes:

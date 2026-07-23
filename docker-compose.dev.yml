@@ -14,6 +14,9 @@ services:
       NAUTILUS_API_PORT: "8000"
       RATE_LIMIT_PER_MINUTE: "${RATE_LIMIT_PER_MINUTE:-200}"
       LOGIN_RATE_LIMIT_PER_MINUTE: "${LOGIN_RATE_LIMIT_PER_MINUTE:-5}"
+      # Container-internal paths — match the volume mount below
+      OPTIONS_ARCHIVE_PATH: "/data/archive/Nautilus_Archive5min"
+      EQUITY_ARCHIVE_PATH: "/data/archive/Equity_Archive"
     volumes:
       - ./backend:/app
       - /app/__pycache__
