@@ -84,12 +84,17 @@ def _fetch_single(vid: str, title: str, timeout: int = 60) -> dict:
         "-o", outtmpl,
         "--no-progress",
         "--retries", "3",
+        "--js-runtimes", "node",
         f"https://www.youtube.com/watch?v={vid}",
     ]
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         if result.returncode != 0:
+            # Check for rate limit — back off longer
+            if "429" in result.stderr:
+                print(f"  ⚠ YouTube rate limited. Backing off 60s...")
+                time.sleep(60)
             return {"title": title, "transcript": "", "status": f"yt-dlp exit {result.returncode}: {result.stderr[:200]}"}
 
         # Find subtitle file
