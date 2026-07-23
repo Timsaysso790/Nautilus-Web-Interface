@@ -156,7 +156,7 @@ export default function MarketDataPanel() {
   }, [notify, loadTickers]);
 
   const handleBatchDownload = async () => {
-    const symbols = [...selectedTickers];
+    const symbols = Array.from(selectedTickers);
     if (newSymbols.trim()) {
       symbols.push(...newSymbols.trim().toUpperCase().split(/[\s,]+/).filter(Boolean));
     }
@@ -166,7 +166,7 @@ export default function MarketDataPanel() {
     setDownloadProgress({ status: "pending", total_files: 0, processed: 0, current_file: "", converted: 0, skipped: 0, errors: 0 });
     try {
       const res = await dataLakeService.batchDownload({
-        symbols: [...new Set(symbols)],
+        symbols: Array.from(new Set(symbols)),
         start_date: startDate,
         end_date: endDate,
         tier,

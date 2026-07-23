@@ -24,7 +24,7 @@ export default function LiveOrders() {
 
   const fetchOrders = async () => {
     try {
-      const data = await api.get("/api/live/orders");
+      const data = await api.get<any>("/api/live/orders");
       setOrders(data.orders || []);
     } catch {}
     setLoading(false);

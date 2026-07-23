@@ -108,7 +108,7 @@ export default function DataLakePage() {
     if (!importPath.trim()) return;
     try {
       const res = await dataLakeService.convertData(importPath.trim(), instrumentFilter.trim() || undefined);
-      notify(`Converted: ${res.stats.converted} files, ${res.stats.errors} errors`, res.stats.errors > 0 ? "error" : "success");
+      notify(`Conversion task started: ${res.task_id}`, "success");
       setImportPath("");
       setInstrumentFilter("");
     } catch { notify("Conversion failed", "error"); }

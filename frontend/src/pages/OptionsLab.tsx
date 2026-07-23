@@ -96,8 +96,8 @@ function buildChain(calls: ChainRowRaw[], puts: ChainRowRaw[]): ChainRow[] {
   const putMap = new Map<number, ChainRowRaw>();
   for (const r of calls) callMap.set(r.strike, r);
   for (const r of puts) putMap.set(r.strike, r);
-  const allStrikes = new Set([...callMap.keys(), ...putMap.keys()]);
-  return [...allStrikes].sort((a, b) => a - b).map((strike) => ({
+  const allStrikes = Array.from(new Set([...Array.from(callMap.keys()), ...Array.from(putMap.keys())]));
+  return allStrikes.sort((a, b) => a - b).map((strike) => ({
     strike,
     call: callMap.has(strike) ? rowToContract(callMap.get(strike)!) : null,
     put: putMap.has(strike) ? rowToContract(putMap.get(strike)!) : null,

@@ -30,7 +30,7 @@ export default function AIAssistant() {
 
   const checkStatus = async () => {
     try {
-      const data = await api.get("/api/ai/status");
+      const data = await api.get<{ available: boolean }>("/api/ai/status");
       setAiStatus(data.available ? "available" : "unavailable");
     } catch {
       setAiStatus("unavailable");
@@ -46,7 +46,7 @@ export default function AIAssistant() {
     setLoading(true);
 
     try {
-      const data = await api.post("/api/ai/chat", {
+      const data = await api.post<{ response: string }>("/api/ai/chat", {
         messages: [{ role: "user", content: userMsg.content }],
         temperature: 0.3,
         max_tokens: 2000,

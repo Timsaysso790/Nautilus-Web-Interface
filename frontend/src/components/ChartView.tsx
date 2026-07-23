@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { createChart, ColorType, LineStyle, CrosshairMode } from "lightweight-charts";
+import { createChart, ColorType, LineStyle, CrosshairMode, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from "lightweight-charts";
 import api from "@/lib/api";
 
 interface ChartViewProps {
@@ -9,6 +9,26 @@ interface ChartViewProps {
   indicators?: string;
   startDate?: string;
   endDate?: string;
+}
+
+interface CandleData {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+interface IndicatorPoint {
+  time: number;
+  value: number;
+}
+
+interface ChartResponse {
+  ticker: string;
+  candles: CandleData[];
+  indicators: Record<string, IndicatorPoint[] | { upper: IndicatorPoint[]; mid: IndicatorPoint[]; lower: IndicatorPoint[] }>;
 }
 
 export default function ChartView({
@@ -25,7 +45,6 @@ export default function ChartView({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Create chart
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "#0a0e17" },
@@ -52,7 +71,8 @@ export default function ChartView({
     });
 
     chartRef.current = chart;
-    const candleSeries = chart.addCandlestickSeries({
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
       downColor: "#ef4444",
       borderDownColor: "#ef4444",
@@ -61,7 +81,7 @@ export default function ChartView({
       wickUpColor: "#22c55e",
     });
 
-    const volumeSeries = chart.addHistogramSeries({
+    const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: "volume" },
       priceScaleId: "volume",
     });
@@ -69,108 +89,61 @@ export default function ChartView({
       scaleMargins: { top: 0.85, bottom: 0 },
     });
 
-    // Indicator series
-    let bbUpperSeries: any, bbLowerSeries: any, bbMidSeries: any;
-    let sma20Series: any, rsiSeries: any;
-
-    // Fetch data
     const fetchData = async () => {
       try {
         const inds = indicators;
-        const data = await api.get(
+        const data = await api.get<ChartResponse>(
           `/api/chart/${ticker}?start=${startDate}&end=${endDate}&indicators=${inds}`
         );
 
-        // Set candles
-        candleSeries.setData(data.candles);
+        candleSeries.setData(data.candles as any);
 
-        // Set volume
         volumeSeries.setData(
-          data.candles.map((c: any) => ({
-            time: c.time,
+          data.candles.map((c: CandleData) => ({
+            time: c.time as any,
             value: c.volume,
             color: c.close >= c.open ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)",
           }))
         );
 
-        // Set indicators
+        // Bollinger Bands
         if (data.indicators?.bb) {
-          bbUpperSeries = chart.addLineSeries({
-            color: "#3b82f6",
-            lineWidth: 1,
-            lineStyle: LineStyle.Dashed,
-            title: "BB Upper",
-            priceScaleId: "right",
-          });
-          bbLowerSeries = chart.addLineSeries({
-            color: "#3b82f6",
-            lineWidth: 1,
-            lineStyle: LineStyle.Dashed,
-            title: "BB Lower",
-            priceScaleId: "right",
-          });
-          bbMidSeries = chart.addLineSeries({
-            color: "#3b82f6",
-            lineWidth: 1,
-            title: "BB Mid",
-            priceScaleId: "right",
-          });
-          bbUpperSeries.setData(data.indicators.bb.upper);
-          bbLowerSeries.setData(data.indicators.bb.lower);
-          bbMidSeries.setData(data.indicators.bb.mid);
+          const bb = data.indicators.bb as { upper: IndicatorPoint[]; mid: IndicatorPoint[]; lower: IndicatorPoint[] };
+          const bbUpper = chart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, lineStyle: LineStyle.Dashed, title: "BB Upper", priceScaleId: "right" });
+          const bbLower = chart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, lineStyle: LineStyle.Dashed, title: "BB Lower", priceScaleId: "right" });
+          const bbMid = chart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, title: "BB Mid", priceScaleId: "right" });
+          bbUpper.setData(bb.upper as any);
+          bbLower.setData(bb.lower as any);
+          bbMid.setData(bb.mid as any);
         }
 
+        // SMA 20
         if (data.indicators?.sma20) {
-          sma20Series = chart.addLineSeries({
-            color: "#f59e0b",
-            lineWidth: 1,
-            title: "SMA 20",
-            priceScaleId: "right",
-          });
-          sma20Series.setData(data.indicators.sma20);
+          const sma20 = chart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, title: "SMA 20", priceScaleId: "right" });
+          sma20.setData(data.indicators.sma20 as any);
         }
 
+        // RSI
         if (data.indicators?.rsi) {
-          rsiSeries = chart.addLineSeries({
-            color: "#a855f7",
-            lineWidth: 1,
-            title: "RSI",
-            priceScaleId: "rsi",
-          });
-          chart.priceScale("rsi").applyOptions({
-            scaleMargins: { top: 0.7, bottom: 0.7 },
-            visible: true,
-          });
-          rsiSeries.setData(data.indicators.rsi);
+          const rsi = chart.addSeries(LineSeries, { color: "#a855f7", lineWidth: 1, title: "RSI", priceScaleId: "rsi" });
+          chart.priceScale("rsi").applyOptions({ scaleMargins: { top: 0.75, bottom: 0.7 }, visible: true });
+          rsi.setData(data.indicators.rsi as any);
         }
 
-        // Add trade markers
+        // Trade markers via v5 plugin API
         if (trades.length > 0) {
           const markers = trades.flatMap((t, i) => {
-            const entryTime = Math.floor(new Date(t.entry_date).getTime() / 1000);
-            const exitTime = Math.floor(new Date(t.exit_date).getTime() / 1000);
+            const entryTime = Math.floor(new Date(t.entry_date).getTime() / 1000) as any;
+            const exitTime = Math.floor(new Date(t.exit_date).getTime() / 1000) as any;
             const isWin = t.pnl >= 0;
             return [
-              {
-                time: entryTime as any,
-                position: "belowBar" as const,
-                color: "#22c55e",
-                shape: "arrowUp" as const,
-                text: `Entry #${i + 1}`,
-              },
-              {
-                time: exitTime as any,
-                position: "aboveBar" as const,
-                color: isWin ? "#22c55e" : "#ef4444",
-                shape: "arrowDown" as const,
-                text: `${isWin ? "+" : ""}${t.pnl.toFixed(0)}`,
-              },
+              { time: entryTime, position: "belowBar" as const, color: "#22c55e", shape: "arrowUp" as const, text: `Entry #${i + 1}` },
+              { time: exitTime, position: "aboveBar" as const, color: isWin ? "#22c55e" : "#ef4444", shape: "arrowDown" as const, text: `${isWin ? "+" : ""}${t.pnl.toFixed(0)}` },
             ];
           });
-          candleSeries.setMarkers(markers);
+          createSeriesMarkers(candleSeries, markers);
         }
 
-        // Fit content
         chart.timeScale().fitContent();
       } catch (e) {
         console.error("Chart data fetch failed:", e);
@@ -179,7 +152,6 @@ export default function ChartView({
 
     fetchData();
 
-    // Handle resize
     const handleResize = () => {
       if (containerRef.current) {
         chart.applyOptions({ width: containerRef.current.clientWidth });

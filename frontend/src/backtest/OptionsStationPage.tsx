@@ -137,6 +137,18 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
     }
   }, [templateConfig, success, notifyError, loadTemplates]);
 
+  const handleCompile = useCallback(async (config: CompiledStrategy) => {
+    try {
+      const res = await optionBacktestService.runOptionsStation(config);
+      setResult(res);
+      success(`Backtest complete: ${res.summary.total_trades} trades, P&L ${res.summary.total_pnl >= 0 ? "+" : ""}$${res.summary.total_pnl}`);
+    } catch (e: any) {
+      notifyError(e?.detail || "Backtest failed");
+    } finally {
+      setRunning(false);
+    }
+  }, [success, notifyError]);
+
   const handleRun = useCallback(() => {
     if (!formRef.current) return;
     setRunning(true);
@@ -163,18 +175,6 @@ export default function OptionsStationPage({ projectId: propProjectId, sandbox }
       setSaving(false);
     }
   }, [saveName, success, notifyError, navigate]);
-
-  const handleCompile = useCallback(async (config: CompiledStrategy) => {
-    try {
-      const res = await optionBacktestService.runOptionsStation(config);
-      setResult(res);
-      success(`Backtest complete: ${res.summary.total_trades} trades, P&L ${res.summary.total_pnl >= 0 ? "+" : ""}$${res.summary.total_pnl}`);
-    } catch (e: any) {
-      notifyError(e?.detail || "Backtest failed");
-    } finally {
-      setRunning(false);
-    }
-  }, [success, notifyError]);
 
   const handleModalClose = useCallback(() => {
     setModalState("idle");

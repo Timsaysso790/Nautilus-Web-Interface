@@ -12,19 +12,19 @@ interface Props {
 }
 
 const INTERVALS = [
-  { key: "1d", label: "1D" },
-  { key: "5d", label: "5D" },
-  { key: "1mo", label: "1M" },
-  { key: "3mo", label: "3M" },
-  { key: "1y", label: "1Y" },
-  { key: "5y", label: "5Y" },
-  { key: "max", label: "Max" },
+  { key: "1d", label: "1D", bars: 1 },
+  { key: "5d", label: "5D", bars: 5 },
+  { key: "1mo", label: "1M", bars: 21 },
+  { key: "3mo", label: "3M", bars: 63 },
+  { key: "1y", label: "1Y", bars: 252 },
+  { key: "5y", label: "5Y", bars: 1260 },
+  { key: "max", label: "Max", bars: 10000 },
 ];
 
 export function StockChart({ symbol, bars, loading }: Props) {
   const [interval, setInterval] = useState("1mo");
 
-  const chartBars = bars.slice(-INTERVALS.find(i => i.key === interval) ? undefined : -252);
+  const chartBars = bars.slice((INTERVALS.find(i => i.key === interval)?.bars ?? 252) * -1);
 
   if (loading) {
     return (

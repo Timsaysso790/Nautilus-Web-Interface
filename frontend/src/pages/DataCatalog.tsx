@@ -27,7 +27,7 @@ export default function DataCatalog() {
 
   const loadCatalog = async () => {
     try {
-      const data = await api.get("/api/data-ingestion/catalog");
+      const data = await api.get<any>("/api/data-ingestion/catalog");
       setCatalog(data);
     } catch {}
     setLoading(false);
@@ -35,7 +35,7 @@ export default function DataCatalog() {
 
   const loadJobs = async () => {
     try {
-      const data = await api.get("/api/data-ingestion/jobs");
+      const data = await api.get<{ jobs: any[] }>("/api/data-ingestion/jobs");
       setJobs(data.jobs || []);
     } catch {}
   };

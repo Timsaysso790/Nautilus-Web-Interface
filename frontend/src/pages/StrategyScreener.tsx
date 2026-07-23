@@ -29,17 +29,16 @@ export default function StrategyScreener() {
     setLoading(true);
     setRan(true);
     try {
-      const data = await api.get("/api/options-lab/screener", {
-        params: {
-          ticker: ticker.toUpperCase(),
-          dte_min: dteMin,
-          dte_max: dteMax,
-          delta_min: deltaMin,
-          delta_max: deltaMax,
-          credit_min: creditMin,
-          strategy,
-        },
+      const params = new URLSearchParams({
+        ticker: ticker.toUpperCase(),
+        dte_min: String(dteMin),
+        dte_max: String(dteMax),
+        delta_min: String(deltaMin),
+        delta_max: String(deltaMax),
+        credit_min: String(creditMin),
+        strategy,
       });
+      const data = await api.get<{ results: any[] }>(`/api/options-lab/screener?${params}`);
       setResults(data.results || []);
     } catch {
       setResults([]);

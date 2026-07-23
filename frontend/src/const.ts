@@ -1,10 +1,15 @@
-export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+// Shared constants for the Nautilus Web Interface frontend.
+// The @shared/const module is only available in a monorepo context;
+// these fallback values are used when that module is absent.
 
-export const APP_TITLE = import.meta.env.VITE_APP_TITLE || "App";
+export const COOKIE_NAME = "nautilus_token";
+export const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+export const APP_TITLE = import.meta.env.VITE_APP_TITLE || "Nautilus Trader";
 
 export const APP_LOGO =
   import.meta.env.VITE_APP_LOGO ||
-  "https://placehold.co/128x128/E1E7EF/1F2937?text=App";
+  "https://placehold.co/128x128/E1E7EF/1F2937?text=N";
 
 // Generate login URL at runtime so redirect URI reflects the current origin.
 export const getLoginUrl = () => {

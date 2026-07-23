@@ -49,7 +49,7 @@ export default function BacktestDetail() {
     const loadRecent = async () => {
       try {
         // First try running a quick backtest
-        const data = await api.post("/api/backtest/options/run", {
+        const data = await api.post<BacktestResult>("/api/backtest/options/run", {
           ticker: "SPY",
           legs: [{ strike: 620, right: "P", action: "sell", quantity: 1 }, { strike: 615, right: "P", action: "buy", quantity: 1 }],
           entry_dte_min: 30, entry_dte_max: 45, hold_until_dte: 21, start_year: 2025, end_year: 2025,

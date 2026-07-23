@@ -200,7 +200,7 @@ export default function AdminDBPage() {
                       <Badge variant="secondary">{user.role}</Badge>
                       <Badge variant={user.is_active ? 'default' : 'outline'}>
                         {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -230,7 +230,7 @@ export default function AdminDBPage() {
                       </div>
                       <Badge variant={config.is_enabled ? 'default' : 'outline'}>
                         {config.is_enabled ? 'Enabled' : 'Disabled'}
-                      </span>
+                      </Badge>
                     </div>
                   ))}
                 </div>

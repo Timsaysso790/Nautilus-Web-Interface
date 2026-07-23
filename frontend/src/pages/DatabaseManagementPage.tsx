@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useNotification } from "@/contexts/NotificationContext";
+import api from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
 import { dataLakeService, type TickerCoverage, type NvmeCacheEntry, type ConvertTaskStatus } from "@/services/dataLakeService";
 
