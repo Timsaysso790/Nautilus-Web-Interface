@@ -34,73 +34,56 @@ import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SettingsPage from "./pages/SettingsPage";
 
-// Research routes all wrapped in ResearchLayout
-function ResearchPages() {
+// Unified app layout — one sidebar, never changes
+function AppPages() {
   const [location] = useLocation();
-  const page = location.replace("/research", "") || "/";
 
+  // Determine which page to show based on path prefix
   let content;
-  switch (page) {
-    case "/":
-    case "":
-      content = <ResearchLanding />;
-      break;
-    case "/options-lab":
-      content = <ResearchWorkspace />;
-      break;
-    case "/backtesting":
-    case "/portfolio-designer":
-    case "/projects":
-    case "/backtest-visualizer":
-      content = <ResearchWorkspace />;
-      break;
-    case "/data-catalog":
-      content = <DataCatalog />;
-      break;
-    case "/chart":
-      content = <ChartPage />;
-      break;
-    case "/screener":
-      content = <StrategyScreener />;
-      break;
-    case "/ai-assistant":
-      content = <AIAssistant />;
-      break;
-    default:
-      content = <NotFound />;
-  }
-
-  return <MainLayout>{content}</MainLayout>;
-}
-
-// Live routes all wrapped in LiveLayout
-function LivePages() {
-  const [location] = useLocation();
-  const page = location.replace("/live", "") || "/";
-
-  let content;
-  switch (page) {
-    case "/":
-    case "":
-      content = <LiveLanding />;
-      break;
-    case "/positions":
-      content = <LivePositions />;
-      break;
-    case "/orders":
-      content = <LiveOrders />;
-      break;
-    case "/order-ticket":
-      content = <OrderTicket />;
-      break;
-    case "/brokers":
-      content = <BrokerConnections />;
-      break;
-    case "/scanner":
-      content = <ScannerDashboard />;
-      break;
-    default:
-      content = <NotFound />;
+  if (location.startsWith("/research")) {
+    const page = location.replace("/research", "") || "/";
+    switch (page) {
+      case "/":
+      case "":
+        content = <ResearchLanding />; break;
+      case "/options-lab":
+      case "/backtesting":
+      case "/portfolio-designer":
+      case "/projects":
+      case "/backtest-visualizer":
+        content = <ResearchWorkspace />; break;
+      case "/data-catalog":
+        content = <DataCatalog />; break;
+      case "/chart":
+        content = <ChartPage />; break;
+      case "/screener":
+        content = <StrategyScreener />; break;
+      case "/ai-assistant":
+        content = <AIAssistant />; break;
+      default:
+        content = <NotFound />;
+    }
+  } else if (location.startsWith("/live")) {
+    const page = location.replace("/live", "") || "/";
+    switch (page) {
+      case "/":
+      case "":
+        content = <LiveLanding />; break;
+      case "/positions":
+        content = <LivePositions />; break;
+      case "/orders":
+        content = <LiveOrders />; break;
+      case "/order-ticket":
+        content = <OrderTicket />; break;
+      case "/brokers":
+        content = <BrokerConnections />; break;
+      case "/scanner":
+        content = <ScannerDashboard />; break;
+      default:
+        content = <NotFound />;
+    }
+  } else {
+    content = <NotFound />;
   }
 
   return <MainLayout>{content}</MainLayout>;
@@ -110,10 +93,10 @@ function RouterOutlet() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/research" component={ResearchPages} />
-      <Route path="/research/:rest*" component={ResearchPages} />
-      <Route path="/live" component={LivePages} />
-      <Route path="/live/:rest*" component={LivePages} />
+      <Route path="/research" component={AppPages} />
+      <Route path="/research/:rest*" component={AppPages} />
+      <Route path="/live" component={AppPages} />
+      <Route path="/live/:rest*" component={AppPages} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/settings" component={SettingsPage} />
       <Route component={NotFound} />
