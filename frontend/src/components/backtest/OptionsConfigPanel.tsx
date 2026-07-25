@@ -122,6 +122,9 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
   const [dteMax, setDteMax] = useState(45);
   const [holdUntilDte, setHoldUntilDte] = useState(21);
   const [entryFrequency, setEntryFrequency] = useState("weekly");
+  const [entryTriggerMode, setEntryTriggerMode] = useState<"calendar" | "technical">("calendar");
+  const [indicatorType, setIndicatorType] = useState("rsi");
+  const [indicatorThreshold, setIndicatorThreshold] = useState(30);
   const [yearStart, setYearStart] = useState(2020);
   const [yearEnd, setYearEnd] = useState(2025);
   const [tickerInfo, setTickerInfo] = useState<any>(null);
@@ -393,47 +396,123 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
 
             {/* Entry Rules */}
             <TabsContent value="entry" className="p-4 space-y-4 mt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-gray-500">Min DTE</Label>
-                  <Input type="number" value={dteMin} onChange={e => setDteMin(Number(e.target.value))}
-                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-gray-500">Max DTE</Label>
-                  <Input type="number" value={dteMax} onChange={e => setDteMax(Number(e.target.value))}
-                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-gray-500">Entry Freq</Label>
-                  <Select value={entryFrequency} onValueChange={setEntryFrequency}>
-                    <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 min-w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
-                      <SelectItem value="daily" className="text-xs">Daily (1d)</SelectItem>
-                      <SelectItem value="weekly" className="text-xs">Weekly (7d)</SelectItem>
-                      <SelectItem value="biweekly" className="text-xs">Biweekly (14d)</SelectItem>
-                      <SelectItem value="monthly" className="text-xs">Monthly (30d)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-gray-500">Year Range</Label>
-                  <div className="flex items-center gap-1.5">
-                    <Input type="number" value={yearStart} onChange={e => setYearStart(Number(e.target.value))}
-                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
-                    <span className="text-gray-600 text-xs">–</span>
-                    <Input type="number" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}
-                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
+              {/* DTE + Timeframe */}
+              <div>
+                <Label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">DTE Range</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-gray-500">Min DTE</Label>
+                    <Input type="number" value={dteMin} onChange={e => setDteMin(Number(e.target.value))}
+                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-gray-500">Max DTE</Label>
+                    <Input type="number" value={dteMax} onChange={e => setDteMax(Number(e.target.value))}
+                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
                   </div>
                 </div>
               </div>
+
+              <Separator className="bg-gray-800/60" />
+
+              {/* Entry Trigger */}
+              <div>
+                <Label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">Entry Trigger</Label>
+                <div className="flex items-center gap-2 mb-3">
+                  <button onClick={() => setEntryTriggerMode("calendar")}
+                    className={`px-3 py-1 rounded text-[10px] font-medium transition-colors border ${
+                      entryTriggerMode === "calendar"
+                        ? "bg-amber-400/10 text-amber-400 border-amber-500/40"
+                        : "text-gray-500 border-gray-700 hover:text-gray-300"
+                    }`}>
+                    Calendar
+                  </button>
+                  <button onClick={() => setEntryTriggerMode("technical")}
+                    className={`px-3 py-1 rounded text-[10px] font-medium transition-colors border ${
+                      entryTriggerMode === "technical"
+                        ? "bg-amber-400/10 text-amber-400 border-amber-500/40"
+                        : "text-gray-500 border-gray-700 hover:text-gray-300"
+                    }`}>
+                    Technical
+                  </button>
+                </div>
+
+                {entryTriggerMode === "calendar" ? (
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-gray-500">Check for new entries every</Label>
+                    <Select value={entryFrequency} onValueChange={setEntryFrequency}>
+                      <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[160px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
+                        <SelectItem value="daily" className="text-xs">Every day</SelectItem>
+                        <SelectItem value="weekly" className="text-xs">Every 7 days</SelectItem>
+                        <SelectItem value="biweekly" className="text-xs">Every 14 days</SelectItem>
+                        <SelectItem value="monthly" className="text-xs">Every 30 days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[9px] text-gray-600">Simple time-based: checks for entry every N days. If no eligible trade exists, waits for the next window.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-gray-500">Indicator</Label>
+                        <Select value={indicatorType} onValueChange={setIndicatorType}>
+                          <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[140px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
+                            <SelectItem value="rsi" className="text-xs">RSI &lt; threshold</SelectItem>
+                            <SelectItem value="rsi_above" className="text-xs">RSI &gt; threshold</SelectItem>
+                            <SelectItem value="bb_lower" className="text-xs">Price &lt; BB lower</SelectItem>
+                            <SelectItem value="sma_below" className="text-xs">Price &lt; SMA(50)</SelectItem>
+                            <SelectItem value="sma_above" className="text-xs">Price &gt; SMA(200)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(indicatorType === "rsi" || indicatorType === "rsi_above") && (
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-gray-500">Threshold</Label>
+                          <Input type="number" value={indicatorThreshold}
+                            onChange={e => setIndicatorThreshold(Number(e.target.value))}
+                            className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            min={0} max={100} />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-gray-600">
+                      {indicatorType === "rsi" && `Enter only when RSI drops below ${indicatorThreshold} (oversold). Checks weekly for signal + eligible DTE/Δ.`}
+                      {indicatorType === "rsi_above" && `Enter only when RSI rises above ${indicatorThreshold} (momentum). Checks weekly for signal + eligible DTE/Δ.`}
+                      {indicatorType === "bb_lower" && "Enter only when price touches/crosses below lower Bollinger Band. Checks weekly."}
+                      {indicatorType === "sma_below" && "Enter only when price is below 50-day SMA (trend pullback). Checks weekly."}
+                      {indicatorType === "sma_above" && "Enter only when price is above 200-day SMA (bull trend). Checks weekly."}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Separator className="bg-gray-800/60" />
+
+              {/* Backtest Period */}
+              <div>
+                <Label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">Backtest Period</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input type="number" value={yearStart} onChange={e => setYearStart(Number(e.target.value))}
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
+                  <span className="text-gray-600 text-xs">–</span>
+                  <Input type="number" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
+                  <span className="text-[10px] text-gray-600 ml-2">— loads {yearEnd - yearStart + 1} years of data</span>
+                </div>
+                <p className="text-[9px] text-gray-600 mt-1">The engine loads ticker data for these years and simulates trading across the entire period.</p>
+              </div>
+
               <div className="flex items-center gap-2 pt-1">
                 <Switch checked={allowOverlap} onCheckedChange={setAllowOverlap} />
-                <Label className="text-[11px] text-gray-400 cursor-pointer">Allow overlapping positions</Label>
+                <Label className="text-[11px] text-gray-400 cursor-pointer">Allow overlapping positions (run multiple trades at once)</Label>
               </div>
             </TabsContent>
 
