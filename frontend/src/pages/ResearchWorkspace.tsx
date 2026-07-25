@@ -812,11 +812,10 @@ export default function ResearchWorkspace() {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-[10px] text-amber-400 hover:text-amber-300"
-                    onClick={runBacktest}
-                    disabled={running}
+                    onClick={() => setWorkspaceTab("config")}
                   >
-                    {running ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
-                    {running ? "Running..." : "Run Backtest"}
+                    <Zap className="h-3 w-3 mr-1" />
+                    Configure Backtest
                   </Button>
                 </div>
               </div>
