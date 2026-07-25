@@ -38,6 +38,7 @@ import {
 } from "recharts";
 import api from "@/lib/api";
 import { TickerSelect } from "@/components/backtest/TickerSelect";
+import OptionsConfigPanel from "@/components/backtest/OptionsConfigPanel";
 import {
   PortfolioConfigPanel, PortfolioMetricsBar, PortfolioChart, PortfolioLedger,
 } from "@/components/portfolio/PortfolioPanels";
@@ -532,6 +533,24 @@ export default function ResearchWorkspace() {
     }
   };
 
+  /* Run with config from OptionsConfigPanel */
+  const runBacktestWithConfig = async (config: any) => {
+    if (running) return;
+    setRunning(true);
+    setBacktestError(null);
+    setBacktestResult(null);
+    try {
+      const result = await api.post<BacktestResult>("/api/backtest/options/run", config);
+      setBacktestResult(result);
+      setWorkspaceTab("backtest");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Backtest failed";
+      setBacktestError(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   /* ────────────── Save Config ────────────── */
 
   const saveConfig = async () => {
@@ -894,225 +913,34 @@ export default function ResearchWorkspace() {
                 </TabsList>
 
                 {/* ════ CONFIG TAB ════ */}
-                <TabsContent value="config" className="mt-0 space-y-4">
-                  {/* Ticker */}
-                  <Card className="bg-[#0d1321] border-gray-800/60">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-amber-400/70" />
-                        Strategy Configuration
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-gray-500">Ticker</Label>
-                          <TickerSelect
-                            value={ticker}
-                            onChange={setTicker}
-                            className="w-32"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Presets */}
-                      <div>
-                        <Label className="text-[11px] text-gray-500 mb-1.5 block">Presets</Label>
-                        <div className="flex gap-2 flex-wrap">
-                          {Object.keys(PRESETS).map((name) => (
-                            <Button
-                              key={name}
-                              size="sm"
-                              variant="outline"
-                              className="text-[10px] h-6 border-gray-700 text-gray-400 hover:text-amber-400 hover:border-amber-500/40"
-                              onClick={() => applyPreset(name)}
-                            >
-                              {name}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Leg builder */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-[11px] text-gray-500">Legs</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 text-[10px] text-amber-400 hover:text-amber-300"
-                            onClick={addLeg}
-                          >
-                            <Plus className="h-3 w-3 mr-0.5" /> Add Leg
-                          </Button>
-                        </div>
-                        <div className="space-y-1.5">
-                          {legs.map((leg, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center gap-2 bg-[#0a0e17] rounded-lg px-3 py-2 border border-gray-800/40"
-                            >
-                              <span className="text-[10px] text-gray-600 w-5">{i + 1}.</span>
-                              <Select
-                                value={leg.action}
-                                onValueChange={(v) => updateLeg(i, "action", v)}
-                              >
-                                <SelectTrigger className="w-16 h-7 text-[11px] bg-[#0d1321] border-gray-700 text-gray-300">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-300">
-                                  <SelectItem value="buy" className="text-xs">
-                                    <span className="text-emerald-400">Buy</span>
-                                  </SelectItem>
-                                  <SelectItem value="sell" className="text-xs">
-                                    <span className="text-red-400">Sell</span>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Select
-                                value={leg.right}
-                                onValueChange={(v) => updateLeg(i, "right", v)}
-                              >
-                                <SelectTrigger className="w-14 h-7 text-[11px] bg-[#0d1321] border-gray-700 text-gray-300">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-300">
-                                  <SelectItem value="C" className="text-xs">
-                                    <span className="text-emerald-400">C</span>
-                                  </SelectItem>
-                                  <SelectItem value="P" className="text-xs">
-                                    <span className="text-red-400">P</span>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <div className="flex items-center gap-1 flex-1">
-                                <Label className="text-[9px] text-gray-600">Strike</Label>
-                                <Input
-                                  type="number"
-                                  value={leg.strike || ""}
-                                  onChange={(e) => updateLeg(i, "strike", Number(e.target.value))}
-                                  className="w-20 h-7 text-[11px] bg-[#0a0e17] border-gray-700 text-gray-200"
-                                  placeholder="0"
-                                />
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Label className="text-[9px] text-gray-600">Qty</Label>
-                                <Input
-                                  type="number"
-                                  value={leg.qty}
-                                  onChange={(e) => updateLeg(i, "qty", Number(e.target.value))}
-                                  className="w-14 h-7 text-[11px] bg-[#0a0e17] border-gray-700 text-gray-200"
-                                  min={1}
-                                />
-                              </div>
-                              <button
-                                onClick={() => removeLeg(i)}
-                                className="p-1 text-gray-600 hover:text-red-400 transition-colors"
-                                title="Remove leg"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Strategy params */}
-                      <div>
-                        <Label className="text-[11px] text-gray-500 mb-2 block">Strategy Parameters</Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-gray-500">DTE Min</Label>
-                            <Input
-                              type="number"
-                              value={dteMin}
-                              onChange={(e) => setDteMin(Number(e.target.value))}
-                              className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200"
-                              min={1}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-gray-500">DTE Max</Label>
-                            <Input
-                              type="number"
-                              value={dteMax}
-                              onChange={(e) => setDteMax(Number(e.target.value))}
-                              className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200"
-                              min={1}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-gray-500">Hold Until DTE</Label>
-                            <Input
-                              type="number"
-                              value={holdUntilDte}
-                              onChange={(e) => setHoldUntilDte(Number(e.target.value))}
-                              className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200"
-                              min={0}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-gray-500">Entry Freq</Label>
-                            <Select value={entryFrequency} onValueChange={setEntryFrequency}>
-                              <SelectTrigger className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
-                                <SelectItem value="daily" className="text-xs">Daily</SelectItem>
-                                <SelectItem value="weekly" className="text-xs">Weekly</SelectItem>
-                                <SelectItem value="monthly" className="text-xs">Monthly</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-gray-500">Year Range</Label>
-                            <div className="flex items-center gap-1">
-                              <Input
-                                type="number"
-                                value={yearRangeStart}
-                                onChange={(e) => setYearRangeStart(Number(e.target.value))}
-                                className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-full"
-                              />
-                              <span className="text-gray-600 text-[10px]">→</span>
-                              <Input
-                                type="number"
-                                value={yearRangeEnd}
-                                onChange={(e) => setYearRangeEnd(Number(e.target.value))}
-                                className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-full"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-3 pt-2 border-t border-gray-800/40">
-                        <Button
-                          size="sm"
-                          onClick={runBacktest}
-                          disabled={running || legs.length === 0}
-                          className="h-8 text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
-                        >
-                          {running ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                          ) : (
-                            <Play className="h-3.5 w-3.5 mr-1.5" />
-                          )}
-                          {running ? "Running..." : "Run Backtest"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={saveConfig}
-                          disabled={saving || legs.length === 0}
-                          className="h-8 text-xs border-gray-700 text-gray-400 hover:text-amber-400"
-                        >
-                          <Save className="h-3.5 w-3.5 mr-1.5" />
-                          {saving ? "Saving..." : "Save Config"}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                <TabsContent value="config" className="mt-0">
+                  <OptionsConfigPanel
+                    onRun={(cfg) => {
+                      // Map config to API call
+                      const freqMap: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
+                      const entry_freq = freqMap[cfg.entry_frequency] || 7;
+                      const legsApi = cfg.legs.map(l => ({ strike: l.strike, right: l.right, action: l.action, quantity: l.qty }));
+                      runBacktestWithConfig({
+                        ticker: cfg.ticker,
+                        legs: legsApi,
+                        entry_dte_min: cfg.dte_min,
+                        entry_dte_max: cfg.dte_max,
+                        hold_until_dte: cfg.hold_until_dte,
+                        entry_frequency_days: entry_freq,
+                        start_year: cfg.year_range[0],
+                        end_year: cfg.year_range[1],
+                        delta_min: cfg.delta_min,
+                        delta_max: cfg.delta_max,
+                        allow_overlapping: cfg.allow_overlapping,
+                        slippage_model: cfg.slippage_model,
+                        slippage_pct: cfg.slippage_pct,
+                        profit_target_pct: cfg.profit_target_pct || null,
+                        stop_loss_pct: cfg.stop_loss_pct || null,
+                        max_days_in_trade: cfg.max_days_in_trade,
+                      });
+                    }}
+                    running={running}
+                  />
                 </TabsContent>
 
                 {/* ════ BACKTEST TAB ════ */}
