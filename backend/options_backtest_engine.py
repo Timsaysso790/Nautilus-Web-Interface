@@ -138,6 +138,7 @@ class OptionsBacktestEngine:
         indicator_type: str = "rsi",
         indicator_threshold: float = 30,
         indicator_period: int = 14,
+        indicator_period2: int = 50,
     ):
         self.ticker = ticker.upper()
         self.strategy = strategy
@@ -158,6 +159,7 @@ class OptionsBacktestEngine:
         self.indicator_type = indicator_type
         self.indicator_threshold = indicator_threshold
         self.indicator_period = indicator_period
+        self.indicator_period2 = indicator_period2
 
     def run(self) -> Dict[str, Any]:
         """Run the backtest with full institutional features."""
@@ -181,7 +183,7 @@ class OptionsBacktestEngine:
         indicator_signals: Dict[int, bool] = {}
         if self.entry_trigger_mode == "technical":
             indicator_signals = _compute_indicator_signals(
-                df, self.indicator_type, self.indicator_threshold, self.indicator_period
+                df, self.indicator_type, self.indicator_threshold, self.indicator_period, self.indicator_period2
             )
             signal_count = sum(1 for v in indicator_signals.values() if v)
             logger.info(f"Technical trigger '{self.indicator_type}' active on {signal_count}/{len(indicator_signals)} days")
@@ -488,41 +490,62 @@ class OptionsBacktestEngine:
 
 # ── Technical Indicator Computation ─────────────────────────────────────────────
 
-def _compute_indicator_signals(df: pd.DataFrame, indicator_type: str, threshold: float, period: int = 14) -> Dict[int, bool]:
+def _compute_indicator_signals(df: pd.DataFrame, indicator_type: str, threshold: float,
+                               period: int = 14, period2: int = 50) -> Dict[int, bool]:
     """Compute daily indicator signals from underlying price data.
     Returns a dict mapping date (int) → bool (signal active).
 
-    Supported types:
-      rsi, rsi_above       — RSI (configurable period, default 14)
-      macd_bullish          — MACD(12,26,9) histogram crosses above zero
-      macd_bearish          — MACD histogram crosses below zero
-      stoch_oversold        — Stochastic %K < threshold (period=14, default threshold=20)
-      stoch_overbought      — Stochastic %K > threshold (default threshold=80)
-      ema_below             — Price below EMA(period), default period=20
-      ema_above             — Price above EMA(period), default period=20
-      bb_lower              — Price below lower Bollinger Band(20,2)
-      bb_upper              — Price above upper Bollinger Band(20,2)
-      bb_squeeze            — BB width in bottom threshold percentile (default 10 = squeeze)
-      sma_below             — Price below SMA(period), default period=50
-      sma_above             — Price above SMA(period), default period=200
-      price_channel_upper   — Price breaks above N-period high (Donchian breakout)
-      price_channel_lower   — Price breaks below N-period low
+    Supported types (26 total):
+      Price momentum / mean reversion:
+        rsi, rsi_above          — RSI (period, threshold)
+        williams_r               — Williams %R oversold (period=14, threshold=-80)
+        williams_r_above         — Williams %R overbought (threshold=-20)
+        cci, cci_above           — CCI (period=20, threshold=-100/+100)
+        roc                       — Rate of Change % (period=12, threshold)
+      Trend:
+        macd_bullish, macd_bearish  — MACD(12,26,9) cross
+        ma_crossover_bullish        — Fast MA(period) crosses above Slow MA(period2)
+        ma_crossover_bearish        — Fast MA crosses below Slow MA
+        adx                        — ADX > threshold (period=14, threshold=25)
+        adx_below                  — ADX < threshold (weak trend/range bound)
+        parabolic_sar              — PSAR flip to bullish
+        parabolic_sar_bearish      — PSAR flip to bearish
+      Moving average deviation:
+        price_pct_sma              — Price % below SMA(period) > threshold% extended
+        price_pct_sma_above        — Price % above SMA(period) > threshold%
+        ema_below, ema_above       — Price vs EMA(period)
+        sma_below, sma_above       — Price vs SMA(period)
+      Volatility:
+        bb_lower, bb_upper         — Bollinger Bands(period,2)
+        bb_squeeze                 — BB width in bottom threshold% percentile
+        keltner_lower, keltner_upper — Keltner Channels(period, period2=multiplier)
+        atr                        — ATR(period) > threshold% of price (high vol)
+        atr_below                  — ATR < threshold% (low vol / contraction)
+        hist_vol                   — Historical vol(period) > threshold%
+        hist_vol_below             — Historical vol < threshold%
+      Volume:
+        volume_spike               — Volume > threshold × avg(period)
+      IV-based:
+        iv_rank                    — IV Rank(period lookback) > threshold%
+        iv_rank_below              — IV Rank < threshold%
+      Extremes:
+        near_52w_high              — Price within threshold% of 52-week high
+        near_52w_low               — Price within threshold% of 52-week low
+      Channels:
+        price_channel_upper        — Donchian breakout above N-period high
+        price_channel_lower        — Donchian breakdown below N-period low
     """
 
-    # Extract daily underlying prices (one row per date)
     daily = df.groupby("date")["underlying_price"].first().sort_index()
     prices = daily.values
     dates = daily.index.values
-
-    min_bars = max(period, 50)
     n = len(prices)
     signals: Dict[int, bool] = {}
 
-    if n < 20:
-        logger.warning(f"Not enough data points ({n}) for indicators, defaulting to all-pass")
+    if n < 2:
         return {int(d): True for d in dates}
 
-    # ── EMA helper ──
+    # ── Helpers ──
     def _ema(data: np.ndarray, span: int) -> np.ndarray:
         alpha = 2 / (span + 1)
         result = np.zeros_like(data, dtype=float)
@@ -531,149 +554,346 @@ def _compute_indicator_signals(df: pd.DataFrame, indicator_type: str, threshold:
             result[i] = alpha * data[i] + (1 - alpha) * result[i-1]
         return result
 
-    # ── SMA helper ──
     def _sma(data: np.ndarray, window: int) -> np.ndarray:
         result = np.full_like(data, np.nan, dtype=float)
         for i in range(window - 1, len(data)):
             result[i] = data[i-window+1:i+1].mean()
         return result
 
-    # ── RSI ──
+    def _true_range(i: int) -> float:
+        if i == 0:
+            # Check if high/low exist in df
+            return 0.0
+        day_prices = df[df["date"] == dates[i]]
+        h = float(day_prices["high"].max()) if "high" in day_prices.columns else prices[i]
+        l = float(day_prices["low"].min()) if "low" in day_prices.columns else prices[i]
+        prev_close = prices[i-1]
+        return max(h - l, abs(h - prev_close), abs(l - prev_close))
+
+    def _get_iv(d: int) -> float:
+        """Get average implied volatility for a trading date."""
+        day_data = df[df["date"] == d]
+        if "implied_volatility" in day_data.columns and not day_data.empty:
+            return float(day_data["implied_volatility"].mean())
+        return 0.0
+
+    def _get_volume(d: int) -> float:
+        day_data = df[df["date"] == d]
+        if "volume" in day_data.columns and not day_data.empty:
+            return float(day_data["volume"].sum())
+        return 0.0
+
+    # ════════════════════════════════════════════════════════════════
+    # RSI
+    # ════════════════════════════════════════════════════════════════
     if indicator_type in ("rsi", "rsi_above"):
         deltas = np.diff(prices, prepend=prices[0])
         gains = np.where(deltas > 0, deltas, 0)
         losses = np.where(deltas < 0, -deltas, 0)
         avg_gain = np.zeros_like(prices, dtype=float)
         avg_loss = np.zeros_like(prices, dtype=float)
-        if n > period:
-            avg_gain[period] = gains[1:period+1].mean()
-            avg_loss[period] = losses[1:period+1].mean()
-            for i in range(period + 1, n):
-                avg_gain[i] = (avg_gain[i-1] * (period - 1) + gains[i]) / period
-                avg_loss[i] = (avg_loss[i-1] * (period - 1) + losses[i]) / period
+        p = period
+        if n > p:
+            avg_gain[p] = gains[1:p+1].mean()
+            avg_loss[p] = losses[1:p+1].mean()
+            for i in range(p + 1, n):
+                avg_gain[i] = (avg_gain[i-1] * (p - 1) + gains[i]) / p
+                avg_loss[i] = (avg_loss[i-1] * (p - 1) + losses[i]) / p
         for i, d in enumerate(dates):
-            if i < period:
-                signals[int(d)] = False
-                continue
+            if i < p: signals[int(d)] = False; continue
             rs = avg_gain[i] / avg_loss[i] if avg_loss[i] > 0 else 100
             rsi = 100 - (100 / (1 + rs))
             signals[int(d)] = rsi < threshold if indicator_type == "rsi" else rsi > threshold
 
-    # ── MACD (12, 26, 9) ──
+    # ════════════════════════════════════════════════════════════════
+    # Williams %R  (period, threshold default -80 / -20)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("williams_r", "williams_r_above"):
+        for i, d in enumerate(dates):
+            if i < period: signals[int(d)] = False; continue
+            window = prices[i-period+1:i+1]
+            hh, ll = window.max(), window.min()
+            wr = -100 if hh == ll else -100 * (hh - prices[i]) / (hh - ll)
+            t = threshold if threshold < 0 else -threshold  # normalize to negative
+            signals[int(d)] = wr < t if indicator_type == "williams_r" else wr > t
+
+    # ════════════════════════════════════════════════════════════════
+    # CCI  (period=20, threshold default -100 / +100)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("cci", "cci_above"):
+        typical = prices  # use close as typical price proxy
+        sma_tp = _sma(typical, period)
+        mean_dev = np.full(n, np.nan)
+        for i in range(period - 1, n):
+            mean_dev[i] = np.abs(typical[i-period+1:i+1] - sma_tp[i]).mean()
+        for i, d in enumerate(dates):
+            if i < period or mean_dev[i] == 0: signals[int(d)] = False; continue
+            cci = (typical[i] - sma_tp[i]) / (0.015 * mean_dev[i])
+            signals[int(d)] = cci < threshold if indicator_type == "cci" else cci > threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # MACD
+    # ════════════════════════════════════════════════════════════════
     elif indicator_type in ("macd_bullish", "macd_bearish"):
-        ema12 = _ema(prices, 12)
-        ema26 = _ema(prices, 26)
-        macd_line = ema12 - ema26
-        signal_line = _ema(macd_line, 9)
+        ema12 = _ema(prices, 12); ema26 = _ema(prices, 26)
+        macd_line = ema12 - ema26; signal_line = _ema(macd_line, 9)
         histogram = macd_line - signal_line
         for i, d in enumerate(dates):
-            if i < 26:
-                signals[int(d)] = False
-                continue
+            if i < 26: signals[int(d)] = False; continue
             if indicator_type == "macd_bullish":
-                # Histogram crosses above zero (or turns positive)
                 signals[int(d)] = histogram[i] > 0 and (i == 0 or histogram[i-1] <= 0)
             else:
                 signals[int(d)] = histogram[i] < 0 and (i == 0 or histogram[i-1] >= 0)
 
-    # ── Stochastic (period, 3, 3) ──
+    # ════════════════════════════════════════════════════════════════
+    # MA Crossover  (period=fast, period2=slow)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("ma_crossover_bullish", "ma_crossover_bearish"):
+        fast = period; slow = period2
+        sma_fast = _sma(prices, fast); sma_slow = _sma(prices, slow)
+        for i, d in enumerate(dates):
+            if i < slow: signals[int(d)] = False; continue
+            if indicator_type == "ma_crossover_bullish":
+                signals[int(d)] = sma_fast[i] > sma_slow[i] and (i == 0 or sma_fast[i-1] <= sma_slow[i-1])
+            else:
+                signals[int(d)] = sma_fast[i] < sma_slow[i] and (i == 0 or sma_fast[i-1] >= sma_slow[i-1])
+
+    # ════════════════════════════════════════════════════════════════
+    # ADX  (period=14, threshold default for 'adx' = 25)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("adx", "adx_below"):
+        if "high" not in df.columns or "low" not in df.columns:
+            signals = {int(d): True for d in dates}
+        else:
+            daily_high = np.array([float(df[df["date"]==d]["high"].max()) for d in dates])
+            daily_low  = np.array([float(df[df["date"]==d]["low"].min()) for d in dates])
+            tr = np.zeros(n)
+            plus_dm = np.zeros(n); minus_dm = np.zeros(n)
+            for i in range(1, n):
+                tr[i] = max(daily_high[i]-daily_low[i], abs(daily_high[i]-prices[i-1]), abs(daily_low[i]-prices[i-1]))
+                up = daily_high[i] - daily_high[i-1]
+                down = daily_low[i-1] - daily_low[i]
+                plus_dm[i] = up if up > down and up > 0 else 0
+                minus_dm[i] = down if down > up and down > 0 else 0
+            atr_adx = _ema(tr, period)
+            atr_adx[atr_adx == 0] = 1e-10
+            plus_di = 100 * _ema(plus_dm, period) / atr_adx
+            minus_di = 100 * _ema(minus_dm, period) / atr_adx
+            dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-10)
+            adx_vals = _ema(dx, period)
+            for i, d in enumerate(dates):
+                if i < period * 2: signals[int(d)] = False; continue
+                signals[int(d)] = adx_vals[i] > threshold if indicator_type == "adx" else adx_vals[i] < threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # Parabolic SAR
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("parabolic_sar", "parabolic_sar_bearish"):
+        if "high" not in df.columns:
+            signals = {int(d): True for d in dates}
+        else:
+            daily_high = np.array([float(df[df["date"]==d]["high"].max()) for d in dates])
+            daily_low  = np.array([float(df[df["date"]==d]["low"].min()) for d in dates])
+            af = 0.02; af_max = 0.20
+            sar = np.full(n, np.nan)
+            ep = daily_high[0]  # extreme point
+            trend_up = True
+            sar[0] = daily_low[0]
+            for i in range(1, n):
+                prev_sar = sar[i-1] if not np.isnan(sar[i-1]) else (daily_low[i-1] if trend_up else daily_high[i-1])
+                sar[i] = prev_sar + af * (ep - prev_sar)
+                if trend_up:
+                    sar[i] = min(sar[i], daily_low[i-1], daily_low[max(0,i-2)])
+                    if daily_high[i] > ep: ep = daily_high[i]; af = min(af + 0.02, af_max)
+                    if daily_low[i] < sar[i]:  # flip
+                        trend_up = False; sar[i] = ep; ep = daily_low[i]; af = 0.02
+                else:
+                    sar[i] = max(sar[i], daily_high[i-1], daily_high[max(0,i-2)])
+                    if daily_low[i] < ep: ep = daily_low[i]; af = min(af + 0.02, af_max)
+                    if daily_high[i] > sar[i]:  # flip
+                        trend_up = True; sar[i] = ep; ep = daily_high[i]; af = 0.02
+            # Signal: flip just occurred
+            for i, d in enumerate(dates):
+                if i < 2: signals[int(d)] = False; continue
+                prev_up = sar[i-1] < prices[i-1]
+                curr_up = sar[i] < prices[i]
+                flip_bull = not prev_up and curr_up
+                flip_bear = prev_up and not curr_up
+                signals[int(d)] = flip_bull if indicator_type == "parabolic_sar" else flip_bear
+
+    # ════════════════════════════════════════════════════════════════
+    # Stochastic
+    # ════════════════════════════════════════════════════════════════
     elif indicator_type in ("stoch_oversold", "stoch_overbought"):
         t = int(threshold) if threshold > 1 else int(threshold * 100)
         for i, d in enumerate(dates):
-            if i < period:
-                signals[int(d)] = False
-                continue
+            if i < period: signals[int(d)] = False; continue
             window = prices[i-period+1:i+1]
-            high_n = window.max()
-            low_n = window.min()
-            if high_n == low_n:
-                signals[int(d)] = False
-                continue
-            k_raw = 100 * (prices[i] - low_n) / (high_n - low_n)
-            # Simple 3-period smoothing
+            hh, ll = window.max(), window.min()
+            if hh == ll: signals[int(d)] = False; continue
+            k_raw = 100 * (prices[i] - ll) / (hh - ll)
             if i >= period + 2:
                 k_vals = []
                 for j in range(i-2, i+1):
-                    w = prices[j-period+1:j+1]
-                    hh, ll = w.max(), w.min()
-                    k_vals.append(100 * (prices[j] - ll) / (hh - ll) if hh != ll else 50)
-                k = sum(k_vals) / 3
-            else:
-                k = k_raw
-            if indicator_type == "stoch_oversold":
-                signals[int(d)] = k < t
-            else:
-                signals[int(d)] = k > t
+                    w = prices[j-period+1:j+1]; hh2, ll2 = w.max(), w.min()
+                    k_vals.append(100*(prices[j]-ll2)/(hh2-ll2) if hh2!=ll2 else 50)
+                k = sum(k_vals)/3
+            else: k = k_raw
+            signals[int(d)] = k < t if indicator_type == "stoch_oversold" else k > t
 
-    # ── EMA below / above (configurable period) ──
+    # ════════════════════════════════════════════════════════════════
+    # EMA / SMA
+    # ════════════════════════════════════════════════════════════════
     elif indicator_type in ("ema_below", "ema_above"):
         ema = _ema(prices, period)
         for i, d in enumerate(dates):
-            if i < period:
-                signals[int(d)] = False
-                continue
+            if i < period: signals[int(d)] = False; continue
             signals[int(d)] = prices[i] < ema[i] if indicator_type == "ema_below" else prices[i] > ema[i]
 
-    # ── Bollinger Bands ──
-    elif indicator_type in ("bb_lower", "bb_upper"):
-        bb_period = period if period >= 10 else 20
-        sma = _sma(prices, bb_period)
-        for i, d in enumerate(dates):
-            if i < bb_period:
-                signals[int(d)] = False
-                continue
-            std = prices[i-bb_period+1:i+1].std()
-            lower = sma[i] - 2 * std
-            upper = sma[i] + 2 * std
-            signals[int(d)] = prices[i] < lower if indicator_type == "bb_lower" else prices[i] > upper
-
-    # ── BB Squeeze (width in bottom N percentile over lookback) ──
-    elif indicator_type == "bb_squeeze":
-        bb_period = max(period, 10)
-        lookback = 125  # ~6 months
-        sma = _sma(prices, bb_period)
-        bb_widths = np.full(n, np.nan)
-        for i in range(bb_period - 1, n):
-            std = prices[i-bb_period+1:i+1].std()
-            bb_widths[i] = (2 * std) / sma[i] if sma[i] > 0 else 0
-        for i, d in enumerate(dates):
-            if i < lookback:
-                signals[int(d)] = False
-                continue
-            recent = bb_widths[max(0, i-lookback):i+1]
-            recent = recent[~np.isnan(recent)]
-            if len(recent) < 20:
-                signals[int(d)] = False
-                continue
-            cutoff = np.percentile(recent, threshold) if threshold < 100 else recent.min()
-            signals[int(d)] = bb_widths[i] <= cutoff
-
-    # ── SMA below / above (configurable period) ──
     elif indicator_type in ("sma_below", "sma_above"):
         sma = _sma(prices, period)
         for i, d in enumerate(dates):
-            if i < period:
-                signals[int(d)] = False
-                continue
+            if i < period: signals[int(d)] = False; continue
             signals[int(d)] = prices[i] < sma[i] if indicator_type == "sma_below" else prices[i] > sma[i]
 
-    # ── Price channel breakout (Donchian) ──
+    # ════════════════════════════════════════════════════════════════
+    # Price % from SMA  (period=SMA length, threshold=% extended)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("price_pct_sma", "price_pct_sma_above"):
+        sma = _sma(prices, period)
+        for i, d in enumerate(dates):
+            if i < period or np.isnan(sma[i]): signals[int(d)] = False; continue
+            pct = abs(prices[i] - sma[i]) / sma[i] * 100
+            if indicator_type == "price_pct_sma":
+                signals[int(d)] = prices[i] < sma[i] and pct > threshold
+            else:
+                signals[int(d)] = prices[i] > sma[i] and pct > threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # Bollinger Bands
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("bb_lower", "bb_upper"):
+        bb_p = period if period >= 10 else 20
+        sma = _sma(prices, bb_p)
+        for i, d in enumerate(dates):
+            if i < bb_p: signals[int(d)] = False; continue
+            std = prices[i-bb_p+1:i+1].std()
+            lower = sma[i] - 2*std; upper = sma[i] + 2*std
+            signals[int(d)] = prices[i] < lower if indicator_type == "bb_lower" else prices[i] > upper
+
+    elif indicator_type == "bb_squeeze":
+        bb_p = max(period, 10); lookback = 125
+        sma = _sma(prices, bb_p)
+        bb_widths = np.full(n, np.nan)
+        for i in range(bb_p-1, n):
+            std = prices[i-bb_p+1:i+1].std()
+            bb_widths[i] = (2*std)/sma[i] if sma[i]>0 else 0
+        for i, d in enumerate(dates):
+            if i < lookback: signals[int(d)] = False; continue
+            recent = bb_widths[max(0,i-lookback):i+1]; recent = recent[~np.isnan(recent)]
+            if len(recent) < 20: signals[int(d)] = False; continue
+            cutoff = np.percentile(recent, threshold) if threshold<100 else recent.min()
+            signals[int(d)] = bb_widths[i] <= cutoff
+
+    # ════════════════════════════════════════════════════════════════
+    # Keltner Channels  (period=EMA length, period2=ATR multiplier)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("keltner_lower", "keltner_upper"):
+        ema = _ema(prices, period)
+        tr_vals = np.array([_true_range(i) for i in range(n)])
+        atr_vals = _ema(tr_vals, period)
+        mult = threshold if threshold > 0 else period2  # use period2 as multiplier
+        for i, d in enumerate(dates):
+            if i < period: signals[int(d)] = False; continue
+            lower = ema[i] - mult * atr_vals[i]
+            upper = ema[i] + mult * atr_vals[i]
+            signals[int(d)] = prices[i] < lower if indicator_type == "keltner_lower" else prices[i] > upper
+
+    # ════════════════════════════════════════════════════════════════
+    # ATR  (period, threshold = % of price)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("atr", "atr_below"):
+        tr_vals = np.array([_true_range(i) for i in range(n)])
+        atr_vals = _ema(tr_vals, period)
+        for i, d in enumerate(dates):
+            if i < period: signals[int(d)] = False; continue
+            atr_pct = atr_vals[i] / prices[i] * 100 if prices[i] > 0 else 0
+            signals[int(d)] = atr_pct > threshold if indicator_type == "atr" else atr_pct < threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # Historical Volatility  (period, threshold %)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("hist_vol", "hist_vol_below"):
+        log_ret = np.diff(np.log(prices), prepend=np.log(prices[0]))
+        for i, d in enumerate(dates):
+            if i < period: signals[int(d)] = False; continue
+            hv = log_ret[i-period+1:i+1].std() * np.sqrt(252) * 100
+            signals[int(d)] = hv > threshold if indicator_type == "hist_vol" else hv < threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # Rate of Change  (period, threshold %)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type == "roc":
+        for i, d in enumerate(dates):
+            if i < period: signals[int(d)] = False; continue
+            roc_val = (prices[i] - prices[i-period]) / prices[i-period] * 100
+            signals[int(d)] = roc_val < threshold  # negative ROC = momentum dip
+
+    # ════════════════════════════════════════════════════════════════
+    # Volume Spike  (period, threshold = multiplier of avg volume)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type == "volume_spike":
+        vols = np.array([_get_volume(d) for d in dates])
+        avg_vol = _sma(vols, period)
+        for i, d in enumerate(dates):
+            if i < period or avg_vol[i] <= 0: signals[int(d)] = False; continue
+            signals[int(d)] = vols[i] > threshold * avg_vol[i]
+
+    # ════════════════════════════════════════════════════════════════
+    # IV Rank  (period lookback days, threshold %)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("iv_rank", "iv_rank_below"):
+        ivs = np.array([_get_iv(d) for d in dates])
+        for i, d in enumerate(dates):
+            if i < period: signals[int(d)] = False; continue
+            window_iv = ivs[max(0,i-period):i+1]
+            window_iv = window_iv[window_iv > 0]
+            if len(window_iv) < 20: signals[int(d)] = False; continue
+            iv_lo, iv_hi = window_iv.min(), window_iv.max()
+            iv_range = iv_hi - iv_lo
+            rank = (ivs[i] - iv_lo) / iv_range * 100 if iv_range > 0 else 50
+            signals[int(d)] = rank > threshold if indicator_type == "iv_rank" else rank < threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # 52-week high/low proximity  (threshold = %)
+    # ════════════════════════════════════════════════════════════════
+    elif indicator_type in ("near_52w_high", "near_52w_low"):
+        lookback = 252
+        for i, d in enumerate(dates):
+            if i < lookback: signals[int(d)] = False; continue
+            window = prices[i-lookback:i]
+            high_52 = window.max(); low_52 = window.min()
+            if indicator_type == "near_52w_high":
+                pct = (high_52 - prices[i]) / high_52 * 100 if high_52 > 0 else 100
+                signals[int(d)] = pct <= threshold
+            else:
+                pct = (prices[i] - low_52) / low_52 * 100 if low_52 > 0 else 100
+                signals[int(d)] = pct <= threshold
+
+    # ════════════════════════════════════════════════════════════════
+    # Donchian Channel
+    # ════════════════════════════════════════════════════════════════
     elif indicator_type in ("price_channel_upper", "price_channel_lower"):
         for i, d in enumerate(dates):
-            if i < period:
-                signals[int(d)] = False
-                continue
+            if i < period: signals[int(d)] = False; continue
             window = prices[i-period:i]
-            ch_high = window.max()
-            ch_low = window.min()
+            ch_high, ch_low = window.max(), window.min()
             if indicator_type == "price_channel_upper":
-                # Breakout above channel
                 signals[int(d)] = prices[i] > ch_high and prices[i-1] <= ch_high
             else:
                 signals[int(d)] = prices[i] < ch_low and prices[i-1] >= ch_low
 
     else:
-        # Unknown indicator — allow all entries
         signals = {int(d): True for d in dates}
 
     return signals

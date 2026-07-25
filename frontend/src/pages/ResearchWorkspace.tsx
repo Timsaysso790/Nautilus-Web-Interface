@@ -1060,6 +1060,7 @@ export default function ResearchWorkspace() {
                         indicator_type: cfg.indicator_type,
                         indicator_threshold: cfg.indicator_threshold,
                         indicator_period: cfg.indicator_period,
+                        indicator_period2: cfg.indicator_period2,
                       });
                     }}
                     running={running}

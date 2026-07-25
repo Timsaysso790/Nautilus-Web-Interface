@@ -53,9 +53,10 @@ class BacktestRequest(BaseModel):
     run_name: Optional[str] = Field(None, description="Optional name for the saved run")
     # Technical indicator entry triggers
     entry_trigger_mode: str = Field("calendar", pattern="^(calendar|technical)$")
-    indicator_type: str = Field("rsi", pattern="^(rsi|rsi_above|macd_bullish|macd_bearish|stoch_oversold|stoch_overbought|ema_below|ema_above|bb_lower|bb_upper|bb_squeeze|sma_below|sma_above|price_channel_upper|price_channel_lower)$")
-    indicator_threshold: float = Field(30, ge=0, le=100)
+    indicator_type: str = Field("rsi", pattern="^(rsi|rsi_above|williams_r|williams_r_above|cci|cci_above|roc|macd_bullish|macd_bearish|ma_crossover_bullish|ma_crossover_bearish|adx|adx_below|parabolic_sar|parabolic_sar_bearish|stoch_oversold|stoch_overbought|ema_below|ema_above|price_pct_sma|price_pct_sma_above|bb_lower|bb_upper|bb_squeeze|keltner_lower|keltner_upper|atr|atr_below|hist_vol|hist_vol_below|volume_spike|iv_rank|iv_rank_below|near_52w_high|near_52w_low|sma_below|sma_above|price_channel_upper|price_channel_lower)$")
+    indicator_threshold: float = Field(30, ge=-200, le=500)
     indicator_period: int = Field(14, ge=2, le=252)
+    indicator_period2: int = Field(50, ge=2, le=252)
 
 
 @router.post("/run")
@@ -93,6 +94,7 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                     indicator_type=req.indicator_type,
                     indicator_threshold=req.indicator_threshold,
                     indicator_period=req.indicator_period,
+                    indicator_period2=req.indicator_period2,
                 )
                 loop = asyncio.get_event_loop()
                 try:

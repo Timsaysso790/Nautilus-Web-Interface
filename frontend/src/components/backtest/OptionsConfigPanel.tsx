@@ -47,6 +47,7 @@ interface OptionsConfig {
   indicator_type: string;
   indicator_threshold: number;
   indicator_period: number;
+  indicator_period2: number;
 }
 
 interface Props {
@@ -130,6 +131,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
   const [indicatorType, setIndicatorType] = useState("rsi");
   const [indicatorThreshold, setIndicatorThreshold] = useState(30);
   const [indicatorPeriod, setIndicatorPeriod] = useState(14);
+  const [indicatorPeriod2, setIndicatorPeriod2] = useState(50);
   const [yearStart, setYearStart] = useState("2020");
   const [yearEnd, setYearEnd] = useState("2025");
   const [tickerInfo, setTickerInfo] = useState<any>(null);
@@ -197,6 +199,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
       indicator_type: indicatorType,
       indicator_threshold: indicatorThreshold,
       indicator_period: indicatorPeriod,
+      indicator_period2: indicatorPeriod2,
     };
   };
 
@@ -469,35 +472,72 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                         <Label className="text-[10px] text-gray-500">Indicator</Label>
                         <Select value={indicatorType} onValueChange={(v) => {
                           setIndicatorType(v);
-                          // Set sensible defaults when switching indicator types
-                          const defaults: Record<string, [number, number]> = {
-                            rsi: [30, 14], rsi_above: [70, 14],
-                            macd_bullish: [0, 14], macd_bearish: [0, 14],
-                            stoch_oversold: [20, 14], stoch_overbought: [80, 14],
-                            ema_below: [0, 20], ema_above: [0, 20],
-                            bb_lower: [0, 20], bb_upper: [0, 20], bb_squeeze: [10, 20],
-                            sma_below: [0, 50], sma_above: [0, 200],
-                            price_channel_upper: [0, 20], price_channel_lower: [0, 20],
+                          const defaults: Record<string, [number, number, number]> = {
+                            rsi: [30, 14, 50], rsi_above: [70, 14, 50],
+                            williams_r: [-80, 14, 50], williams_r_above: [-20, 14, 50],
+                            cci: [-100, 20, 50], cci_above: [100, 20, 50],
+                            roc: [-5, 12, 50],
+                            macd_bullish: [0, 14, 50], macd_bearish: [0, 14, 50],
+                            ma_crossover_bullish: [0, 10, 50], ma_crossover_bearish: [0, 10, 50],
+                            adx: [25, 14, 50], adx_below: [20, 14, 50],
+                            parabolic_sar: [0, 14, 50], parabolic_sar_bearish: [0, 14, 50],
+                            stoch_oversold: [20, 14, 50], stoch_overbought: [80, 14, 50],
+                            ema_below: [0, 20, 50], ema_above: [0, 20, 50],
+                            price_pct_sma: [5, 50, 50], price_pct_sma_above: [5, 50, 50],
+                            bb_lower: [0, 20, 50], bb_upper: [0, 20, 50], bb_squeeze: [10, 20, 50],
+                            keltner_lower: [0, 20, 2], keltner_upper: [0, 20, 2],
+                            atr: [2, 14, 50], atr_below: [1, 14, 50],
+                            hist_vol: [25, 21, 50], hist_vol_below: [10, 21, 50],
+                            volume_spike: [1.5, 20, 50],
+                            iv_rank: [50, 252, 50], iv_rank_below: [20, 252, 50],
+                            near_52w_high: [5, 14, 50], near_52w_low: [5, 14, 50],
+                            sma_below: [0, 50, 50], sma_above: [0, 200, 50],
+                            price_channel_upper: [0, 20, 50], price_channel_lower: [0, 20, 50],
                           };
-                          const [thresh, per] = defaults[v] || [30, 14];
+                          const [thresh, per, per2] = defaults[v] || [30, 14, 50];
                           setIndicatorThreshold(thresh);
                           setIndicatorPeriod(per);
+                          setIndicatorPeriod2(per2);
                         }}>
-                          <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 min-w-[160px]">
+                          <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 min-w-[170px]">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200 max-h-[320px]">
+                          <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200 max-h-[360px]">
                             <SelectItem value="rsi" className="text-xs">RSI oversold</SelectItem>
                             <SelectItem value="rsi_above" className="text-xs">RSI overbought</SelectItem>
+                            <SelectItem value="williams_r" className="text-xs">Williams %R oversold</SelectItem>
+                            <SelectItem value="williams_r_above" className="text-xs">Williams %R overbought</SelectItem>
+                            <SelectItem value="cci" className="text-xs">CCI oversold</SelectItem>
+                            <SelectItem value="cci_above" className="text-xs">CCI overbought</SelectItem>
+                            <SelectItem value="roc" className="text-xs">Rate of Change</SelectItem>
                             <SelectItem value="macd_bullish" className="text-xs">MACD bullish cross</SelectItem>
                             <SelectItem value="macd_bearish" className="text-xs">MACD bearish cross</SelectItem>
+                            <SelectItem value="ma_crossover_bullish" className="text-xs">MA golden cross ↑</SelectItem>
+                            <SelectItem value="ma_crossover_bearish" className="text-xs">MA death cross ↓</SelectItem>
+                            <SelectItem value="adx" className="text-xs">ADX strong trend</SelectItem>
+                            <SelectItem value="adx_below" className="text-xs">ADX weak/range</SelectItem>
+                            <SelectItem value="parabolic_sar" className="text-xs">Parabolic SAR bullish</SelectItem>
+                            <SelectItem value="parabolic_sar_bearish" className="text-xs">Parabolic SAR bearish</SelectItem>
                             <SelectItem value="stoch_oversold" className="text-xs">Stoch oversold</SelectItem>
                             <SelectItem value="stoch_overbought" className="text-xs">Stoch overbought</SelectItem>
                             <SelectItem value="ema_below" className="text-xs">Price &lt; EMA</SelectItem>
                             <SelectItem value="ema_above" className="text-xs">Price &gt; EMA</SelectItem>
+                            <SelectItem value="price_pct_sma" className="text-xs">Price % below SMA</SelectItem>
+                            <SelectItem value="price_pct_sma_above" className="text-xs">Price % above SMA</SelectItem>
                             <SelectItem value="bb_lower" className="text-xs">Price &lt; BB lower</SelectItem>
                             <SelectItem value="bb_upper" className="text-xs">Price &gt; BB upper</SelectItem>
                             <SelectItem value="bb_squeeze" className="text-xs">BB squeeze</SelectItem>
+                            <SelectItem value="keltner_lower" className="text-xs">Keltner lower</SelectItem>
+                            <SelectItem value="keltner_upper" className="text-xs">Keltner upper</SelectItem>
+                            <SelectItem value="atr" className="text-xs">ATR high vol</SelectItem>
+                            <SelectItem value="atr_below" className="text-xs">ATR low vol</SelectItem>
+                            <SelectItem value="hist_vol" className="text-xs">Hist vol high</SelectItem>
+                            <SelectItem value="hist_vol_below" className="text-xs">Hist vol low</SelectItem>
+                            <SelectItem value="volume_spike" className="text-xs">Volume spike</SelectItem>
+                            <SelectItem value="iv_rank" className="text-xs">IV Rank high</SelectItem>
+                            <SelectItem value="iv_rank_below" className="text-xs">IV Rank low</SelectItem>
+                            <SelectItem value="near_52w_high" className="text-xs">Near 52w high</SelectItem>
+                            <SelectItem value="near_52w_low" className="text-xs">Near 52w low</SelectItem>
                             <SelectItem value="sma_below" className="text-xs">Price &lt; SMA</SelectItem>
                             <SelectItem value="sma_above" className="text-xs">Price &gt; SMA</SelectItem>
                             <SelectItem value="price_channel_upper" className="text-xs">Channel breakout ↑</SelectItem>
@@ -506,38 +546,92 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                         </Select>
                       </div>
                       {(indicatorType === "rsi" || indicatorType === "rsi_above" ||
+                        indicatorType === "williams_r" || indicatorType === "williams_r_above" ||
+                        indicatorType === "cci" || indicatorType === "cci_above" ||
                         indicatorType === "stoch_oversold" || indicatorType === "stoch_overbought" ||
-                        indicatorType === "bb_squeeze") && (
+                        indicatorType === "bb_squeeze" || indicatorType === "roc" ||
+                        indicatorType === "adx" || indicatorType === "adx_below" ||
+                        indicatorType === "price_pct_sma" || indicatorType === "price_pct_sma_above" ||
+                        indicatorType === "atr" || indicatorType === "atr_below" ||
+                        indicatorType === "hist_vol" || indicatorType === "hist_vol_below" ||
+                        indicatorType === "volume_spike" ||
+                        indicatorType === "iv_rank" || indicatorType === "iv_rank_below" ||
+                        indicatorType === "near_52w_high" || indicatorType === "near_52w_low") && (
                         <div className="space-y-1">
                           <Label className="text-[10px] text-gray-500">
-                            {indicatorType === "bb_squeeze" ? "Percentile" : "Threshold"}
+                            {indicatorType === "bb_squeeze" ? "Percentile" :
+                             indicatorType === "volume_spike" ? "Multiplier" :
+                             indicatorType === "roc" || indicatorType === "price_pct_sma" || indicatorType === "price_pct_sma_above" ||
+                             indicatorType === "atr" || indicatorType === "atr_below" ||
+                             indicatorType === "hist_vol" || indicatorType === "hist_vol_below" ||
+                             indicatorType === "near_52w_high" || indicatorType === "near_52w_low" ? "%" :
+                             indicatorType === "iv_rank" || indicatorType === "iv_rank_below" ? "Rank %" :
+                             "Threshold"}
                           </Label>
                           <Input type="number" value={indicatorThreshold}
                             onChange={e => setIndicatorThreshold(Number(e.target.value))}
                             className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            min={0} max={100} />
+                            min={-200} max={500} />
                         </div>
                       )}
                       <div className="space-y-1">
-                        <Label className="text-[10px] text-gray-500">Period</Label>
+                        <Label className="text-[10px] text-gray-500">
+                          {indicatorType === "ma_crossover_bullish" || indicatorType === "ma_crossover_bearish" ? "Fast MA" : "Period"}
+                        </Label>
                         <Input type="number" value={indicatorPeriod}
                           onChange={e => setIndicatorPeriod(Number(e.target.value))}
                           className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           min={2} max={252} />
                       </div>
+                      {(indicatorType === "ma_crossover_bullish" || indicatorType === "ma_crossover_bearish" ||
+                        indicatorType === "keltner_lower" || indicatorType === "keltner_upper") && (
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-gray-500">
+                            {indicatorType === "keltner_lower" || indicatorType === "keltner_upper" ? "ATR Mult" : "Slow MA"}
+                          </Label>
+                          <Input type="number" value={indicatorPeriod2}
+                            onChange={e => setIndicatorPeriod2(Number(e.target.value))}
+                            className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            min={2} max={252} />
+                        </div>
+                      )}
                     </div>
                     <p className="text-[9px] text-gray-600">
                       {indicatorType === "rsi" && `Enter when RSI(${indicatorPeriod}) drops below ${indicatorThreshold} (oversold).`}
                       {indicatorType === "rsi_above" && `Enter when RSI(${indicatorPeriod}) rises above ${indicatorThreshold} (momentum).`}
+                      {indicatorType === "williams_r" && `Enter when Williams %R(${indicatorPeriod}) drops below ${indicatorThreshold} (oversold).`}
+                      {indicatorType === "williams_r_above" && `Enter when Williams %R(${indicatorPeriod}) rises above ${indicatorThreshold} (overbought).`}
+                      {indicatorType === "cci" && `Enter when CCI(${indicatorPeriod}) drops below ${indicatorThreshold} (oversold).`}
+                      {indicatorType === "cci_above" && `Enter when CCI(${indicatorPeriod}) rises above ${indicatorThreshold} (overbought).`}
+                      {indicatorType === "roc" && `Enter when ${indicatorPeriod}-day ROC drops below ${indicatorThreshold}% (momentum dip).`}
                       {indicatorType === "macd_bullish" && "Enter when MACD(12,26,9) histogram crosses above zero (bullish momentum)."}
                       {indicatorType === "macd_bearish" && "Enter when MACD histogram crosses below zero (bearish — for call credit spreads)."}
+                      {indicatorType === "ma_crossover_bullish" && `Enter when ${indicatorPeriod}-day MA crosses above ${indicatorPeriod2}-day MA (golden cross).`}
+                      {indicatorType === "ma_crossover_bearish" && `Enter when ${indicatorPeriod}-day MA crosses below ${indicatorPeriod2}-day MA (death cross).`}
+                      {indicatorType === "adx" && `Enter when ADX(${indicatorPeriod}) > ${indicatorThreshold} (strong trend).`}
+                      {indicatorType === "adx_below" && `Enter when ADX(${indicatorPeriod}) < ${indicatorThreshold} (weak trend / range-bound).`}
+                      {indicatorType === "parabolic_sar" && "Enter on Parabolic SAR flip from bearish to bullish."}
+                      {indicatorType === "parabolic_sar_bearish" && "Enter on Parabolic SAR flip from bullish to bearish — call spreads."}
                       {indicatorType === "stoch_oversold" && `Enter when Stoch %K(${indicatorPeriod}) drops below ${indicatorThreshold} (oversold bounce).`}
                       {indicatorType === "stoch_overbought" && `Enter when Stoch %K(${indicatorPeriod}) rises above ${indicatorThreshold} (overbought — call spreads).`}
                       {indicatorType === "ema_below" && `Enter when price is below ${indicatorPeriod}-day EMA (pullback entry).`}
                       {indicatorType === "ema_above" && `Enter when price is above ${indicatorPeriod}-day EMA (trend confirmation).`}
+                      {indicatorType === "price_pct_sma" && `Enter when price is >${indicatorThreshold}% below its ${indicatorPeriod}-day SMA (oversold extension).`}
+                      {indicatorType === "price_pct_sma_above" && `Enter when price is >${indicatorThreshold}% above its ${indicatorPeriod}-day SMA (overbought extension).`}
                       {indicatorType === "bb_lower" && `Enter when price touches/crosses below lower BB(${indicatorPeriod},2).`}
                       {indicatorType === "bb_upper" && `Enter when price breaks above upper BB(${indicatorPeriod},2) — call spreads.`}
                       {indicatorType === "bb_squeeze" && `Enter when BB width is in the bottom ${indicatorThreshold}% percentile (volatility contraction before expansion).`}
+                      {indicatorType === "keltner_lower" && `Enter when price is below Keltner lower (${indicatorPeriod} EMA − ${indicatorPeriod2}× ATR).`}
+                      {indicatorType === "keltner_upper" && `Enter when price is above Keltner upper (${indicatorPeriod} EMA + ${indicatorPeriod2}× ATR).`}
+                      {indicatorType === "atr" && `Enter when ATR(${indicatorPeriod}) > ${indicatorThreshold}% of price (elevated volatility = rich premium).`}
+                      {indicatorType === "atr_below" && `Enter when ATR(${indicatorPeriod}) < ${indicatorThreshold}% of price (low vol contraction).`}
+                      {indicatorType === "hist_vol" && `Enter when ${indicatorPeriod}-day historical vol > ${indicatorThreshold}% (high realized vol).`}
+                      {indicatorType === "hist_vol_below" && `Enter when ${indicatorPeriod}-day historical vol < ${indicatorThreshold}% (vol crush entry).`}
+                      {indicatorType === "volume_spike" && `Enter when volume > ${indicatorThreshold}× ${indicatorPeriod}-day average (capitulation).`}
+                      {indicatorType === "iv_rank" && `Enter when IV Rank(${indicatorPeriod}d) > ${indicatorThreshold}% (rich premium — ideal for selling).`}
+                      {indicatorType === "iv_rank_below" && `Enter when IV Rank(${indicatorPeriod}d) < ${indicatorThreshold}% (low IV — avoid selling).`}
+                      {indicatorType === "near_52w_high" && `Enter when price is within ${indicatorThreshold}% of 52-week high (pullback imminent).`}
+                      {indicatorType === "near_52w_low" && `Enter when price is within ${indicatorThreshold}% of 52-week low (bounce candidate).`}
                       {indicatorType === "sma_below" && `Enter when price is below ${indicatorPeriod}-day SMA (trend pullback).`}
                       {indicatorType === "sma_above" && `Enter when price is above ${indicatorPeriod}-day SMA (bull trend).`}
                       {indicatorType === "price_channel_upper" && `Enter on ${indicatorPeriod}-day Donchian channel breakout (momentum).`}
