@@ -1023,6 +1023,9 @@ export default function ResearchWorkspace() {
                         profit_target_pct: cfg.profit_target_pct || null,
                         stop_loss_pct: cfg.stop_loss_pct || null,
                         max_days_in_trade: cfg.max_days_in_trade,
+                        entry_trigger_mode: cfg.entry_trigger_mode,
+                        indicator_type: cfg.indicator_type,
+                        indicator_threshold: cfg.indicator_threshold,
                       });
                     }}
                     running={running}

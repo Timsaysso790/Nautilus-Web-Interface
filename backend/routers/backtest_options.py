@@ -50,6 +50,10 @@ class BacktestRequest(BaseModel):
     max_days_in_trade: int = Field(60, ge=1, le=365)
     project_id: Optional[str] = Field(None, description="Save result to this project if provided")
     run_name: Optional[str] = Field(None, description="Optional name for the saved run")
+    # Technical indicator entry triggers
+    entry_trigger_mode: str = Field("calendar", pattern="^(calendar|technical)$")
+    indicator_type: str = Field("rsi", pattern="^(rsi|rsi_above|bb_lower|sma_below|sma_above)$")
+    indicator_threshold: float = Field(30, ge=0, le=100)
 
 
 @router.post("/run")
@@ -79,6 +83,9 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                 profit_target_pct=req.profit_target_pct,
                 stop_loss_pct=req.stop_loss_pct,
                 max_days_in_trade=req.max_days_in_trade,
+                entry_trigger_mode=req.entry_trigger_mode,
+                indicator_type=req.indicator_type,
+                indicator_threshold=req.indicator_threshold,
             )
 
             # Run in thread pool with a generous timeout

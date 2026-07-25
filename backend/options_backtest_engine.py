@@ -133,6 +133,10 @@ class OptionsBacktestEngine:
         profit_target_pct: Optional[float] = None,
         stop_loss_pct: Optional[float] = None,
         max_days_in_trade: int = 60,
+        # Technical indicator entry triggers
+        entry_trigger_mode: str = "calendar",
+        indicator_type: str = "rsi",
+        indicator_threshold: float = 30,
     ):
         self.ticker = ticker.upper()
         self.strategy = strategy
@@ -149,6 +153,9 @@ class OptionsBacktestEngine:
         self.profit_target_pct = profit_target_pct
         self.stop_loss_pct = stop_loss_pct
         self.max_days_in_trade = max_days_in_trade
+        self.entry_trigger_mode = entry_trigger_mode
+        self.indicator_type = indicator_type
+        self.indicator_threshold = indicator_threshold
 
     def run(self) -> Dict[str, Any]:
         """Run the backtest with full institutional features."""
@@ -167,6 +174,15 @@ class OptionsBacktestEngine:
 
         # Pre-group data by date for fast lookup
         date_groups = {d: g for d, g in df.groupby("date")}
+
+        # Compute technical indicators from daily underlying prices
+        indicator_signals: Dict[int, bool] = {}
+        if self.entry_trigger_mode == "technical":
+            indicator_signals = _compute_indicator_signals(
+                df, self.indicator_type, self.indicator_threshold
+            )
+            signal_count = sum(1 for v in indicator_signals.values() if v)
+            logger.info(f"Technical trigger '{self.indicator_type}' active on {signal_count}/{len(indicator_signals)} days")
 
         for trade_date in trade_dates:
             day_data = date_groups.get(trade_date)
@@ -192,13 +208,25 @@ class OptionsBacktestEngine:
 
             # ── Entry logic ──
             if self.allow_overlapping or (not open_positions and entry_countdown <= 0):
-                if entry_countdown > 0:
-                    entry_countdown -= 1
-                else:
+                if self.entry_trigger_mode == "calendar":
+                    if entry_countdown > 0:
+                        entry_countdown -= 1
+                        continue
                     entry = self._find_entry(day_data, trade_date, underlying)
                     if entry:
                         open_positions.append(entry)
                         entry_countdown = self.entry_frequency
+                else:
+                    # Technical trigger: enter when indicator signal is active + DTE/Δ conditions met
+                    if indicator_signals.get(trade_date, False):
+                        # Check at most once per week even in technical mode
+                        if entry_countdown <= 0:
+                            entry = self._find_entry(day_data, trade_date, underlying)
+                            if entry:
+                                open_positions.append(entry)
+                                entry_countdown = 7  # Minimum 7 days between entries
+                        else:
+                            entry_countdown -= 1
 
             # ── Equity curve ──
             position_margin = sum(p.get("margin", 0) for p in open_positions)
@@ -453,3 +481,87 @@ class OptionsBacktestEngine:
                     val *= 100  # delta in dollars per $1 move
                 greeks[g] = round(greeks.get(g, 0) + val, 4)
         return greeks
+
+
+# ── Technical Indicator Computation ─────────────────────────────────────────────
+
+def _compute_indicator_signals(df: pd.DataFrame, indicator_type: str, threshold: float) -> Dict[int, bool]:
+    """Compute daily indicator signals from underlying price data.
+    Returns a dict mapping date (int) → bool (signal active)."""
+    
+    # Extract daily underlying prices (one row per date)
+    daily = df.groupby("date")["underlying_price"].first().sort_index()
+    prices = daily.values
+    dates = daily.index.values
+    
+    if len(prices) < 50:
+        logger.warning(f"Not enough data points ({len(prices)}) for indicators, defaulting to all-pass")
+        return {int(d): True for d in dates}
+    
+    signals: Dict[int, bool] = {}
+    
+    if indicator_type in ("rsi", "rsi_above"):
+        # Compute 14-period RSI
+        deltas = np.diff(prices, prepend=prices[0])
+        gains = np.where(deltas > 0, deltas, 0)
+        losses = np.where(deltas < 0, -deltas, 0)
+        
+        # Wilder's smoothing
+        avg_gain = np.zeros_like(prices, dtype=float)
+        avg_loss = np.zeros_like(prices, dtype=float)
+        period = 14
+        if len(prices) > period:
+            avg_gain[period] = gains[1:period+1].mean()
+            avg_loss[period] = losses[1:period+1].mean()
+            for i in range(period + 1, len(prices)):
+                avg_gain[i] = (avg_gain[i-1] * (period - 1) + gains[i]) / period
+                avg_loss[i] = (avg_loss[i-1] * (period - 1) + losses[i]) / period
+        
+        for i, d in enumerate(dates):
+            if i < period:
+                signals[int(d)] = False
+                continue
+            rs = avg_gain[i] / avg_loss[i] if avg_loss[i] > 0 else 100
+            rsi = 100 - (100 / (1 + rs))
+            if indicator_type == "rsi":
+                signals[int(d)] = rsi < threshold
+            else:
+                signals[int(d)] = rsi > threshold
+    
+    elif indicator_type == "bb_lower":
+        # Bollinger Band: price below lower band (20-period, 2 std)
+        period = 20
+        for i, d in enumerate(dates):
+            if i < period:
+                signals[int(d)] = False
+                continue
+            sma = prices[i-period:i].mean()
+            std = prices[i-period:i].std()
+            lower = sma - 2 * std
+            signals[int(d)] = prices[i] < lower
+    
+    elif indicator_type == "sma_below":
+        # Price below 50-day SMA
+        period = 50
+        for i, d in enumerate(dates):
+            if i < period:
+                signals[int(d)] = False
+                continue
+            sma = prices[i-period:i].mean()
+            signals[int(d)] = prices[i] < sma
+    
+    elif indicator_type == "sma_above":
+        # Price above 200-day SMA
+        period = 200
+        for i, d in enumerate(dates):
+            if i < period:
+                signals[int(d)] = False
+                continue
+            sma = prices[i-period:i].mean()
+            signals[int(d)] = prices[i] > sma
+    
+    else:
+        # Unknown indicator — allow all entries
+        signals = {int(d): True for d in dates}
+    
+    return signals

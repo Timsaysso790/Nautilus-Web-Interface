@@ -43,6 +43,9 @@ interface OptionsConfig {
   profit_target_pct: number;
   stop_loss_pct: number;
   max_days_in_trade: number;
+  entry_trigger_mode: string;
+  indicator_type: string;
+  indicator_threshold: number;
 }
 
 interface Props {
@@ -188,6 +191,9 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
       slippage_model: slippageModel, slippage_pct: slippagePct / 100,
       profit_target_pct: profitTarget, stop_loss_pct: stopLoss,
       max_days_in_trade: maxDays,
+      entry_trigger_mode: entryTriggerMode,
+      indicator_type: indicatorType,
+      indicator_threshold: indicatorThreshold,
     };
   };
 
