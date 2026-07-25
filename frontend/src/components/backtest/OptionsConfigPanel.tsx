@@ -271,7 +271,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                     </div>
                     <Input type="number" value={leg.target_delta || ""}
                       onChange={e => updateLegDelta(i, Number(e.target.value))}
-                      className="w-16 h-7 text-[11px] bg-[#0a0e17] border-gray-700 text-gray-200 ml-1"
+                      className="w-[68px] h-7 text-[11px] bg-[#0a0e17] border-gray-700 text-gray-200 ml-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       step={0.01} min={0.01} max={1} placeholder="0.16" />
                   </div>
 
@@ -313,12 +313,12 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Min DTE</Label>
                   <Input type="number" value={dteMin} onChange={e => setDteMin(Number(e.target.value))}
-                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Max DTE</Label>
                   <Input type="number" value={dteMax} onChange={e => setDteMax(Number(e.target.value))}
-                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Entry Freq</Label>
@@ -338,10 +338,12 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                   <Label className="text-[10px] text-gray-500">Year Range</Label>
                   <div className="flex items-center gap-1.5">
                     <Input type="number" value={yearStart} onChange={e => setYearStart(Number(e.target.value))}
-                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px]" min={2018} max={2026} />
+                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
                     <span className="text-gray-600 text-xs">–</span>
                     <Input type="number" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}
-                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px]" min={2018} max={2026} />
+                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
                   </div>
                 </div>
               </div>
@@ -357,25 +359,25 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Profit Target %</Label>
                   <Input type="number" value={profitTarget} onChange={e => setProfitTarget(Number(e.target.value))}
-                    className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-emerald-400" min={0} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-emerald-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={0} />
                   <p className="text-[9px] text-gray-600">Exit at +{profitTarget}% of credit</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Stop Loss %</Label>
                   <Input type="number" value={stopLoss} onChange={e => setStopLoss(Number(e.target.value))}
-                    className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-red-400" min={0} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-red-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={0} />
                   <p className="text-[9px] text-gray-600">Exit at -{stopLoss}% of credit</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Hold Until DTE</Label>
                   <Input type="number" value={holdUntilDte} onChange={e => setHoldUntilDte(Number(e.target.value))}
-                    className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={0} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={0} />
                   <p className="text-[9px] text-gray-600">21 = standard tastytrade</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Max Days</Label>
                   <Input type="number" value={maxDays} onChange={e => setMaxDays(Number(e.target.value))}
-                    className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" min={1} />
                 </div>
               </div>
               <p className="text-[10px] text-gray-600">First condition triggered wins: profit target → stop loss → DTE → max days.</p>
