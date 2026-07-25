@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -17,7 +18,7 @@ const NAV_ITEMS = [
 ];
 
 export default function LiveLayout({ children }: { children: ReactNode }) {
-  const currentPath = window.location.pathname;
+  const [currentPath] = useLocation();
   const [brokerStatus, setBrokerStatus] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
             const active = currentPath === item.href || currentPath.startsWith(item.href + "/");
             const Icon = item.icon;
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
@@ -65,7 +66,7 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
               >
                 <Icon className="h-3.5 w-3.5" />
                 {item.label}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -91,13 +92,13 @@ export default function LiveLayout({ children }: { children: ReactNode }) {
           </div>
           {/* Back to Hub — cleanly below with a separator */}
           <div className="px-3 pb-3 pt-1 border-t border-gray-800/40">
-            <a
+            <Link
               href="/"
               className="flex items-center gap-2 px-3 py-1.5 rounded text-xs text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
             >
               <LogOut className="h-3.5 w-3.5" />
               Back to Hub
-            </a>
+            </Link>
           </div>
         </div>
       </aside>

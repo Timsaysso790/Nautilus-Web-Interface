@@ -2,23 +2,19 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { useEffect, useState } from "react";
 import { loadApiConfig } from "./config";
-import { Route, Switch, Router, useLocation } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { NotificationContainer } from "./components/NotificationContainer";
-import MainLayout from "./components/MainLayout";
+import ResearchLayout from "./components/ResearchLayout";
+import LiveLayout from "./components/LiveLayout";
 
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import ResearchLanding from "./pages/ResearchLanding";
 import ResearchWorkspace from "./pages/ResearchWorkspace";
-import OptionsLab from "./pages/OptionsLab";
-import BacktestingPage from "./pages/BacktestingPage";
-import PortfolioDesigner from "./pages/PortfolioDesigner";
-import BacktestDetail from "./pages/BacktestDetail";
 import DataCatalog from "./pages/DataCatalog";
-import ProjectsPage from "./pages/ProjectsPage";
 import AIAssistant from "./pages/AIAssistant";
 import LiveLanding from "./pages/LiveLanding";
 import LivePositions from "./pages/LivePositions";
@@ -30,11 +26,10 @@ import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SettingsPage from "./pages/SettingsPage";
 
-// Unified app layout — one sidebar, never changes
+// Single catch-all — picks the right layout based on path prefix
 function AppPages() {
   const [location] = useLocation();
 
-  // Determine which page to show based on path prefix
   let content;
   if (location.startsWith("/research")) {
     const page = location.replace("/research", "") || "/";
@@ -55,7 +50,10 @@ function AppPages() {
       default:
         content = <NotFound />;
     }
-  } else if (location.startsWith("/live")) {
+    return <ResearchLayout>{content}</ResearchLayout>;
+  }
+
+  if (location.startsWith("/live")) {
     const page = location.replace("/live", "") || "/";
     switch (page) {
       case "/":
@@ -74,11 +72,10 @@ function AppPages() {
       default:
         content = <NotFound />;
     }
-  } else {
-    content = <NotFound />;
+    return <LiveLayout>{content}</LiveLayout>;
   }
 
-  return <MainLayout>{content}</MainLayout>;
+  return <NotFound />;
 }
 
 function RouterOutlet() {

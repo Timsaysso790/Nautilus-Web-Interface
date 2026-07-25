@@ -1,23 +1,22 @@
 import { ReactNode } from "react";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
-  FlaskConical, LayoutDashboard, Database, LineChart,
-  BarChart3, Search, Activity, Wrench, LogOut, FolderOpen, Brain, TrendingUp
+  FlaskConical, LayoutDashboard, Database,
+  Activity, Brain, LogOut,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/research", label: "Dashboard", icon: LayoutDashboard },
   { href: "/research/options-lab", label: "Workspace", icon: Activity },
   { href: "/research/data-catalog", label: "Data Catalog", icon: Database },
-  { href: "/research/screener", label: "Strategy Screener", icon: Search },
-  { href: "/research/chart", label: "Charts", icon: LineChart },
   { href: "/research/ai-assistant", label: "AI Assistant", icon: Brain },
 ];
 
 export default function ResearchLayout({ children }: { children: ReactNode }) {
-  const currentPath = window.location.pathname;
+  const [currentPath] = useLocation();
 
   // Pages that map to the Workspace nav item
   const workspacePaths = ["/research/options-lab", "/research/backtesting", "/research/portfolio-designer", "/research/projects", "/research/backtest-visualizer"];
@@ -47,7 +46,7 @@ export default function ResearchLayout({ children }: { children: ReactNode }) {
             const active = isActive(item.href);
             const Icon = item.icon;
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
@@ -58,7 +57,7 @@ export default function ResearchLayout({ children }: { children: ReactNode }) {
               >
                 <Icon className="h-3.5 w-3.5" />
                 {item.label}
-              </a>
+              </Link>
             );
           })}
         </nav>
