@@ -19,6 +19,16 @@ const NAV_ITEMS = [
 export default function ResearchLayout({ children }: { children: ReactNode }) {
   const currentPath = window.location.pathname;
 
+  // Pages that map to the Workspace nav item
+  const workspacePaths = ["/research/options-lab", "/research/backtesting", "/research/portfolio-designer", "/research/projects", "/research/backtest-visualizer"];
+
+  const isActive = (href: string) => {
+    if (href === "/research/options-lab") {
+      return workspacePaths.some(p => currentPath === p || currentPath.startsWith(p + "/"));
+    }
+    return currentPath === href || currentPath.startsWith(href + "/");
+  };
+
   return (
     <div className="flex h-screen bg-[#0a0e17] text-gray-200">
       {/* Sidebar */}
@@ -34,7 +44,7 @@ export default function ResearchLayout({ children }: { children: ReactNode }) {
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
-            const active = currentPath === item.href || currentPath.startsWith(item.href + "/");
+            const active = isActive(item.href);
             const Icon = item.icon;
             return (
               <a
