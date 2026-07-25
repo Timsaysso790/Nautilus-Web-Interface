@@ -201,33 +201,33 @@ async def _run_backtest(args: Dict[str, Any]) -> str:
     # Build legs based on strategy type
     if strategy_type == "put_credit_spread":
         legs = [
-            OptionLeg(strike=0, right="P", action="sell", quantity=1),
-            OptionLeg(strike=0, right="P", action="buy", quantity=1),
+            OptionLeg(strike=0, right="P", action="sell", quantity=1, target_delta=short_delta),
+            OptionLeg(strike=0, right="P", action="buy", quantity=1, target_delta=short_delta * 0.6 if short_delta > 0 else 0.10),
         ]
     elif strategy_type == "call_credit_spread":
         legs = [
-            OptionLeg(strike=0, right="C", action="sell", quantity=1),
-            OptionLeg(strike=0, right="C", action="buy", quantity=1),
+            OptionLeg(strike=0, right="C", action="sell", quantity=1, target_delta=short_delta),
+            OptionLeg(strike=0, right="C", action="buy", quantity=1, target_delta=short_delta * 0.6 if short_delta > 0 else 0.10),
         ]
     elif strategy_type == "iron_condor":
         legs = [
-            OptionLeg(strike=0, right="P", action="sell", quantity=1),
-            OptionLeg(strike=0, right="P", action="buy", quantity=1),
-            OptionLeg(strike=0, right="C", action="sell", quantity=1),
-            OptionLeg(strike=0, right="C", action="buy", quantity=1),
+            OptionLeg(strike=0, right="P", action="sell", quantity=1, target_delta=short_delta),
+            OptionLeg(strike=0, right="P", action="buy", quantity=1, target_delta=short_delta * 0.6 if short_delta > 0 else 0.10),
+            OptionLeg(strike=0, right="C", action="sell", quantity=1, target_delta=short_delta),
+            OptionLeg(strike=0, right="C", action="buy", quantity=1, target_delta=short_delta * 0.6 if short_delta > 0 else 0.10),
         ]
     elif strategy_type == "covered_call":
         legs = [
-            OptionLeg(strike=0, right="C", action="sell", quantity=1),
+            OptionLeg(strike=0, right="C", action="sell", quantity=1, target_delta=short_delta),
         ]
     elif strategy_type == "cash_secured_put":
         legs = [
-            OptionLeg(strike=0, right="P", action="sell", quantity=1),
+            OptionLeg(strike=0, right="P", action="sell", quantity=1, target_delta=short_delta),
         ]
     else:
         legs = [
-            OptionLeg(strike=0, right="P", action="sell", quantity=1),
-            OptionLeg(strike=0, right="P", action="buy", quantity=1),
+            OptionLeg(strike=0, right="P", action="sell", quantity=1, target_delta=short_delta),
+            OptionLeg(strike=0, right="P", action="buy", quantity=1, target_delta=short_delta * 0.6 if short_delta > 0 else 0.10),
         ]
 
     strategy = OptionStrategy(legs)

@@ -23,10 +23,11 @@ _result_cache: Dict[str, Any] = {}
 
 
 class BacktestLeg(BaseModel):
-    strike: float
+    strike: float = 0.0
     right: str = Field(pattern="^(C|P)$")
     action: str = Field(pattern="^(buy|sell)$")
     quantity: int = 1
+    target_delta: Optional[float] = Field(None, ge=0.0, le=1.0, description="Target delta for this leg (e.g. 0.16). Overrides strike when set.")
 
 
 class BacktestRequest(BaseModel):
@@ -56,7 +57,7 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
     """Run a full backtest."""
     async with _backtest_lock:
         try:
-            legs = [EngineLeg(l.strike, l.right, l.action, l.quantity) for l in req.legs]
+            legs = [EngineLeg(l.strike, l.right, l.action, l.quantity, l.target_delta) for l in req.legs]
             strategy = OptionStrategy(legs)
             engine = OptionsBacktestEngine(
                 ticker=req.ticker,
@@ -201,7 +202,7 @@ async def walk_forward(req: BacktestRequest, user: dict = Depends(get_current_us
         results = []
         for year in range(req.start_year, req.end_year + 1):
             try:
-                legs = [EngineLeg(l.strike, l.right, l.action, l.quantity) for l in req.legs]
+                legs = [EngineLeg(l.strike, l.right, l.action, l.quantity, l.target_delta) for l in req.legs]
                 strategy = OptionStrategy(legs)
                 engine = OptionsBacktestEngine(
                     ticker=req.ticker,

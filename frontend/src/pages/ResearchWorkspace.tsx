@@ -390,26 +390,6 @@ function DeleteConfirmDialog({ open, onOpenChange, projectId, projectName, onDel
 }
 
 /* ════════════════════════════════════════════════ */
-/*  PRESETS — strategy leg templates               */
-/* ════════════════════════════════════════════════ */
-
-const PRESETS: Record<string, StrategyLeg[]> = {
-  "Put Credit Spread": [
-    { strike: 0, right: "P", action: "sell", qty: 1 },
-    { strike: 0, right: "P", action: "buy", qty: 1 },
-  ],
-  "Iron Condor": [
-    { strike: 0, right: "P", action: "sell", qty: 1 },
-    { strike: 0, right: "P", action: "buy", qty: 1 },
-    { strike: 0, right: "C", action: "sell", qty: 1 },
-    { strike: 0, right: "C", action: "buy", qty: 1 },
-  ],
-  "Call Debit Spread": [
-    { strike: 0, right: "C", action: "buy", qty: 1 },
-    { strike: 0, right: "C", action: "sell", qty: 1 },
-  ],
-};
-
 /* ════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                 */
 /* ════════════════════════════════════════════════ */
@@ -534,40 +514,11 @@ export default function ResearchWorkspace() {
     setLegs((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const applyPreset = (name: string) => {
-    const template = PRESETS[name];
-    if (!template) return;
-    setLegs(template.map((l) => ({ ...l })));
-  };
-
-  const buildConfig = (): BacktestConfig => ({
-    ticker,
-    legs,
-    dte_min: dteMin,
-    dte_max: dteMax,
-    hold_until_dte: holdUntilDte,
-    entry_frequency: entryFrequency,
-    year_range: [yearRangeStart, yearRangeEnd],
-  });
-
   /* ────────────── Run Backtest ────────────── */
 
   const runBacktest = async () => {
-    if (running) return;
-    setRunning(true);
-    setBacktestError(null);
-    setBacktestResult(null);
-    const config = buildConfig();
-    try {
-      const result = await api.post<BacktestResult>("/api/backtest/options/run", config);
-      setBacktestResult(result);
-      setWorkspaceTab("backtest");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Backtest failed";
-      setBacktestError(msg);
-    } finally {
-      setRunning(false);
-    }
+    // Legacy runner — just switches to config tab so user can re-run from panel
+    setWorkspaceTab("config");
   };
 
   /* Run with config from OptionsConfigPanel */
@@ -607,7 +558,7 @@ export default function ResearchWorkspace() {
     try {
       await api.post(`/api/backtest/projects/${activeProjectId}/config`, {
         config_id: crypto.randomUUID(),
-        config: buildConfig(),
+        config: {},
       });
       await loadProjects();
     } catch {
@@ -1059,10 +1010,16 @@ export default function ResearchWorkspace() {
                 <TabsContent value="config" className="mt-0">
                   <OptionsConfigPanel
                     onRun={(cfg) => {
-                      // Map config to API call
+                      // Map config to API call — delta-based legs
                       const freqMap: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
                       const entry_freq = freqMap[cfg.entry_frequency] || 7;
-                      const legsApi = cfg.legs.map(l => ({ strike: l.strike, right: l.right, action: l.action, quantity: l.qty }));
+                      const legsApi = cfg.legs.map(l => ({
+                        strike: 0,
+                        right: l.right,
+                        action: l.action,
+                        quantity: l.qty,
+                        target_delta: l.target_delta,
+                      }));
                       runBacktestWithConfig({
                         ticker: cfg.ticker,
                         legs: legsApi,

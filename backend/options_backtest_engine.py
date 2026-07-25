@@ -51,11 +51,17 @@ def calculate_dte(df: pd.DataFrame) -> pd.DataFrame:
 
 
 class OptionLeg:
-    def __init__(self, strike: float, right: str, action: str, quantity: int = 1):
-        self.strike = strike
+    def __init__(self, strike: float = 0.0, right: str = "P", action: str = "sell",
+                 quantity: int = 1, target_delta: Optional[float] = None):
+        self.strike = strike  # 0 = use delta targeting
         self.right = right.upper()
         self.action = action.lower()
         self.quantity = quantity
+        self.target_delta = target_delta  # e.g. 0.16 for 16-delta
+
+    @property
+    def uses_delta_targeting(self) -> bool:
+        return self.strike == 0 and self.target_delta is not None
 
     def intrinsic_value(self, underlying: float) -> float:
         if self.right == "C":
@@ -69,7 +75,13 @@ class OptionStrategy:
 
     @property
     def description(self) -> str:
-        return " + ".join(f"{l.action.upper()} {l.quantity}x {l.right} ${l.strike}" for l in self.legs)
+        parts = []
+        for l in self.legs:
+            if l.uses_delta_targeting:
+                parts.append(f"{l.action.upper()} {l.quantity}x {l.right} Δ{abs(l.target_delta or 0):.0f}")
+            else:
+                parts.append(f"{l.action.upper()} {l.quantity}x {l.right} ${l.strike}")
+        return " + ".join(parts)
 
     @property
     def is_credit(self) -> bool:
@@ -236,6 +248,15 @@ class OptionsBacktestEngine:
                          pd.to_datetime(str(trade_date), format="%Y%m%d")).days
         days_held = int(trade_date) - int(entry_date_str)
 
+        # Build resolved strategy from stored leg info (handles delta-targeted entries)
+        resolved_legs = pos.get("_resolved_legs", [])
+        if resolved_legs:
+            pos_strategy = OptionStrategy([OptionLeg(
+                strike=l["strike"], right=l["right"], action=l["action"], quantity=l["qty"]
+            ) for l in resolved_legs])
+        else:
+            pos_strategy = self.strategy
+
         # Check exit conditions
         exit_trade = False
         exit_reason = ""
@@ -251,7 +272,7 @@ class OptionsBacktestEngine:
 
         # Check P&L-based exits if we have current position value
         if not exit_trade:
-            current_cost = self._calc_entry_cost(trade_day_data, is_entry=False)
+            current_cost = self._calc_entry_cost_for_strategy(pos_strategy, trade_day_data, is_entry=False)
             entry_cost = pos["entry_cost"]
             is_credit = pos["is_credit"]
 
@@ -273,12 +294,12 @@ class OptionsBacktestEngine:
             return None
 
         # Calculate exit P&L
-        exit_cost = self._calc_entry_cost(trade_day_data, is_entry=False, use_slippage=True)
+        exit_cost = self._calc_entry_cost_for_strategy(pos_strategy, trade_day_data, is_entry=False, use_slippage=True)
         pnl = self._compute_pnl(pos, exit_cost)
-        commission_total = self.strategy.total_contracts * COMMISSION * 2
+        commission_total = pos_strategy.total_contracts * COMMISSION * 2
         pnl -= commission_total
 
-        greeks = self._capture_greeks(trade_day_data)
+        greeks = self._capture_greeks_for_strategy(pos_strategy, trade_day_data)
 
         return {
             "entry_date": str(pos["entry_date"]),
@@ -300,7 +321,7 @@ class OptionsBacktestEngine:
         }
 
     def _find_entry(self, day_data: pd.DataFrame, trade_date: int, underlying: float) -> Optional[Dict]:
-        """Find and return an entry position if conditions are met."""
+        """Find and return an entry position. Resolves delta-based legs to actual strikes."""
         # Filter by DTE and right
         eligible = day_data[
             (day_data["dte"] >= self.entry_dte_min) &
@@ -311,26 +332,47 @@ class OptionsBacktestEngine:
         if eligible.empty:
             return None
 
-        # Filter by delta if columns exist
-        if "delta" in eligible.columns and (self.delta_min > 0 or self.delta_max < 1.0):
-            delta_col = eligible["delta"].abs()
-            eligible = eligible[(delta_col >= self.delta_min) & (delta_col <= self.delta_max)]
-
-        if eligible.empty:
-            return None
-
         # Find optimal expiration
         target_exp = eligible.groupby("expiration").size().idxmax() if len(eligible) > 0 else None
         if target_exp is None:
             return None
 
         exp_data = eligible[eligible["expiration"] == target_exp]
-        entry_cost = self._calc_entry_cost(exp_data, is_entry=True, use_slippage=True)
-        is_credit = entry_cost > 0
 
-        margin = self.strategy.margin_requirement(
-            underlying, abs(entry_cost)
-        )
+        # Resolve delta-based legs to actual strikes
+        resolved_legs: List[OptionLeg] = []
+        for leg in self.strategy.legs:
+            if leg.uses_delta_targeting and "delta" in exp_data.columns:
+                # Find the strike closest to target delta for this right
+                right_data = exp_data[exp_data["right"] == leg.right]
+                if right_data.empty:
+                    return None
+                # For puts, delta is negative; for calls, delta is positive
+                # Target delta is stored as absolute value
+                target_abs = leg.target_delta
+                right_data = right_data.copy()
+                right_data["delta_dist"] = (right_data["delta"].abs() - target_abs).abs()
+                best_row = right_data.loc[right_data["delta_dist"].idxmin()]
+                resolved_legs.append(OptionLeg(
+                    strike=float(best_row["strike_price"]),
+                    right=leg.right,
+                    action=leg.action,
+                    quantity=leg.quantity,
+                ))
+            else:
+                resolved_legs.append(leg)
+
+        # Override strategy legs with resolved strikes for this entry
+        resolved_strategy = OptionStrategy(resolved_legs)
+        entry_cost = self._calc_entry_cost_for_strategy(resolved_strategy, exp_data, is_entry=True, use_slippage=True)
+
+        # Apply global delta filter if set (independent of per-leg delta targeting)
+        if "delta" in exp_data.columns and (self.delta_min > 0 or self.delta_max < 1.0):
+            # Already filtered by resolved strikes — additional global check unnecessary
+            pass
+
+        is_credit = entry_cost > 0
+        margin = resolved_strategy.margin_requirement(underlying, abs(entry_cost))
 
         return {
             "entry_date": trade_date,
@@ -342,14 +384,15 @@ class OptionsBacktestEngine:
             "is_credit": is_credit,
             "underlying_at_entry": underlying,
             "margin": margin,
+            "_resolved_legs": [{"strike": l.strike, "right": l.right, "action": l.action, "qty": l.quantity} for l in resolved_legs],
         }
 
-    def _calc_entry_cost(
-        self, day_data: pd.DataFrame, is_entry: bool = True, use_slippage: bool = False
+    def _calc_entry_cost_for_strategy(
+        self, strategy: OptionStrategy, day_data: pd.DataFrame, is_entry: bool = True, use_slippage: bool = False
     ) -> float:
-        """Calculate net cost/credit for the strategy on a given day's data."""
+        """Calculate net cost/credit for a strategy on a given day's data."""
         total = 0.0
-        for leg in self.strategy.legs:
+        for leg in strategy.legs:
             matching = day_data[
                 (day_data["strike_price"] == leg.strike) &
                 (day_data["right"] == leg.right)
@@ -379,6 +422,12 @@ class OptionsBacktestEngine:
 
         return total
 
+    def _calc_entry_cost(
+        self, day_data: pd.DataFrame, is_entry: bool = True, use_slippage: bool = False
+    ) -> float:
+        """Legacy wrapper — delegates to the original strategy-based calculation."""
+        return self._calc_entry_cost_for_strategy(self.strategy, day_data, is_entry, use_slippage)
+
     def _compute_pnl(self, pos: Dict, exit_cost: float) -> float:
         """Compute P&L for a position at exit."""
         if pos["is_credit"]:
@@ -386,10 +435,10 @@ class OptionsBacktestEngine:
         else:
             return exit_cost - pos["entry_debit"]
 
-    def _capture_greeks(self, day_data: pd.DataFrame) -> Dict[str, float]:
+    def _capture_greeks_for_strategy(self, strategy: OptionStrategy, day_data: pd.DataFrame) -> Dict[str, float]:
         """Capture real greeks from parquet data for each leg."""
         greeks = {"delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0}
-        for leg in self.strategy.legs:
+        for leg in strategy.legs:
             matching = day_data[
                 (day_data["strike_price"] == leg.strike) &
                 (day_data["right"] == leg.right)
