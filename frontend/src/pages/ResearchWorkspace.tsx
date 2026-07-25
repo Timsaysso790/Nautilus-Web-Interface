@@ -812,11 +812,27 @@ export default function ResearchWorkspace() {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-[10px] text-amber-400 hover:text-amber-300"
-                    onClick={() => setWorkspaceTab("config")}
+                    onClick={() => {
+                      setWorkspaceTab("config");
+                      // Scroll to top of content area
+                      const el = document.querySelector(".flex-1.overflow-y-auto");
+                      if (el) el.scrollTop = 0;
+                    }}
                   >
                     <Zap className="h-3 w-3 mr-1" />
-                    Configure Backtest
+                    {workspaceTab === "config" ? "Configure" : "Config"}
                   </Button>
+                  {workspaceTab !== "backtest" && workspaceTab !== "config" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[10px] text-emerald-400 hover:text-emerald-300"
+                      onClick={() => setWorkspaceTab("backtest")}
+                    >
+                      <BarChart4 className="h-3 w-3 mr-1" />
+                      Results
+                    </Button>
+                  )}
                 </div>
               </div>
 
