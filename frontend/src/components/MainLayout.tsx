@@ -10,6 +10,7 @@ import {
 const NAV_SECTIONS = [
   {
     label: "Research",
+    key: "research",
     items: [
       { href: "/research", label: "Dashboard", icon: LayoutDashboard },
       { href: "/research/options-lab", label: "Workspace", icon: Activity },
@@ -21,6 +22,7 @@ const NAV_SECTIONS = [
   },
   {
     label: "Live Trading",
+    key: "live",
     items: [
       { href: "/live", label: "Dashboard", icon: TrendingUp },
       { href: "/live/positions", label: "Positions", icon: Crosshair },
@@ -49,6 +51,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     return currentPath === href || currentPath.startsWith(href + "/");
   };
 
+  const inLive = currentPath.startsWith("/live");
+
   return (
     <div className="flex h-screen bg-[#0a0e17] text-gray-200">
       {/* ── Unified Sidebar ── */}
@@ -63,20 +67,23 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         <nav className="flex-1 px-2 py-3 overflow-y-auto space-y-4">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              <div className="px-3 mb-1 text-[10px] uppercase tracking-wider text-gray-600 font-medium">
+              <div className="px-3 mb-1 text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
                 {section.label}
               </div>
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const active = isActive(item.href);
                   const Icon = item.icon;
+                  const accent = section.key === "live" ? "emerald" : "amber";
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                         active
-                          ? "bg-amber-400/10 text-amber-400"
+                          ? accent === "emerald"
+                            ? "bg-emerald-400/10 text-emerald-400"
+                            : "bg-amber-400/10 text-amber-400"
                           : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
                       }`}
                     >
@@ -108,8 +115,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         {/* Top bar */}
         <header className="h-9 bg-[#0d1321] border-b border-gray-800/60 flex items-center justify-between px-4 shrink-0">
           <div className="flex items-center gap-2 text-[11px] text-gray-500">
-            <span className="text-amber-400/70">●</span>
-            <span>Research · Live Trading</span>
+            <span className={inLive ? "text-emerald-400/70" : "text-amber-400/70"}>●</span>
+            <span>{inLive ? "Live Trading" : "Research"}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-gray-600">Nautilus Trader</span>

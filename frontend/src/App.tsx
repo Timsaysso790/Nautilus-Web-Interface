@@ -91,13 +91,9 @@ function RouterOutlet() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/research" component={AppPages} />
-      <Route path="/research/:rest*" component={AppPages} />
-      <Route path="/live" component={AppPages} />
-      <Route path="/live/:rest*" component={AppPages} />
-      <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/settings" component={SettingsPage} />
-      <Route component={NotFound} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route component={AppPages} />
     </Switch>
   );
 }
