@@ -9,14 +9,10 @@ import {
 
 const NAV_ITEMS = [
   { href: "/research", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/research/options-lab", label: "Research Workspace", icon: Activity },
-  { href: "/research/backtesting", label: "Backtesting", icon: BarChart3 },
-  { href: "/research/portfolio-designer", label: "Portfolio Designer", icon: LineChart },
-  { href: "/research/projects", label: "Projects", icon: FolderOpen },
+  { href: "/research/options-lab", label: "Workspace", icon: Activity },
   { href: "/research/data-catalog", label: "Data Catalog", icon: Database },
   { href: "/research/screener", label: "Strategy Screener", icon: Search },
-  { href: "/research/chart", label: "Charts", icon: BarChart3 },
-  { href: "/research/backtest-visualizer", label: "Backtest Visualizer", icon: TrendingUp },
+  { href: "/research/chart", label: "Charts", icon: LineChart },
   { href: "/research/ai-assistant", label: "AI Assistant", icon: Brain },
 ];
 

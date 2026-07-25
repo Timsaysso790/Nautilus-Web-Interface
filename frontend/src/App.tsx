@@ -48,10 +48,10 @@ function ResearchPages() {
       content = <ResearchWorkspace />;
       break;
     case "/backtesting":
-      content = <BacktestingPage />;
-      break;
     case "/portfolio-designer":
-      content = <PortfolioDesigner />;
+    case "/projects":
+    case "/backtest-visualizer":
+      content = <ResearchWorkspace />;
       break;
     case "/data-catalog":
       content = <DataCatalog />;
@@ -59,14 +59,8 @@ function ResearchPages() {
     case "/chart":
       content = <ChartPage />;
       break;
-    case "/backtest-visualizer":
-      content = <BacktestDetail />;
-      break;
     case "/screener":
       content = <StrategyScreener />;
-      break;
-    case "/projects":
-      content = <ProjectsPage />;
       break;
     case "/ai-assistant":
       content = <AIAssistant />;

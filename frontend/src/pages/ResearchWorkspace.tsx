@@ -29,7 +29,7 @@ import {
   FolderKanban, Plus, Trash2, Loader2, Bot, Send, X,
   Activity, LineChart, BarChart4, History, Timer,
   ChevronDown, ChevronUp, Play, Save, Settings2, Brain,
-  TrendingUp, TrendingDown, Minus, AlertCircle,
+  TrendingUp, TrendingDown, Minus, AlertCircle, Zap,
 } from "lucide-react";
 import {
   LineChart as RechartLine, Line, XAxis, YAxis, CartesianGrid,
@@ -750,6 +750,27 @@ export default function ResearchWorkspace() {
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Create Project
                 </Button>
+                <div className="mt-4 pt-4 border-t border-gray-800/40">
+                  <p className="text-[10px] text-gray-600 mb-2">Or run a quick backtest without saving:</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs border-gray-700 text-gray-400 hover:text-amber-400"
+                      onClick={() => { setWorkspaceTab("config"); /* quick mode */ }}
+                    >
+                      ⚡ Quick Options Backtest
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs border-gray-700 text-gray-400 hover:text-blue-400"
+                      onClick={() => { setWorkspaceTab("config"); /* quick portfolio mode */ }}
+                    >
+                      ⚡ Quick Portfolio Backtest
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -764,6 +785,18 @@ export default function ResearchWorkspace() {
                   >
                     {getTypeLabel(activeProject.project_type)}
                   </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[10px] text-amber-400 hover:text-amber-300"
+                    onClick={runBacktest}
+                    disabled={running}
+                  >
+                    {running ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                    {running ? "Running..." : "Run Backtest"}
+                  </Button>
                 </div>
               </div>
 
