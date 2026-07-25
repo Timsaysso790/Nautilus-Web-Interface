@@ -2,9 +2,9 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
-  FlaskConical, LayoutDashboard, Database, LineChart,
+  FlaskConical, LayoutDashboard, Database,
   BarChart3, Search, Activity, Brain, TrendingUp,
-  Zap, Crosshair, FileText, Radio, LogOut, PieChart,
+  Crosshair, FileText, Radio, LogOut,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -15,8 +15,6 @@ const NAV_SECTIONS = [
       { href: "/research", label: "Dashboard", icon: LayoutDashboard },
       { href: "/research/options-lab", label: "Workspace", icon: Activity },
       { href: "/research/data-catalog", label: "Data Catalog", icon: Database },
-      { href: "/research/screener", label: "Strategy Screener", icon: Search },
-      { href: "/research/chart", label: "Charts", icon: LineChart },
       { href: "/research/ai-assistant", label: "AI Assistant", icon: Brain },
     ],
   },

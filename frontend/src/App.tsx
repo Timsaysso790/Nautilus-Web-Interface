@@ -17,9 +17,7 @@ import OptionsLab from "./pages/OptionsLab";
 import BacktestingPage from "./pages/BacktestingPage";
 import PortfolioDesigner from "./pages/PortfolioDesigner";
 import BacktestDetail from "./pages/BacktestDetail";
-import ChartPage from "./pages/ChartPage";
 import DataCatalog from "./pages/DataCatalog";
-import StrategyScreener from "./pages/StrategyScreener";
 import ProjectsPage from "./pages/ProjectsPage";
 import AIAssistant from "./pages/AIAssistant";
 import LiveLanding from "./pages/LiveLanding";
@@ -52,10 +50,6 @@ function AppPages() {
         content = <ResearchWorkspace />; break;
       case "/data-catalog":
         content = <DataCatalog />; break;
-      case "/chart":
-        content = <ChartPage />; break;
-      case "/screener":
-        content = <StrategyScreener />; break;
       case "/ai-assistant":
         content = <AIAssistant />; break;
       default:
