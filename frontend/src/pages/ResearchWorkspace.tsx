@@ -675,10 +675,17 @@ export default function ResearchWorkspace() {
     setAiInput("");
     setAiLoading(true);
     try {
-      const data = await api.post<{ response: string }>("/api/ai/chat", {
+      // Use tool-calling endpoint so AI can run backtests, check tickers, etc.
+      const data = await api.post<{ response: string; tool_calls_made?: any[] }>("/api/ai/chat-with-tools", {
         messages: [{ role: "user", content: userMsg.content }],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 3000,
+        // Pass current backtest result as context if available
+        context: backtestResult ? {
+          current_ticker: backtestResult.ticker,
+          current_strategy: backtestResult.strategy,
+          metrics: backtestResult.metrics,
+        } : undefined,
       });
       setAiMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
     } catch {

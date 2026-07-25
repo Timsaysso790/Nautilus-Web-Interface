@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Link, useLocation } from "wouter";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
   FlaskConical, LayoutDashboard, Database, LineChart,
@@ -38,7 +39,7 @@ const WORKSPACE_PATHS = [
 ];
 
 export default function MainLayout({ children }: { children: ReactNode }) {
-  const currentPath = window.location.pathname;
+  const [currentPath] = useLocation();
 
   const isActive = (href: string) => {
     // Workspace nav item matches multiple redirect paths
@@ -70,7 +71,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                   const active = isActive(item.href);
                   const Icon = item.icon;
                   return (
-                    <a
+                    <Link
                       key={item.href}
                       href={item.href}
                       className={`flex items-center gap-2.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
@@ -81,7 +82,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     >
                       <Icon className="h-3.5 w-3.5" />
                       {item.label}
-                    </a>
+                    </Link>
                   );
                 })}
               </div>
@@ -91,13 +92,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
         {/* Bottom */}
         <div className="px-3 py-3 border-t border-gray-800/60 flex items-center justify-between">
-          <a
+          <Link
             href="/"
             className="flex items-center gap-2 px-2 py-1 rounded text-xs text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
           >
             <LogOut className="h-3.5 w-3.5" />
             Hub
-          </a>
+          </Link>
           <ThemeToggle />
         </div>
       </aside>

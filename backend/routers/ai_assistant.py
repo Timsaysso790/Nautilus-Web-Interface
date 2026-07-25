@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth_jwt import get_current_user
+from routers.ai_tools import AI_TOOLS, TOOL_SYSTEM_PROMPT, execute_tool
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai-assistant"])
@@ -92,6 +93,14 @@ class BacktestAnalysisRequest(BaseModel):
     question: str = "Analyze these backtest results. What worked well, what didn't, and what would you change?"
 
 
+class ChatWithToolsRequest(BaseModel):
+    messages: List[ChatMessage]
+    context: Optional[Dict[str, Any]] = None
+    temperature: float = 0.3
+    max_tokens: int = 3000
+    max_tool_rounds: int = 5  # Prevent infinite loops
+
+
 @router.post("/chat")
 async def chat(req: AIRequest, user: dict = Depends(get_current_user)):
     """Chat with the local AI assistant using llama-server or Ollama."""
@@ -121,6 +130,130 @@ portfolio theory, and risk management. Keep responses concise unless asked for d
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(502, f"AI assistant unavailable: {str(e)[:200]}")
+
+
+@router.post("/chat-with-tools")
+async def chat_with_tools(req: ChatWithToolsRequest, user: dict = Depends(get_current_user)):
+    """Chat with the AI assistant, with tool-calling capability.
+    
+    The AI can execute backtests, query available tickers, and get market data.
+    Follows the OpenAI function-calling protocol: the LLM requests tools,
+    the server executes them, and results are fed back to the LLM for a final response.
+    """
+    try:
+        import httpx
+
+        system_prompt = TOOL_SYSTEM_PROMPT
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Add context if provided (e.g., current project, backtest results)
+        if req.context:
+            context_str = json.dumps(req.context, indent=2, default=str)
+            messages.append({
+                "role": "system",
+                "content": f"Current context:\n```json\n{context_str[:8000]}\n```"
+            })
+
+        for msg in req.messages:
+            messages.append({"role": msg.role, "content": msg.content})
+
+        # Multi-round tool calling loop
+        round_count = 0
+        tool_calls_log = []
+
+        while round_count < req.max_tool_rounds:
+            round_count += 1
+
+            headers = {"Content-Type": "application/json", **_get_llm_headers()}
+            url = f"{LLM_BASE_URL}/v1/chat/completions"
+
+            payload = {
+                "model": LLM_MODEL,
+                "messages": messages,
+                "temperature": req.temperature,
+                "max_tokens": req.max_tokens,
+                "tools": AI_TOOLS,
+                "tool_choice": "auto",
+            }
+
+            async with httpx.AsyncClient(timeout=LLM_TIMEOUT) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code != 200:
+                    raise HTTPException(502, f"LLM error: {resp.status_code} {resp.text[:200]}")
+
+                data = resp.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    raise HTTPException(502, "LLM returned no choices")
+
+                msg = choices[0].get("message", {})
+                finish_reason = choices[0].get("finish_reason", "")
+
+                # Append assistant message to conversation
+                messages.append(msg)
+
+                # Check for tool calls
+                tool_calls = msg.get("tool_calls", [])
+
+                if tool_calls and finish_reason == "tool_calls":
+                    # Execute each tool
+                    for tc in tool_calls:
+                        tc_id = tc.get("id", f"call_{round_count}")
+                        func = tc.get("function", {})
+                        name = func.get("name", "")
+                        args_str = func.get("arguments", "{}")
+
+                        try:
+                            args = json.loads(args_str)
+                        except json.JSONDecodeError:
+                            args = {}
+
+                        logger.info(f"AI tool call: {name}({json.dumps(args)[:200]})")
+
+                        # Execute the tool
+                        result_str = await execute_tool(name, args)
+                        tool_calls_log.append({
+                            "tool": name,
+                            "arguments": args,
+                            "result_preview": result_str[:300],
+                        })
+
+                        # Append tool result to messages
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": result_str,
+                        })
+
+                    # Continue loop — LLM will process tool results and respond
+                    continue
+
+                # No tool calls — this is the final response
+                content = msg.get("content", "")
+                return {
+                    "response": content,
+                    "model": LLM_MODEL,
+                    "provider": LLM_TYPE,
+                    "tool_calls_made": tool_calls_log,
+                    "rounds": round_count,
+                }
+
+        # Max rounds exceeded
+        return {
+            "response": "I ran into too many tool calls. Please simplify your request.",
+            "model": LLM_MODEL,
+            "tool_calls_made": tool_calls_log,
+            "rounds": round_count,
+        }
+
+    except ImportError:
+        raise HTTPException(503, "httpx not installed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("chat-with-tools failed")
         raise HTTPException(502, f"AI assistant unavailable: {str(e)[:200]}")
 
 

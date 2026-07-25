@@ -7,8 +7,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { NotificationContainer } from "./components/NotificationContainer";
-import ResearchLayout from "./components/ResearchLayout";
-import LiveLayout from "./components/LiveLayout";
 import MainLayout from "./components/MainLayout";
 
 import Home from "./pages/Home";
