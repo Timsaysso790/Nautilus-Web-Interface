@@ -137,6 +137,7 @@ class OptionsBacktestEngine:
         entry_trigger_mode: str = "calendar",
         indicator_type: str = "rsi",
         indicator_threshold: float = 30,
+        indicator_period: int = 14,
     ):
         self.ticker = ticker.upper()
         self.strategy = strategy
@@ -156,6 +157,7 @@ class OptionsBacktestEngine:
         self.entry_trigger_mode = entry_trigger_mode
         self.indicator_type = indicator_type
         self.indicator_threshold = indicator_threshold
+        self.indicator_period = indicator_period
 
     def run(self) -> Dict[str, Any]:
         """Run the backtest with full institutional features."""
@@ -179,7 +181,7 @@ class OptionsBacktestEngine:
         indicator_signals: Dict[int, bool] = {}
         if self.entry_trigger_mode == "technical":
             indicator_signals = _compute_indicator_signals(
-                df, self.indicator_type, self.indicator_threshold
+                df, self.indicator_type, self.indicator_threshold, self.indicator_period
             )
             signal_count = sum(1 for v in indicator_signals.values() if v)
             logger.info(f"Technical trigger '{self.indicator_type}' active on {signal_count}/{len(indicator_signals)} days")
@@ -486,83 +488,192 @@ class OptionsBacktestEngine:
 
 # ── Technical Indicator Computation ─────────────────────────────────────────────
 
-def _compute_indicator_signals(df: pd.DataFrame, indicator_type: str, threshold: float) -> Dict[int, bool]:
+def _compute_indicator_signals(df: pd.DataFrame, indicator_type: str, threshold: float, period: int = 14) -> Dict[int, bool]:
     """Compute daily indicator signals from underlying price data.
-    Returns a dict mapping date (int) → bool (signal active)."""
-    
+    Returns a dict mapping date (int) → bool (signal active).
+
+    Supported types:
+      rsi, rsi_above       — RSI (configurable period, default 14)
+      macd_bullish          — MACD(12,26,9) histogram crosses above zero
+      macd_bearish          — MACD histogram crosses below zero
+      stoch_oversold        — Stochastic %K < threshold (period=14, default threshold=20)
+      stoch_overbought      — Stochastic %K > threshold (default threshold=80)
+      ema_below             — Price below EMA(period), default period=20
+      ema_above             — Price above EMA(period), default period=20
+      bb_lower              — Price below lower Bollinger Band(20,2)
+      bb_upper              — Price above upper Bollinger Band(20,2)
+      bb_squeeze            — BB width in bottom threshold percentile (default 10 = squeeze)
+      sma_below             — Price below SMA(period), default period=50
+      sma_above             — Price above SMA(period), default period=200
+      price_channel_upper   — Price breaks above N-period high (Donchian breakout)
+      price_channel_lower   — Price breaks below N-period low
+    """
+
     # Extract daily underlying prices (one row per date)
     daily = df.groupby("date")["underlying_price"].first().sort_index()
     prices = daily.values
     dates = daily.index.values
-    
-    if len(prices) < 50:
-        logger.warning(f"Not enough data points ({len(prices)}) for indicators, defaulting to all-pass")
-        return {int(d): True for d in dates}
-    
+
+    min_bars = max(period, 50)
+    n = len(prices)
     signals: Dict[int, bool] = {}
-    
+
+    if n < 20:
+        logger.warning(f"Not enough data points ({n}) for indicators, defaulting to all-pass")
+        return {int(d): True for d in dates}
+
+    # ── EMA helper ──
+    def _ema(data: np.ndarray, span: int) -> np.ndarray:
+        alpha = 2 / (span + 1)
+        result = np.zeros_like(data, dtype=float)
+        result[0] = data[0]
+        for i in range(1, len(data)):
+            result[i] = alpha * data[i] + (1 - alpha) * result[i-1]
+        return result
+
+    # ── SMA helper ──
+    def _sma(data: np.ndarray, window: int) -> np.ndarray:
+        result = np.full_like(data, np.nan, dtype=float)
+        for i in range(window - 1, len(data)):
+            result[i] = data[i-window+1:i+1].mean()
+        return result
+
+    # ── RSI ──
     if indicator_type in ("rsi", "rsi_above"):
-        # Compute 14-period RSI
         deltas = np.diff(prices, prepend=prices[0])
         gains = np.where(deltas > 0, deltas, 0)
         losses = np.where(deltas < 0, -deltas, 0)
-        
-        # Wilder's smoothing
         avg_gain = np.zeros_like(prices, dtype=float)
         avg_loss = np.zeros_like(prices, dtype=float)
-        period = 14
-        if len(prices) > period:
+        if n > period:
             avg_gain[period] = gains[1:period+1].mean()
             avg_loss[period] = losses[1:period+1].mean()
-            for i in range(period + 1, len(prices)):
+            for i in range(period + 1, n):
                 avg_gain[i] = (avg_gain[i-1] * (period - 1) + gains[i]) / period
                 avg_loss[i] = (avg_loss[i-1] * (period - 1) + losses[i]) / period
-        
         for i, d in enumerate(dates):
             if i < period:
                 signals[int(d)] = False
                 continue
             rs = avg_gain[i] / avg_loss[i] if avg_loss[i] > 0 else 100
             rsi = 100 - (100 / (1 + rs))
-            if indicator_type == "rsi":
-                signals[int(d)] = rsi < threshold
+            signals[int(d)] = rsi < threshold if indicator_type == "rsi" else rsi > threshold
+
+    # ── MACD (12, 26, 9) ──
+    elif indicator_type in ("macd_bullish", "macd_bearish"):
+        ema12 = _ema(prices, 12)
+        ema26 = _ema(prices, 26)
+        macd_line = ema12 - ema26
+        signal_line = _ema(macd_line, 9)
+        histogram = macd_line - signal_line
+        for i, d in enumerate(dates):
+            if i < 26:
+                signals[int(d)] = False
+                continue
+            if indicator_type == "macd_bullish":
+                # Histogram crosses above zero (or turns positive)
+                signals[int(d)] = histogram[i] > 0 and (i == 0 or histogram[i-1] <= 0)
             else:
-                signals[int(d)] = rsi > threshold
-    
-    elif indicator_type == "bb_lower":
-        # Bollinger Band: price below lower band (20-period, 2 std)
-        period = 20
+                signals[int(d)] = histogram[i] < 0 and (i == 0 or histogram[i-1] >= 0)
+
+    # ── Stochastic (period, 3, 3) ──
+    elif indicator_type in ("stoch_oversold", "stoch_overbought"):
+        t = int(threshold) if threshold > 1 else int(threshold * 100)
         for i, d in enumerate(dates):
             if i < period:
                 signals[int(d)] = False
                 continue
-            sma = prices[i-period:i].mean()
-            std = prices[i-period:i].std()
-            lower = sma - 2 * std
-            signals[int(d)] = prices[i] < lower
-    
-    elif indicator_type == "sma_below":
-        # Price below 50-day SMA
-        period = 50
+            window = prices[i-period+1:i+1]
+            high_n = window.max()
+            low_n = window.min()
+            if high_n == low_n:
+                signals[int(d)] = False
+                continue
+            k_raw = 100 * (prices[i] - low_n) / (high_n - low_n)
+            # Simple 3-period smoothing
+            if i >= period + 2:
+                k_vals = []
+                for j in range(i-2, i+1):
+                    w = prices[j-period+1:j+1]
+                    hh, ll = w.max(), w.min()
+                    k_vals.append(100 * (prices[j] - ll) / (hh - ll) if hh != ll else 50)
+                k = sum(k_vals) / 3
+            else:
+                k = k_raw
+            if indicator_type == "stoch_oversold":
+                signals[int(d)] = k < t
+            else:
+                signals[int(d)] = k > t
+
+    # ── EMA below / above (configurable period) ──
+    elif indicator_type in ("ema_below", "ema_above"):
+        ema = _ema(prices, period)
         for i, d in enumerate(dates):
             if i < period:
                 signals[int(d)] = False
                 continue
-            sma = prices[i-period:i].mean()
-            signals[int(d)] = prices[i] < sma
-    
-    elif indicator_type == "sma_above":
-        # Price above 200-day SMA
-        period = 200
+            signals[int(d)] = prices[i] < ema[i] if indicator_type == "ema_below" else prices[i] > ema[i]
+
+    # ── Bollinger Bands ──
+    elif indicator_type in ("bb_lower", "bb_upper"):
+        bb_period = period if period >= 10 else 20
+        sma = _sma(prices, bb_period)
+        for i, d in enumerate(dates):
+            if i < bb_period:
+                signals[int(d)] = False
+                continue
+            std = prices[i-bb_period+1:i+1].std()
+            lower = sma[i] - 2 * std
+            upper = sma[i] + 2 * std
+            signals[int(d)] = prices[i] < lower if indicator_type == "bb_lower" else prices[i] > upper
+
+    # ── BB Squeeze (width in bottom N percentile over lookback) ──
+    elif indicator_type == "bb_squeeze":
+        bb_period = max(period, 10)
+        lookback = 125  # ~6 months
+        sma = _sma(prices, bb_period)
+        bb_widths = np.full(n, np.nan)
+        for i in range(bb_period - 1, n):
+            std = prices[i-bb_period+1:i+1].std()
+            bb_widths[i] = (2 * std) / sma[i] if sma[i] > 0 else 0
+        for i, d in enumerate(dates):
+            if i < lookback:
+                signals[int(d)] = False
+                continue
+            recent = bb_widths[max(0, i-lookback):i+1]
+            recent = recent[~np.isnan(recent)]
+            if len(recent) < 20:
+                signals[int(d)] = False
+                continue
+            cutoff = np.percentile(recent, threshold) if threshold < 100 else recent.min()
+            signals[int(d)] = bb_widths[i] <= cutoff
+
+    # ── SMA below / above (configurable period) ──
+    elif indicator_type in ("sma_below", "sma_above"):
+        sma = _sma(prices, period)
         for i, d in enumerate(dates):
             if i < period:
                 signals[int(d)] = False
                 continue
-            sma = prices[i-period:i].mean()
-            signals[int(d)] = prices[i] > sma
-    
+            signals[int(d)] = prices[i] < sma[i] if indicator_type == "sma_below" else prices[i] > sma[i]
+
+    # ── Price channel breakout (Donchian) ──
+    elif indicator_type in ("price_channel_upper", "price_channel_lower"):
+        for i, d in enumerate(dates):
+            if i < period:
+                signals[int(d)] = False
+                continue
+            window = prices[i-period:i]
+            ch_high = window.max()
+            ch_low = window.min()
+            if indicator_type == "price_channel_upper":
+                # Breakout above channel
+                signals[int(d)] = prices[i] > ch_high and prices[i-1] <= ch_high
+            else:
+                signals[int(d)] = prices[i] < ch_low and prices[i-1] >= ch_low
+
     else:
         # Unknown indicator — allow all entries
         signals = {int(d): True for d in dates}
-    
+
     return signals

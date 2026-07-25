@@ -1059,6 +1059,7 @@ export default function ResearchWorkspace() {
                         entry_trigger_mode: cfg.entry_trigger_mode,
                         indicator_type: cfg.indicator_type,
                         indicator_threshold: cfg.indicator_threshold,
+                        indicator_period: cfg.indicator_period,
                       });
                     }}
                     running={running}

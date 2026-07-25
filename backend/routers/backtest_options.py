@@ -53,8 +53,9 @@ class BacktestRequest(BaseModel):
     run_name: Optional[str] = Field(None, description="Optional name for the saved run")
     # Technical indicator entry triggers
     entry_trigger_mode: str = Field("calendar", pattern="^(calendar|technical)$")
-    indicator_type: str = Field("rsi", pattern="^(rsi|rsi_above|bb_lower|sma_below|sma_above)$")
+    indicator_type: str = Field("rsi", pattern="^(rsi|rsi_above|macd_bullish|macd_bearish|stoch_oversold|stoch_overbought|ema_below|ema_above|bb_lower|bb_upper|bb_squeeze|sma_below|sma_above|price_channel_upper|price_channel_lower)$")
     indicator_threshold: float = Field(30, ge=0, le=100)
+    indicator_period: int = Field(14, ge=2, le=252)
 
 
 @router.post("/run")
@@ -91,6 +92,7 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                     entry_trigger_mode=req.entry_trigger_mode,
                     indicator_type=req.indicator_type,
                     indicator_threshold=req.indicator_threshold,
+                    indicator_period=req.indicator_period,
                 )
                 loop = asyncio.get_event_loop()
                 try:

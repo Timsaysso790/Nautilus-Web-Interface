@@ -46,6 +46,7 @@ interface OptionsConfig {
   entry_trigger_mode: string;
   indicator_type: string;
   indicator_threshold: number;
+  indicator_period: number;
 }
 
 interface Props {
@@ -128,8 +129,9 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
   const [entryTriggerMode, setEntryTriggerMode] = useState<"calendar" | "technical">("calendar");
   const [indicatorType, setIndicatorType] = useState("rsi");
   const [indicatorThreshold, setIndicatorThreshold] = useState(30);
-  const [yearStart, setYearStart] = useState(2020);
-  const [yearEnd, setYearEnd] = useState(2025);
+  const [indicatorPeriod, setIndicatorPeriod] = useState(14);
+  const [yearStart, setYearStart] = useState("2020");
+  const [yearEnd, setYearEnd] = useState("2025");
   const [tickerInfo, setTickerInfo] = useState<any>(null);
   const [allowOverlap, setAllowOverlap] = useState(false);
   const [slippageModel, setSlippageModel] = useState("mid");
@@ -185,7 +187,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
       ticker, legs: finalLegs,
       dte_min: dteMin, dte_max: dteMax,
       hold_until_dte: holdUntilDte, entry_frequency: entryFrequency,
-      year_range: [yearStart, yearEnd],
+      year_range: [parseInt(yearStart) || 2020, parseInt(yearEnd) || 2025],
       delta_min: 0, delta_max: 1,
       allow_overlapping: allowOverlap,
       slippage_model: slippageModel, slippage_pct: slippagePct / 100,
@@ -194,6 +196,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
       entry_trigger_mode: entryTriggerMode,
       indicator_type: indicatorType,
       indicator_threshold: indicatorThreshold,
+      indicator_period: indicatorPeriod,
     };
   };
 
@@ -215,8 +218,8 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                   onTickerInfo={(info) => {
                     setTickerInfo(info);
                     if (info && info.min_year && info.max_year) {
-                      setYearStart(Math.max(info.min_year, 2020));
-                      setYearEnd(info.max_year);
+                      setYearStart(String(Math.max(info.min_year, 2020)));
+                      setYearEnd(String(info.max_year));
                     }
                   }}
                   className="w-36"
@@ -461,38 +464,84 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start gap-3 flex-wrap">
                       <div className="space-y-1">
                         <Label className="text-[10px] text-gray-500">Indicator</Label>
-                        <Select value={indicatorType} onValueChange={setIndicatorType}>
-                          <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[140px]">
+                        <Select value={indicatorType} onValueChange={(v) => {
+                          setIndicatorType(v);
+                          // Set sensible defaults when switching indicator types
+                          const defaults: Record<string, [number, number]> = {
+                            rsi: [30, 14], rsi_above: [70, 14],
+                            macd_bullish: [0, 14], macd_bearish: [0, 14],
+                            stoch_oversold: [20, 14], stoch_overbought: [80, 14],
+                            ema_below: [0, 20], ema_above: [0, 20],
+                            bb_lower: [0, 20], bb_upper: [0, 20], bb_squeeze: [10, 20],
+                            sma_below: [0, 50], sma_above: [0, 200],
+                            price_channel_upper: [0, 20], price_channel_lower: [0, 20],
+                          };
+                          const [thresh, per] = defaults[v] || [30, 14];
+                          setIndicatorThreshold(thresh);
+                          setIndicatorPeriod(per);
+                        }}>
+                          <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 min-w-[160px]">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
-                            <SelectItem value="rsi" className="text-xs">RSI &lt; threshold</SelectItem>
-                            <SelectItem value="rsi_above" className="text-xs">RSI &gt; threshold</SelectItem>
+                          <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200 max-h-[320px]">
+                            <SelectItem value="rsi" className="text-xs">RSI oversold</SelectItem>
+                            <SelectItem value="rsi_above" className="text-xs">RSI overbought</SelectItem>
+                            <SelectItem value="macd_bullish" className="text-xs">MACD bullish cross</SelectItem>
+                            <SelectItem value="macd_bearish" className="text-xs">MACD bearish cross</SelectItem>
+                            <SelectItem value="stoch_oversold" className="text-xs">Stoch oversold</SelectItem>
+                            <SelectItem value="stoch_overbought" className="text-xs">Stoch overbought</SelectItem>
+                            <SelectItem value="ema_below" className="text-xs">Price &lt; EMA</SelectItem>
+                            <SelectItem value="ema_above" className="text-xs">Price &gt; EMA</SelectItem>
                             <SelectItem value="bb_lower" className="text-xs">Price &lt; BB lower</SelectItem>
-                            <SelectItem value="sma_below" className="text-xs">Price &lt; SMA(50)</SelectItem>
-                            <SelectItem value="sma_above" className="text-xs">Price &gt; SMA(200)</SelectItem>
+                            <SelectItem value="bb_upper" className="text-xs">Price &gt; BB upper</SelectItem>
+                            <SelectItem value="bb_squeeze" className="text-xs">BB squeeze</SelectItem>
+                            <SelectItem value="sma_below" className="text-xs">Price &lt; SMA</SelectItem>
+                            <SelectItem value="sma_above" className="text-xs">Price &gt; SMA</SelectItem>
+                            <SelectItem value="price_channel_upper" className="text-xs">Channel breakout ↑</SelectItem>
+                            <SelectItem value="price_channel_lower" className="text-xs">Channel breakdown ↓</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      {(indicatorType === "rsi" || indicatorType === "rsi_above") && (
+                      {(indicatorType === "rsi" || indicatorType === "rsi_above" ||
+                        indicatorType === "stoch_oversold" || indicatorType === "stoch_overbought" ||
+                        indicatorType === "bb_squeeze") && (
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-gray-500">Threshold</Label>
+                          <Label className="text-[10px] text-gray-500">
+                            {indicatorType === "bb_squeeze" ? "Percentile" : "Threshold"}
+                          </Label>
                           <Input type="number" value={indicatorThreshold}
                             onChange={e => setIndicatorThreshold(Number(e.target.value))}
-                            className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             min={0} max={100} />
                         </div>
                       )}
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-gray-500">Period</Label>
+                        <Input type="number" value={indicatorPeriod}
+                          onChange={e => setIndicatorPeriod(Number(e.target.value))}
+                          className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          min={2} max={252} />
+                      </div>
                     </div>
                     <p className="text-[9px] text-gray-600">
-                      {indicatorType === "rsi" && `Enter only when RSI drops below ${indicatorThreshold} (oversold). Checks weekly for signal + eligible DTE/Δ.`}
-                      {indicatorType === "rsi_above" && `Enter only when RSI rises above ${indicatorThreshold} (momentum). Checks weekly for signal + eligible DTE/Δ.`}
-                      {indicatorType === "bb_lower" && "Enter only when price touches/crosses below lower Bollinger Band. Checks weekly."}
-                      {indicatorType === "sma_below" && "Enter only when price is below 50-day SMA (trend pullback). Checks weekly."}
-                      {indicatorType === "sma_above" && "Enter only when price is above 200-day SMA (bull trend). Checks weekly."}
+                      {indicatorType === "rsi" && `Enter when RSI(${indicatorPeriod}) drops below ${indicatorThreshold} (oversold).`}
+                      {indicatorType === "rsi_above" && `Enter when RSI(${indicatorPeriod}) rises above ${indicatorThreshold} (momentum).`}
+                      {indicatorType === "macd_bullish" && "Enter when MACD(12,26,9) histogram crosses above zero (bullish momentum)."}
+                      {indicatorType === "macd_bearish" && "Enter when MACD histogram crosses below zero (bearish — for call credit spreads)."}
+                      {indicatorType === "stoch_oversold" && `Enter when Stoch %K(${indicatorPeriod}) drops below ${indicatorThreshold} (oversold bounce).`}
+                      {indicatorType === "stoch_overbought" && `Enter when Stoch %K(${indicatorPeriod}) rises above ${indicatorThreshold} (overbought — call spreads).`}
+                      {indicatorType === "ema_below" && `Enter when price is below ${indicatorPeriod}-day EMA (pullback entry).`}
+                      {indicatorType === "ema_above" && `Enter when price is above ${indicatorPeriod}-day EMA (trend confirmation).`}
+                      {indicatorType === "bb_lower" && `Enter when price touches/crosses below lower BB(${indicatorPeriod},2).`}
+                      {indicatorType === "bb_upper" && `Enter when price breaks above upper BB(${indicatorPeriod},2) — call spreads.`}
+                      {indicatorType === "bb_squeeze" && `Enter when BB width is in the bottom ${indicatorThreshold}% percentile (volatility contraction before expansion).`}
+                      {indicatorType === "sma_below" && `Enter when price is below ${indicatorPeriod}-day SMA (trend pullback).`}
+                      {indicatorType === "sma_above" && `Enter when price is above ${indicatorPeriod}-day SMA (bull trend).`}
+                      {indicatorType === "price_channel_upper" && `Enter on ${indicatorPeriod}-day Donchian channel breakout (momentum).`}
+                      {indicatorType === "price_channel_lower" && `Enter on ${indicatorPeriod}-day Donchian channel breakdown — call spreads.`}
                     </p>
                   </div>
                 )}
@@ -504,14 +553,18 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
               <div>
                 <Label className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 block">Backtest Period</Label>
                 <div className="flex items-center gap-1.5">
-                  <Input type="number" value={yearStart} onChange={e => setYearStart(Number(e.target.value))}
-                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
+                  <Input type="text" inputMode="numeric" value={yearStart}
+                    onChange={e => { const v = e.target.value.replace(/\D/g, "").slice(0, 4); setYearStart(v); }}
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px]"
+                    placeholder="2020" />
                   <span className="text-gray-600 text-xs">–</span>
-                  <Input type="number" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}
-                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    min={tickerInfo?.min_year || 2018} max={tickerInfo?.max_year || 2026} />
-                  <span className="text-[10px] text-gray-600 ml-2">— loads {yearEnd - yearStart + 1} years of data</span>
+                  <Input type="text" inputMode="numeric" value={yearEnd}
+                    onChange={e => { const v = e.target.value.replace(/\D/g, "").slice(0, 4); setYearEnd(v); }}
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[80px]"
+                    placeholder="2025" />
+                  <span className="text-[10px] text-gray-600 ml-2">
+                    — loads {((parseInt(yearEnd) || 0) - (parseInt(yearStart) || 0) + 1) || "?"} years of data
+                  </span>
                 </div>
                 <p className="text-[9px] text-gray-600 mt-1">The engine loads ticker data for these years and simulates trading across the entire period.</p>
               </div>
