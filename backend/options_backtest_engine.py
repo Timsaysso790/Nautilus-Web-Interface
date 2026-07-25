@@ -207,11 +207,14 @@ class OptionsBacktestEngine:
             open_positions = still_open
 
             # ── Entry logic ──
+            # Decrement countdown every trading day regardless of position state.
+            # This prevents the deadlock where entry_countdown > 0 after a trade
+            # closes, but the inner if-block that decrements it requires
+            # entry_countdown <= 0 to be entered at all.
+            entry_countdown = max(0, entry_countdown - 1)
+
             if self.allow_overlapping or (not open_positions and entry_countdown <= 0):
                 if self.entry_trigger_mode == "calendar":
-                    if entry_countdown > 0:
-                        entry_countdown -= 1
-                        continue
                     entry = self._find_entry(day_data, trade_date, underlying)
                     if entry:
                         open_positions.append(entry)
@@ -225,8 +228,6 @@ class OptionsBacktestEngine:
                             if entry:
                                 open_positions.append(entry)
                                 entry_countdown = 7  # Minimum 7 days between entries
-                        else:
-                            entry_countdown -= 1
 
             # ── Equity curve ──
             position_margin = sum(p.get("margin", 0) for p in open_positions)
@@ -265,7 +266,6 @@ class OptionsBacktestEngine:
     ) -> Optional[Dict]:
         """Check if a position should exit. Returns trade record if closed, None if still open."""
         exp_date = pos["expiration"]
-        entry_date_str = str(pos["entry_date"])
         dte_at_entry = pos["dte_at_entry"]
 
         trade_day_data = day_data[day_data["expiration"] == exp_date]
@@ -274,7 +274,8 @@ class OptionsBacktestEngine:
 
         remaining_dte = (pd.to_datetime(str(exp_date), format="%Y%m%d") -
                          pd.to_datetime(str(trade_date), format="%Y%m%d")).days
-        days_held = int(trade_date) - int(entry_date_str)
+        days_held = (pd.to_datetime(str(trade_date), format="%Y%m%d") -
+                     pd.to_datetime(str(pos["entry_date"]), format="%Y%m%d")).days
 
         # Build resolved strategy from stored leg info (handles delta-targeted entries)
         resolved_legs = pos.get("_resolved_legs", [])
