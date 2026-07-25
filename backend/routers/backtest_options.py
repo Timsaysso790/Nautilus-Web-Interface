@@ -54,11 +54,15 @@ class BacktestRequest(BaseModel):
 
 @router.post("/run")
 async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_user)):
-    """Run a full backtest."""
+    """Run a full backtest. Large multi-year runs can take 60-120 seconds."""
     async with _backtest_lock:
         try:
             legs = [EngineLeg(l.strike, l.right, l.action, l.quantity, l.target_delta) for l in req.legs]
             strategy = OptionStrategy(legs)
+
+            years = req.end_year - req.start_year + 1
+            logger.info(f"Backtest queued: {req.ticker} {strategy.description} ({req.start_year}-{req.end_year}, {years}yr, {req.entry_frequency_days}d freq)")
+
             engine = OptionsBacktestEngine(
                 ticker=req.ticker,
                 strategy=strategy,
@@ -77,9 +81,18 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                 max_days_in_trade=req.max_days_in_trade,
             )
 
-            # Run in thread pool to avoid blocking
+            # Run in thread pool with a generous timeout
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, engine.run)
+            try:
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(None, engine.run),
+                    timeout=300  # 5 minutes — large datasets need time
+                )
+            except asyncio.TimeoutError:
+                raise HTTPException(504, f"Backtest timed out after 5 minutes. Try reducing the year range (currently {req.start_year}-{req.end_year}).")
+
+            trades = len(result.get("trades", []))
+            logger.info(f"Backtest complete: {req.ticker} → {trades} trades, PnL ${result.get('metrics', {}).get('total_pnl', 0):.0f}")
 
             result_id = str(uuid.uuid4())[:8]
             _result_cache[result_id] = result
