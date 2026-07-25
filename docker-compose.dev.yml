@@ -17,6 +17,9 @@ services:
       # Container-internal paths — match the volume mount below
       OPTIONS_ARCHIVE_PATH: "/data/archive/Nautilus_Archive5min"
       EQUITY_ARCHIVE_PATH: "/data/archive/Equity_Archive"
+      LLM_BASE_URL: "${LLM_BASE_URL:-}"
+      LLM_MODEL: "${LLM_MODEL:-llama}"
+      LLM_TYPE: "${LLM_TYPE:-llama}"
     volumes:
       - ./backend:/app
       - /app/__pycache__

@@ -556,22 +556,43 @@ export default function ResearchWorkspace() {
     setAiLoading(true);
     const question = "Analyze these backtest results. What's working well and what should I improve?";
     try {
-      const data = await api.post<{ response: string }>("/api/ai/analyze-backtest", {
-        backtest_results: {
-          metrics: backtestResult.metrics,
-          total_trades: backtestResult.trades.length,
-        },
+      const data = await api.post<{ analysis: string }>("/api/ai/analyze-file", {
+        backtest_data: backtestResult,
         question,
       });
       setAiMessages((prev) => [
         ...prev,
         { role: "user", content: "📊 Analyze my backtest results" },
-        { role: "assistant", content: data.response },
+        { role: "assistant", content: data.analysis },
       ]);
     } catch {
       setAiMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "⚠️ AI analysis unavailable. Check that the AI backend is running." },
+        { role: "assistant", content: "⚠️ AI analysis unavailable. Check that the AI backend is running and LLM_BASE_URL is set correctly in your .env." },
+      ]);
+    } finally {
+      setAiLoading(false);
+      setAiOpen(true);
+    }
+  };
+
+  const analyzeJsonFile = async (jsonContent: any) => {
+    if (aiLoading) return;
+    setAiLoading(true);
+    try {
+      const data = await api.post<{ analysis: string }>("/api/ai/analyze-file", {
+        backtest_data: jsonContent,
+        question: "Analyze these backtest results. What's working and what should I change?",
+      });
+      setAiMessages((prev) => [
+        ...prev,
+        { role: "user", content: "📄 Analyzed uploaded backtest file" },
+        { role: "assistant", content: data.analysis },
+      ]);
+    } catch {
+      setAiMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "⚠️ Failed to analyze the uploaded file. Make sure it's a valid backtest JSON." },
       ]);
     } finally {
       setAiLoading(false);
@@ -1428,6 +1449,32 @@ export default function ResearchWorkspace() {
 
                 {/* Input */}
                 <div className="flex items-center gap-2 px-4 py-2.5 border-t border-gray-800/60">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        try {
+                          const json = JSON.parse(ev.target?.result as string);
+                          analyzeJsonFile(json);
+                        } catch { /* invalid JSON */ }
+                      };
+                      reader.readAsText(file);
+                      e.target.value = ""; // reset
+                    }}
+                    className="hidden"
+                    id="ai-file-upload"
+                  />
+                  <label
+                    htmlFor="ai-file-upload"
+                    className="h-8 w-8 flex items-center justify-center rounded border border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-600 cursor-pointer transition-colors text-xs"
+                    title="Upload backtest JSON file for analysis"
+                  >
+                    📄
+                  </label>
                   <Input
                     value={aiInput}
                     onChange={(e) => setAiInput(e.target.value)}

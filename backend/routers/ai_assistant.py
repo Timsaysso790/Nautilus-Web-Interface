@@ -167,6 +167,85 @@ Provide specific, data-driven observations. Reference the numbers. Be direct."""
         raise HTTPException(502, f"Analysis unavailable: {str(e)[:200]}")
 
 
+class AnalyzeFileRequest(BaseModel):
+    """Accepts a full backtest JSON result (the whole result from POST /api/backtest/options/run)."""
+    backtest_data: Dict[str, Any]
+    question: str = "Analyze these backtest results. What's working and what should I change?"
+
+
+@router.post("/analyze-file")
+async def analyze_backtest_file(req: AnalyzeFileRequest, user: dict = Depends(get_current_user)):
+    """Analyze a complete backtest result JSON, including equity curve and trade log."""
+    try:
+        data = req.backtest_data
+        metrics = data.get("metrics", {})
+        trades = data.get("trades", [])
+        equity = data.get("equity_curve", [])
+        ticker = data.get("ticker", "Unknown")
+        strategy = data.get("strategy", "Unknown")
+
+        # Compute additional stats from trade log
+        avg_win = 0
+        avg_loss = 0
+        winning = [t for t in trades if t.get("pnl", 0) > 0]
+        losing = [t for t in trades if t.get("pnl", 0) < 0]
+        if winning:
+            avg_win = sum(t["pnl"] for t in winning) / len(winning)
+        if losing:
+            avg_loss = abs(sum(t["pnl"] for t in losing) / len(losing))
+
+        summary = {
+            "ticker": ticker,
+            "strategy": strategy,
+            "metrics": metrics,
+            "trade_summary": {
+                "total_trades": len(trades),
+                "winning_trades": len(winning),
+                "losing_trades": len(losing),
+                "avg_win": round(avg_win, 2),
+                "avg_loss": round(avg_loss, 2),
+                "payoff_ratio": round(avg_win / avg_loss, 2) if avg_loss > 0 else None,
+            },
+            "equity_curve_summary": {
+                "start_equity": equity[0]["equity"] if equity else 0,
+                "end_equity": equity[-1]["equity"] if equity else 0,
+                "points": len(equity),
+            },
+            "recent_trades": trades[-10:] if trades else [],
+        }
+
+        prompt = f"""You are a quantitative trading assistant analyzing a complete backtest result.
+Provide specific, data-driven observations about strategy performance, risk metrics,
+trade execution, and suggestions for improvement. Reference exact numbers from the data.
+
+Backtest Data:
+```json
+{json.dumps(summary, indent=2, default=str)[:12000]}
+```
+
+{req.question}
+
+Structure your response:
+1. **Overall Performance** — key metrics and how they compare to benchmarks
+2. **Risk Analysis** — drawdown, Sharpe, Sortino, and what they imply
+3. **Trade Quality** — win rate, payoff ratio, expectancy
+4. **Recommendations** — specific, actionable changes"""
+
+        response = await _call_llm(
+            [{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=3000,
+        )
+        return {"analysis": response, "model": LLM_MODEL, "ticker": ticker}
+
+    except ImportError:
+        raise HTTPException(503, "httpx not installed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"Analysis unavailable: {str(e)[:200]}")
+
+
 @router.get("/status")
 async def ai_status(user: dict = Depends(get_current_user)):
     """Check if the local LLM is available (llama-server or Ollama)."""

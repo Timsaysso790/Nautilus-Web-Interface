@@ -21,6 +21,10 @@ services:
       EQUITY_ARCHIVE_PATH: "/data/archive/Equity_Archive"
       SCANNER_OUTPUT_PATH: "/data/scanner/.mcp_scanner_output.json"
       PROJECTS_ROOT: "/app/data/projects"
+      # LLM / AI Assistant — set LLM_BASE_URL in your .env
+      LLM_BASE_URL: "${LLM_BASE_URL:-}"
+      LLM_MODEL: "${LLM_MODEL:-llama}"
+      LLM_TYPE: "${LLM_TYPE:-llama}"
     volumes:
       - "${NAUTILUS_DATA_DIR:-./data}/backend:/app/data"
       - "${NAUTILUS_CATALOG_PATH:-./data_lake}:/app/catalog"
