@@ -33,7 +33,7 @@ RUN printf 'server {\n\
         proxy_read_timeout 600s;\n\
         proxy_buffering off;\n\
         proxy_request_buffering off;\n\
-    }
+    }\n\
     \n\
     # WebSocket proxy\n\
     location /ws {\n\
