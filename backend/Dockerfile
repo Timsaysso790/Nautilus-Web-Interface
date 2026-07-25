@@ -17,7 +17,7 @@ RUN mkdir -p /app/data /app/data/projects
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+HEALTHCHECK --interval=60s --timeout=15s --retries=5 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-CMD ["python3", "nautilus_fastapi.py"]
+CMD ["gunicorn", "nautilus_fastapi:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "600"]

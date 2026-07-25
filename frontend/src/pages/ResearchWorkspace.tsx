@@ -449,6 +449,7 @@ export default function ResearchWorkspace() {
 
   /* ── Backtest state ── */
   const [running, setRunning] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [backtestError, setBacktestError] = useState<string | null>(null);
@@ -522,32 +523,64 @@ export default function ResearchWorkspace() {
     if (panel) panel.scrollIntoView({ behavior: 'smooth' });
   };
 
-  /* Run with config from OptionsConfigPanel */
+  /* Run with config from OptionsConfigPanel — async with polling */
   const runBacktestWithConfig = async (config: any) => {
     if (running) return;
     setRunning(true);
     setBacktestError(null);
     setBacktestResult(null);
     try {
-      const result = await api.post<BacktestResult>("/api/backtest/options/run", {
+      // 1. Fire and forget — get job_id immediately
+      const { job_id } = await api.post<{ job_id: string }>("/api/backtest/options/run", {
         ...config,
         project_id: activeProjectId || undefined,
       });
-      setBacktestResult(result);
-      setWorkspaceTab("backtest");
-      if (activeProjectId) {
+      setJobId(job_id);
+
+      // 2. Poll for completion
+      const poll = async (): Promise<any> => {
+        const status = await api.get<any>(`/api/backtest/options/status/${job_id}`);
+        return status;
+      };
+
+      let job: any;
+      for (let i = 0; i < 150; i++) {  // 5 min max @ 2s intervals
+        await new Promise(r => setTimeout(r, 2000));
+        job = await poll();
+        if (job.status !== "running") break;
+      }
+
+      setJobId(null);
+
+      if (job.status === "error") {
+        throw new Error(job.error || "Backtest failed");
+      }
+
+      // 3. Load result from saved file (survives restarts!)
+      if (job.saved_seq && activeProjectId) {
+        const result = await api.get<any>(
+          `/api/backtest/options/projects/${activeProjectId}/results/${job.saved_seq}`
+        );
+        setBacktestResult(result);
+        setSelectedRunSeq(job.saved_seq);
         await loadSavedRuns();
-        // Show naming dialog for the latest run
-        const seq = result?.metadata?.run_seq || savedRuns?.[0]?.seq || 1;
-        setPendingRunSeq(seq);
+        setWorkspaceTab("backtest");
+        // Show naming dialog
+        setPendingRunSeq(job.saved_seq);
         setPendingRunName(`SPY ${config.delta_min?.toFixed(2) || ""}Δ PCS`);
         setShowNameDialog(true);
+      } else if (job.result_id) {
+        // Fallback: load from in-memory cache
+        const result = await api.get<any>(`/api/backtest/options/result/${job.result_id}`);
+        setBacktestResult(result);
+        setWorkspaceTab("backtest");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Backtest failed";
       setBacktestError(msg);
     } finally {
       setRunning(false);
+      setJobId(null);
     }
   };
 

@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api/backtest/options", tags=["backtest-options"])
 
 _backtest_lock = asyncio.Lock()
 _result_cache: Dict[str, Any] = {}
+_jobs: Dict[str, Dict[str, Any]] = {}  # job_id → { status, result?, error?, created_at }
 
 
 class BacktestLeg(BaseModel):
@@ -58,73 +59,96 @@ class BacktestRequest(BaseModel):
 
 @router.post("/run")
 async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_user)):
-    """Run a full backtest. Large multi-year runs can take 60-120 seconds."""
-    async with _backtest_lock:
+    """Run a backtest asynchronously. Returns a job_id immediately; poll /status/{job_id} for completion."""
+    job_id = str(uuid.uuid4())[:8]
+    legs = [EngineLeg(l.strike, l.right, l.action, l.quantity, l.target_delta) for l in req.legs]
+    strategy = OptionStrategy(legs)
+    years = req.end_year - req.start_year + 1
+    logger.info(f"Backtest queued [{job_id}]: {req.ticker} {strategy.description} ({req.start_year}-{req.end_year}, {years}yr)")
+
+    _jobs[job_id] = {"status": "running", "created_at": datetime.now(timezone.utc).isoformat()}
+
+    # Launch backtest in background — does NOT block the HTTP response
+    async def _run():
         try:
-            legs = [EngineLeg(l.strike, l.right, l.action, l.quantity, l.target_delta) for l in req.legs]
-            strategy = OptionStrategy(legs)
-
-            years = req.end_year - req.start_year + 1
-            logger.info(f"Backtest queued: {req.ticker} {strategy.description} ({req.start_year}-{req.end_year}, {years}yr, {req.entry_frequency_days}d freq)")
-
-            engine = OptionsBacktestEngine(
-                ticker=req.ticker,
-                strategy=strategy,
-                entry_dte_range=(req.entry_dte_min, req.entry_dte_max),
-                hold_until_dte=req.hold_until_dte,
-                entry_frequency_days=req.entry_frequency_days,
-                start_year=req.start_year,
-                end_year=req.end_year,
-                delta_min=req.delta_min,
-                delta_max=req.delta_max,
-                allow_overlapping=req.allow_overlapping,
-                slippage_model=req.slippage_model,
-                slippage_pct=req.slippage_pct,
-                profit_target_pct=req.profit_target_pct,
-                stop_loss_pct=req.stop_loss_pct,
-                max_days_in_trade=req.max_days_in_trade,
-                entry_trigger_mode=req.entry_trigger_mode,
-                indicator_type=req.indicator_type,
-                indicator_threshold=req.indicator_threshold,
-            )
-
-            # Run in thread pool with a generous timeout
-            loop = asyncio.get_event_loop()
-            try:
-                result = await asyncio.wait_for(
-                    loop.run_in_executor(None, engine.run),
-                    timeout=300  # 5 minutes — large datasets need time
+            async with _backtest_lock:
+                engine = OptionsBacktestEngine(
+                    ticker=req.ticker,
+                    strategy=strategy,
+                    entry_dte_range=(req.entry_dte_min, req.entry_dte_max),
+                    hold_until_dte=req.hold_until_dte,
+                    entry_frequency_days=req.entry_frequency_days,
+                    start_year=req.start_year,
+                    end_year=req.end_year,
+                    delta_min=req.delta_min,
+                    delta_max=req.delta_max,
+                    allow_overlapping=req.allow_overlapping,
+                    slippage_model=req.slippage_model,
+                    slippage_pct=req.slippage_pct,
+                    profit_target_pct=req.profit_target_pct,
+                    stop_loss_pct=req.stop_loss_pct,
+                    max_days_in_trade=req.max_days_in_trade,
+                    entry_trigger_mode=req.entry_trigger_mode,
+                    indicator_type=req.indicator_type,
+                    indicator_threshold=req.indicator_threshold,
                 )
-            except asyncio.TimeoutError:
-                raise HTTPException(504, f"Backtest timed out after 5 minutes. Try reducing the year range (currently {req.start_year}-{req.end_year}).")
+                loop = asyncio.get_event_loop()
+                try:
+                    result = await asyncio.wait_for(
+                        loop.run_in_executor(None, engine.run),
+                        timeout=300,
+                    )
+                except asyncio.TimeoutError:
+                    _jobs[job_id] = {"status": "error", "error": "Backtest timed out after 5 minutes."}
+                    return
 
             trades = len(result.get("trades", []))
-            logger.info(f"Backtest complete: {req.ticker} → {trades} trades, PnL ${result.get('metrics', {}).get('total_pnl', 0):.0f}")
+            logger.info(f"Backtest complete [{job_id}]: {req.ticker} → {trades} trades, PnL ${result.get('metrics', {}).get('total_pnl', 0):.0f}")
 
             result_id = str(uuid.uuid4())[:8]
             _result_cache[result_id] = result
             result["id"] = result_id
 
             # Save result to project if project_id provided
+            saved_seq = None
             if req.project_id:
                 try:
                     from routers.backtest_projects import _get_project_slug
                     slug = await _get_project_slug(req.project_id)
                     if slug:
-                        bps.save_result(slug, result, name=req.run_name)
+                        fpath = bps.save_result(slug, result, name=req.run_name)
+                        saved_seq = result.get("metadata", {}).get("run_seq")
                         result["saved_to_project"] = True
+                        logger.info(f"Saved result [{job_id}] to project {slug}: {fpath}")
                 except Exception as e:
-                    logger.warning(f"Failed to save result to project {req.project_id}: {e}")
+                    logger.warning(f"Failed to save result [{job_id}] to project {req.project_id}: {e}")
 
-            return result
-
+            _jobs[job_id] = {
+                "status": "complete",
+                "result_id": result_id,
+                "saved_seq": saved_seq,
+                "trades": trades,
+                "pnl": result.get("metrics", {}).get("total_pnl", 0),
+            }
         except FileNotFoundError as e:
-            raise HTTPException(404, str(e))
+            _jobs[job_id] = {"status": "error", "error": str(e)}
         except ValueError as e:
-            raise HTTPException(400, str(e))
+            _jobs[job_id] = {"status": "error", "error": str(e)}
         except Exception as e:
-            logger.exception("Backtest failed")
-            raise HTTPException(500, f"Backtest failed: {str(e)[:200]}")
+            logger.exception(f"Backtest failed [{job_id}]")
+            _jobs[job_id] = {"status": "error", "error": str(e)[:200]}
+
+    asyncio.create_task(_run())
+    return {"job_id": job_id, "status": "running"}
+
+
+@router.get("/status/{job_id}")
+async def get_backtest_status(job_id: str, user: dict = Depends(get_current_user)):
+    """Poll for backtest completion. Returns {status, result_id?, saved_seq?, trades?, pnl?, error?}."""
+    job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, f"Job {job_id} not found")
+    return {"job_id": job_id, **job}
 
 
 @router.get("/result/{result_id}")
