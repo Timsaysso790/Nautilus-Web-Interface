@@ -116,6 +116,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
   const [entryFrequency, setEntryFrequency] = useState("weekly");
   const [yearStart, setYearStart] = useState(2020);
   const [yearEnd, setYearEnd] = useState(2025);
+  const [tickerInfo, setTickerInfo] = useState<any>(null);
   const [allowOverlap, setAllowOverlap] = useState(false);
   const [slippageModel, setSlippageModel] = useState("mid");
   const [slippagePct, setSlippagePct] = useState(10);
@@ -178,7 +179,23 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
             <div className="flex items-center gap-3 flex-wrap">
               <div className="space-y-1">
                 <Label className="text-[10px] text-gray-500">Ticker</Label>
-                <TickerSelect value={ticker} onChange={setTicker} className="w-28" />
+                <TickerSelect
+                  value={ticker}
+                  onChange={(t) => { setTicker(t); }}
+                  onTickerInfo={(info) => {
+                    setTickerInfo(info);
+                    if (info && info.min_year && info.max_year) {
+                      setYearStart(Math.max(info.min_year, 2020));
+                      setYearEnd(info.max_year);
+                    }
+                  }}
+                  className="w-36"
+                />
+                {tickerInfo && (
+                  <p className="text-[9px] text-gray-500">
+                    Data: {tickerInfo.min_year}–{tickerInfo.max_year} ({tickerInfo.file_count} years)
+                  </p>
+                )}
               </div>
               <div className="space-y-1 flex-1">
                 <Label className="text-[10px] text-gray-500">Strategy Preset</Label>

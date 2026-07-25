@@ -195,17 +195,61 @@ async def rename_project_result(project_id: str, seq: int, body: dict, user: dic
 
 @router.get("/tickers")
 async def list_available_tickers(user: dict = Depends(get_current_user)):
-    """List all tickers available in the options archive for backtesting."""
+    """List all tickers with their available year ranges."""
     from pathlib import Path
     import os
     archive = Path(os.getenv("OPTIONS_ARCHIVE_PATH", "/workspace/Archive/Nautilus_Archive5min"))
     if not archive.exists():
         return {"tickers": [], "archive_path": str(archive), "found": False}
-    tickers = sorted(
-        d.name for d in archive.iterdir()
-        if d.is_dir() and not d.name.startswith(".")
-    )
-    return {"tickers": tickers, "archive_path": str(archive), "count": len(tickers), "found": True}
+
+    result = []
+    for d in sorted(archive.iterdir()):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        years = []
+        for f in d.glob("*.parquet"):
+            try:
+                yr = int(f.stem.split("_")[-1])
+                years.append(yr)
+            except (ValueError, IndexError):
+                pass
+        years = sorted(years)
+        result.append({
+            "symbol": d.name,
+            "years": years,
+            "min_year": years[0] if years else None,
+            "max_year": years[-1] if years else None,
+            "file_count": len(years),
+        })
+
+    return {"tickers": result, "archive_path": str(archive), "count": len(result), "found": True}
+
+
+@router.get("/ticker/{ticker}/years")
+async def get_ticker_years(ticker: str, user: dict = Depends(get_current_user)):
+    """Get available years for a specific ticker."""
+    from pathlib import Path
+    import os
+    archive = Path(os.getenv("OPTIONS_ARCHIVE_PATH", "/workspace/Archive/Nautilus_Archive5min"))
+    ticker_dir = archive / ticker.upper()
+    if not ticker_dir.exists():
+        raise HTTPException(404, f"Ticker {ticker} not found in archive")
+
+    years = []
+    for f in ticker_dir.glob("*.parquet"):
+        try:
+            yr = int(f.stem.split("_")[-1])
+            years.append(yr)
+        except (ValueError, IndexError):
+            pass
+    years = sorted(years)
+    return {
+        "ticker": ticker.upper(),
+        "years": years,
+        "min_year": years[0] if years else None,
+        "max_year": years[-1] if years else None,
+        "recommended_range": [max(years[0], 2020) if years else 2020, years[-1] if years else 2025],
+    }
 
 
 @router.post("/walk-forward")
