@@ -56,6 +56,7 @@ interface Preset {
   name: string;
   description: string;
   legs: Leg[];
+  widthMode?: "delta" | "dollar";
 }
 
 const PRESETS: Preset[] = [
@@ -66,6 +67,7 @@ const PRESETS: Preset[] = [
       { target_delta: 0.16, right: "P", action: "sell", qty: 1 },
       { target_delta: 0.10, right: "P", action: "buy", qty: 1 },
     ],
+    widthMode: "delta" as const,
   },
   {
     name: "Call Credit Spread",
@@ -74,6 +76,7 @@ const PRESETS: Preset[] = [
       { target_delta: 0.16, right: "C", action: "sell", qty: 1 },
       { target_delta: 0.10, right: "C", action: "buy", qty: 1 },
     ],
+    widthMode: "delta" as const,
   },
   {
     name: "Iron Condor",
@@ -84,6 +87,7 @@ const PRESETS: Preset[] = [
       { target_delta: 0.16, right: "C", action: "sell", qty: 1 },
       { target_delta: 0.10, right: "C", action: "buy", qty: 1 },
     ],
+    widthMode: "delta" as const,
   },
   {
     name: "Naked Put",
@@ -91,6 +95,7 @@ const PRESETS: Preset[] = [
     legs: [
       { target_delta: 0.20, right: "P", action: "sell", qty: 1 },
     ],
+    widthMode: "delta" as const,
   },
   {
     name: "Jade Lizard",
@@ -99,6 +104,7 @@ const PRESETS: Preset[] = [
       { target_delta: 0.16, right: "P", action: "sell", qty: 1 },
       { target_delta: 0.10, right: "C", action: "sell", qty: 1 },
     ],
+    widthMode: "delta" as const,
   },
 ];
 
@@ -110,6 +116,8 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
   const [ticker, setTicker] = useState("SPY");
   const [selectedPreset, setSelectedPreset] = useState<string>("Put Credit Spread");
   const [legs, setLegs] = useState<Leg[]>(PRESETS[0].legs.map(l => ({ ...l })));
+  const [widthMode, setWidthMode] = useState<"delta" | "dollar">("delta");
+  const [dollarWidth, setDollarWidth] = useState(5);
   const [dteMin, setDteMin] = useState(30);
   const [dteMax, setDteMax] = useState(45);
   const [holdUntilDte, setHoldUntilDte] = useState(21);
@@ -155,17 +163,30 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
     return { sellCount: sellLegs.length, buyCount: buyLegs.length, isCredit, avgShortDelta };
   }, [legs]);
 
-  const buildConfig = (): OptionsConfig => ({
-    ticker, legs,
-    dte_min: dteMin, dte_max: dteMax,
-    hold_until_dte: holdUntilDte, entry_frequency: entryFrequency,
-    year_range: [yearStart, yearEnd],
-    delta_min: 0, delta_max: 1,  // Per-leg delta targeting replaces global filter
-    allow_overlapping: allowOverlap,
-    slippage_model: slippageModel, slippage_pct: slippagePct / 100,
-    profit_target_pct: profitTarget, stop_loss_pct: stopLoss,
-    max_days_in_trade: maxDays,
-  });
+  const buildConfig = (): OptionsConfig => {
+    const finalLegs = widthMode === "dollar" ? [
+      // Short leg at target delta
+      { ...legs.find(l => l.action === "sell") || legs[0] },
+      // Auto-calculated long leg: same right, buy action, approx delta = short * 0.6
+      {
+        target_delta: (legs.find(l => l.action === "sell")?.target_delta || 0.16) * 0.6,
+        right: legs.find(l => l.action === "sell")?.right || "P",
+        action: "buy" as const,
+        qty: 1,
+      },
+    ] : legs;
+    return {
+      ticker, legs: finalLegs,
+      dte_min: dteMin, dte_max: dteMax,
+      hold_until_dte: holdUntilDte, entry_frequency: entryFrequency,
+      year_range: [yearStart, yearEnd],
+      delta_min: 0, delta_max: 1,
+      allow_overlapping: allowOverlap,
+      slippage_model: slippageModel, slippage_pct: slippagePct / 100,
+      profit_target_pct: profitTarget, stop_loss_pct: stopLoss,
+      max_days_in_trade: maxDays,
+    };
+  };
 
   const handleRun = () => onRun(buildConfig());
 
@@ -230,16 +251,50 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
 
             {/* Strategy Legs — Delta-based */}
             <TabsContent value="legs" className="p-4 space-y-3 mt-0">
+              {/* Width mode toggle */}
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-gray-500">Width mode:</span>
+                <div className="flex bg-[#0a0e17] rounded-md border border-gray-700 p-0.5">
+                  <button onClick={() => setWidthMode("delta")}
+                    className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${
+                      widthMode === "delta" ? "bg-amber-400/20 text-amber-400" : "text-gray-500 hover:text-gray-300"
+                    }`}>
+                    Delta Spread
+                  </button>
+                  <button onClick={() => setWidthMode("dollar")}
+                    className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${
+                      widthMode === "dollar" ? "bg-amber-400/20 text-amber-400" : "text-gray-500 hover:text-gray-300"
+                    }`}>
+                    $ Width
+                  </button>
+                </div>
+                {widthMode === "dollar" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-500">$</span>
+                    <Input type="number" value={dollarWidth}
+                      onChange={e => setDollarWidth(Number(e.target.value))}
+                      className="w-16 h-7 text-[11px] bg-[#0a0e17] border-gray-700 text-gray-200 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      min={1} step={1} />
+                    <span className="text-[10px] text-gray-600">wide</span>
+                  </div>
+                )}
+              </div>
+
               <p className="text-[10px] text-gray-500">
-                Define your strategy legs by <span className="text-amber-400 font-medium">target delta</span>.
-                The engine resolves actual strikes from the options chain at entry time.
+                {widthMode === "delta"
+                  ? "Define each leg by its target delta. The engine resolves strikes at entry time."
+                  : `Short leg at target delta, long leg $${dollarWidth} wide. Engine resolves exact strikes at entry.`}
               </p>
-              {legs.map((leg, i) => (
+
+              {/* Show only short leg in dollar mode, all legs in delta mode */}
+              {(widthMode === "dollar" ? legs.filter(l => l.action === "sell") : legs).map((leg, i) => {
+                const actualIndex = widthMode === "dollar" ? legs.findIndex(l => l === leg) : i;
+                return (
                 <div key={i} className="flex items-center gap-2 bg-[#0a0e17] rounded-lg px-3 py-2.5 border border-gray-800/40">
                   <span className="text-[10px] text-gray-600 w-5">{i + 1}.</span>
 
                   {/* Action toggle */}
-                  <button onClick={() => toggleLegAction(i)}
+                  <button onClick={() => toggleLegAction(actualIndex)}
                     className={`w-14 h-7 rounded text-[11px] font-medium border transition-colors ${
                       leg.action === "sell"
                         ? "bg-red-900/20 border-red-500/30 text-red-400"
@@ -249,7 +304,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                   </button>
 
                   {/* Right toggle */}
-                  <button onClick={() => toggleLegRight(i)}
+                  <button onClick={() => toggleLegRight(actualIndex)}
                     className="w-10 h-7 rounded text-[11px] font-medium bg-[#0d1321] border border-gray-700 text-gray-300 hover:border-gray-500 transition-colors">
                     {leg.right}
                   </button>
@@ -259,7 +314,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                     <Label className="text-[9px] text-gray-600 shrink-0">Δ</Label>
                     <div className="flex flex-wrap gap-1">
                       {DELTA_PRESETS.map(d => (
-                        <button key={d} onClick={() => updateLegDelta(i, d)}
+                        <button key={d} onClick={() => updateLegDelta(actualIndex, d)}
                           className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition-colors ${
                             leg.target_delta === d
                               ? "bg-amber-400/20 text-amber-400 border border-amber-500/40"
@@ -270,7 +325,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                       ))}
                     </div>
                     <Input type="number" value={leg.target_delta || ""}
-                      onChange={e => updateLegDelta(i, Number(e.target.value))}
+                      onChange={e => updateLegDelta(actualIndex, Number(e.target.value))}
                       className="w-[68px] h-7 text-[11px] bg-[#0a0e17] border-gray-700 text-gray-200 ml-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       step={0.01} min={0.01} max={1} placeholder="0.16" />
                   </div>
@@ -281,28 +336,57 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                     <span className="text-[11px] text-gray-400 w-4 text-center">{leg.qty}</span>
                   </div>
 
-                  {legs.length > 1 && (
-                    <button onClick={() => removeLeg(i)} className="p-1 text-gray-600 hover:text-red-400 ml-1">
+                  {widthMode === "delta" && legs.length > 1 && (
+                    <button onClick={() => removeLeg(actualIndex)} className="p-1 text-gray-600 hover:text-red-400 ml-1">
                       <span className="text-xs">✕</span>
                     </button>
                   )}
                 </div>
-              ))}
+                );
+              })}
+
+              {/* Dollar mode: show calculated long leg */}
+              {widthMode === "dollar" && (
+                <div className="flex items-center gap-2 bg-[#0a0e17] rounded-lg px-3 py-2.5 border border-emerald-500/20 border-dashed">
+                  <span className="text-[10px] text-gray-600 w-5">2.</span>
+                  <span className="w-14 h-7 rounded text-[11px] font-medium bg-emerald-900/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">BUY</span>
+                  <span className="w-10 h-7 rounded text-[11px] font-medium bg-[#0d1321] border border-gray-700 text-gray-300 flex items-center justify-center">{legs[0]?.right || "P"}</span>
+                  <div className="flex items-center gap-1 flex-1">
+                    <Label className="text-[9px] text-gray-600 shrink-0">Δ</Label>
+                    <span className="text-[11px] text-emerald-400 font-mono">~{(legs[0]?.target_delta * 0.6).toFixed(2)}</span>
+                    <span className="text-[9px] text-gray-600 ml-2">${dollarWidth} wide protection</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-400/60 italic text-right shrink-0">auto</span>
+                </div>
+              )}
 
               {/* Quick delta summary */}
               {legs.length >= 2 && (
                 <div className="flex items-center gap-2 text-[10px] text-gray-500 pt-1">
                   <span>Spread: </span>
-                  {legs.filter(l => l.action === "sell").map((l, i) => (
-                    <Badge key={i} className="text-[10px] bg-red-900/20 text-red-400 border-red-500/30">
-                      Sell {(l.target_delta * 100).toFixed(0)}Δ {l.right}
-                    </Badge>
-                  ))}
-                  {legs.filter(l => l.action === "buy").map((l, i) => (
-                    <Badge key={i} className="text-[10px] bg-emerald-900/20 text-emerald-400 border-emerald-500/30">
-                      Buy {(l.target_delta * 100).toFixed(0)}Δ {l.right}
-                    </Badge>
-                  ))}
+                  {widthMode === "dollar" ? (
+                    <>
+                      <Badge className="text-[10px] bg-red-900/20 text-red-400 border-red-500/30">
+                        Sell {(legs[0]?.target_delta * 100).toFixed(0)}Δ {legs[0]?.right}
+                      </Badge>
+                      <Badge className="text-[10px] bg-emerald-900/20 text-emerald-400 border-emerald-500/30">
+                        Buy ~{(legs[0]?.target_delta * 0.6 * 100).toFixed(0)}Δ {legs[0]?.right} (${dollarWidth} wide)
+                      </Badge>
+                    </>
+                  ) : (
+                    <>
+                      {legs.filter(l => l.action === "sell").map((l, i) => (
+                        <Badge key={i} className="text-[10px] bg-red-900/20 text-red-400 border-red-500/30">
+                          Sell {(l.target_delta * 100).toFixed(0)}Δ {l.right}
+                        </Badge>
+                      ))}
+                      {legs.filter(l => l.action === "buy").map((l, i) => (
+                        <Badge key={i} className="text-[10px] bg-emerald-900/20 text-emerald-400 border-emerald-500/30">
+                          Buy {(l.target_delta * 100).toFixed(0)}Δ {l.right}
+                        </Badge>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </TabsContent>
