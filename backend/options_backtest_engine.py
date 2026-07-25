@@ -139,6 +139,8 @@ class OptionsBacktestEngine:
         indicator_threshold: float = 30,
         indicator_period: int = 14,
         indicator_period2: int = 50,
+        indicator_slots: Optional[List[Dict[str, Any]]] = None,
+        indicator_logic: str = "AND",
     ):
         self.ticker = ticker.upper()
         self.strategy = strategy
@@ -160,6 +162,8 @@ class OptionsBacktestEngine:
         self.indicator_threshold = indicator_threshold
         self.indicator_period = indicator_period
         self.indicator_period2 = indicator_period2
+        self.indicator_slots = indicator_slots
+        self.indicator_logic = indicator_logic
 
     def run(self) -> Dict[str, Any]:
         """Run the backtest with full institutional features."""
@@ -182,11 +186,38 @@ class OptionsBacktestEngine:
         # Compute technical indicators from daily underlying prices
         indicator_signals: Dict[int, bool] = {}
         if self.entry_trigger_mode == "technical":
-            indicator_signals = _compute_indicator_signals(
-                df, self.indicator_type, self.indicator_threshold, self.indicator_period, self.indicator_period2
-            )
-            signal_count = sum(1 for v in indicator_signals.values() if v)
-            logger.info(f"Technical trigger '{self.indicator_type}' active on {signal_count}/{len(indicator_signals)} days")
+            if self.indicator_slots and len(self.indicator_slots) > 0:
+                # Multi-indicator mode: compute each slot, combine with AND/OR
+                all_slot_signals = []
+                for slot in self.indicator_slots:
+                    slot_signals = _compute_indicator_signals(
+                        df,
+                        slot.get("type", "rsi"),
+                        slot.get("threshold", 30),
+                        slot.get("period", 14),
+                        slot.get("period2", 50),
+                    )
+                    all_slot_signals.append(slot_signals)
+                # Combine signals
+                dates_set = set()
+                for ss in all_slot_signals:
+                    dates_set.update(ss.keys())
+                if self.indicator_logic == "AND":
+                    for d in dates_set:
+                        indicator_signals[int(d)] = all(ss.get(int(d), False) for ss in all_slot_signals)
+                else:  # OR
+                    for d in dates_set:
+                        indicator_signals[int(d)] = any(ss.get(int(d), False) for ss in all_slot_signals)
+                slot_names = [s.get("type", "?") for s in self.indicator_slots]
+                signal_count = sum(1 for v in indicator_signals.values() if v)
+                logger.info(f"Multi-indicator [{' AND '.join(slot_names)}]: {signal_count}/{len(indicator_signals)} days")
+            else:
+                # Single indicator (backward compat)
+                indicator_signals = _compute_indicator_signals(
+                    df, self.indicator_type, self.indicator_threshold, self.indicator_period, self.indicator_period2
+                )
+                signal_count = sum(1 for v in indicator_signals.values() if v)
+                logger.info(f"Technical trigger '{self.indicator_type}' active on {signal_count}/{len(indicator_signals)} days")
 
         for trade_date in trade_dates:
             day_data = date_groups.get(trade_date)

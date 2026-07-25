@@ -63,7 +63,7 @@ export function TickerSelect({ value, onChange, onTickerInfo, className = "", pl
     t.symbol.toLowerCase().includes(search.toLowerCase())
   );
 
-  const displayed = search ? filtered : tickers.slice(0, 50);
+  const displayed = search ? filtered : tickers;
 
   const selectedInfo = tickers.find(t => t.symbol === value);
 
@@ -107,7 +107,7 @@ export function TickerSelect({ value, onChange, onTickerInfo, className = "", pl
           </div>
 
           {/* Ticker list */}
-          <div className="max-h-72 overflow-y-auto p-1">
+          <div className="max-h-96 overflow-y-auto p-1">
             {loading ? (
               <div className="text-xs text-gray-500 text-center py-4">Loading...</div>
             ) : displayed.length === 0 ? (

@@ -57,6 +57,9 @@ class BacktestRequest(BaseModel):
     indicator_threshold: float = Field(30, ge=-200, le=500)
     indicator_period: int = Field(14, ge=2, le=252)
     indicator_period2: int = Field(50, ge=2, le=252)
+    # Multi-indicator slots (if provided, overrides single indicator fields)
+    indicator_slots: Optional[List[Dict[str, Any]]] = Field(None, description="Array of {type, threshold, period, period2} for multi-indicator AND/OR logic")
+    indicator_logic: str = Field("AND", pattern="^(AND|OR)$")
 
 
 @router.post("/run")
@@ -95,6 +98,8 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                     indicator_threshold=req.indicator_threshold,
                     indicator_period=req.indicator_period,
                     indicator_period2=req.indicator_period2,
+                    indicator_slots=req.indicator_slots,
+                    indicator_logic=req.indicator_logic,
                 )
                 loop = asyncio.get_event_loop()
                 try:

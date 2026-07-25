@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,8 @@ interface OptionsConfig {
   indicator_threshold: number;
   indicator_period: number;
   indicator_period2: number;
+  indicator_slots?: Array<{type: string; threshold: number; period: number; period2: number}>;
+  indicator_logic?: string;
 }
 
 interface Props {
@@ -132,6 +134,10 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
   const [indicatorThreshold, setIndicatorThreshold] = useState(30);
   const [indicatorPeriod, setIndicatorPeriod] = useState(14);
   const [indicatorPeriod2, setIndicatorPeriod2] = useState(50);
+  const [indicatorSlots, setIndicatorSlots] = useState<Array<{type: string; threshold: number; period: number; period2: number}>>([
+    { type: "rsi", threshold: 30, period: 14, period2: 50 },
+  ]);
+  const [indicatorLogic, setIndicatorLogic] = useState<"AND" | "OR">("AND");
   const [yearStart, setYearStart] = useState("2020");
   const [yearEnd, setYearEnd] = useState("2025");
   const [tickerInfo, setTickerInfo] = useState<any>(null);
@@ -200,10 +206,20 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
       indicator_threshold: indicatorThreshold,
       indicator_period: indicatorPeriod,
       indicator_period2: indicatorPeriod2,
+      indicator_slots: indicatorSlots.length > 1 ? indicatorSlots : undefined,
+      indicator_logic: indicatorLogic,
     };
   };
 
   const handleRun = () => onRun(buildConfig());
+
+  const handleTickerInfo = useCallback((info: any) => {
+    setTickerInfo(info);
+    if (info && info.min_year && info.max_year) {
+      setYearStart(String(Math.max(info.min_year, 2020)));
+      setYearEnd(String(info.max_year));
+    }
+  }, []);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -218,13 +234,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                 <TickerSelect
                   value={ticker}
                   onChange={(t) => { setTicker(t); }}
-                  onTickerInfo={(info) => {
-                    setTickerInfo(info);
-                    if (info && info.min_year && info.max_year) {
-                      setYearStart(String(Math.max(info.min_year, 2020)));
-                      setYearEnd(String(info.max_year));
-                    }
-                  }}
+                  onTickerInfo={handleTickerInfo}
                   className="w-36"
                 />
                 {tickerInfo && (
@@ -637,6 +647,115 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                       {indicatorType === "price_channel_upper" && `Enter on ${indicatorPeriod}-day Donchian channel breakout (momentum).`}
                       {indicatorType === "price_channel_lower" && `Enter on ${indicatorPeriod}-day Donchian channel breakdown — call spreads.`}
                     </p>
+
+                    {/* Multi-indicator slots */}
+                    {indicatorSlots.length > 1 && (
+                      <div className="pt-2 border-t border-gray-800/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[9px] text-gray-500">Combine with</span>
+                          <button onClick={() => setIndicatorLogic("AND")}
+                            className={`px-2 py-0.5 rounded text-[9px] font-medium border transition-colors ${
+                              indicatorLogic === "AND"
+                                ? "bg-amber-400/10 text-amber-400 border-amber-500/40"
+                                : "text-gray-500 border-gray-700 hover:text-gray-300"
+                            }`}>AND</button>
+                          <button onClick={() => setIndicatorLogic("OR")}
+                            className={`px-2 py-0.5 rounded text-[9px] font-medium border transition-colors ${
+                              indicatorLogic === "OR"
+                                ? "bg-amber-400/10 text-amber-400 border-amber-500/40"
+                                : "text-gray-500 border-gray-700 hover:text-gray-300"
+                            }`}>OR</button>
+                        </div>
+                        {indicatorSlots.slice(1).map((slot, idx) => {
+                          const realIdx = idx + 1;
+                          return (
+                            <div key={realIdx} className="flex items-center gap-1.5 mb-1.5">
+                              <span className="text-[9px] text-gray-600 w-4">#{realIdx + 1}</span>
+                              <Select value={slot.type} onValueChange={(v) => {
+                                const defaults: Record<string, [number, number, number]> = {
+                                  rsi: [30, 14, 50], rsi_above: [70, 14, 50],
+                                  williams_r: [-80, 14, 50], williams_r_above: [-20, 14, 50],
+                                  cci: [-100, 20, 50], cci_above: [100, 20, 50],
+                                  roc: [-5, 12, 50], macd_bullish: [0, 14, 50], macd_bearish: [0, 14, 50],
+                                  ma_crossover_bullish: [0, 10, 50], ma_crossover_bearish: [0, 10, 50],
+                                  adx: [25, 14, 50], adx_below: [20, 14, 50],
+                                  parabolic_sar: [0, 14, 50], parabolic_sar_bearish: [0, 14, 50],
+                                  stoch_oversold: [20, 14, 50], stoch_overbought: [80, 14, 50],
+                                  ema_below: [0, 20, 50], ema_above: [0, 20, 50],
+                                  price_pct_sma: [5, 50, 50], price_pct_sma_above: [5, 50, 50],
+                                  bb_lower: [0, 20, 50], bb_upper: [0, 20, 50], bb_squeeze: [10, 20, 50],
+                                  keltner_lower: [0, 20, 2], keltner_upper: [0, 20, 2],
+                                  atr: [2, 14, 50], atr_below: [1, 14, 50],
+                                  hist_vol: [25, 21, 50], hist_vol_below: [10, 21, 50],
+                                  volume_spike: [1.5, 20, 50],
+                                  iv_rank: [50, 252, 50], iv_rank_below: [20, 252, 50],
+                                  near_52w_high: [5, 14, 50], near_52w_low: [5, 14, 50],
+                                  sma_below: [0, 50, 50], sma_above: [0, 200, 50],
+                                  price_channel_upper: [0, 20, 50], price_channel_lower: [0, 20, 50],
+                                };
+                                const [thresh, per, per2] = defaults[v] || [30, 14, 50];
+                                const updated = [...indicatorSlots];
+                                updated[realIdx] = { type: v, threshold: thresh, period: per, period2: per2 };
+                                setIndicatorSlots(updated);
+                              }}>
+                                <SelectTrigger className="h-7 text-[10px] bg-[#0a0e17] border-gray-700 text-gray-200 w-[130px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200 max-h-[240px]">
+                                  <SelectItem value="rsi" className="text-[10px]">RSI</SelectItem>
+                                  <SelectItem value="rsi_above" className="text-[10px]">RSI above</SelectItem>
+                                  <SelectItem value="williams_r" className="text-[10px]">Williams %R</SelectItem>
+                                  <SelectItem value="cci" className="text-[10px]">CCI</SelectItem>
+                                  <SelectItem value="macd_bullish" className="text-[10px]">MACD bull</SelectItem>
+                                  <SelectItem value="ma_crossover_bullish" className="text-[10px]">MA cross ↑</SelectItem>
+                                  <SelectItem value="adx" className="text-[10px]">ADX</SelectItem>
+                                  <SelectItem value="atr" className="text-[10px]">ATR</SelectItem>
+                                  <SelectItem value="iv_rank" className="text-[10px]">IV Rank</SelectItem>
+                                  <SelectItem value="bb_squeeze" className="text-[10px]">BB squeeze</SelectItem>
+                                  <SelectItem value="sma_below" className="text-[10px]">SMA below</SelectItem>
+                                  <SelectItem value="sma_above" className="text-[10px]">SMA above</SelectItem>
+                                  <SelectItem value="ema_below" className="text-[10px]">EMA below</SelectItem>
+                                  <SelectItem value="hist_vol" className="text-[10px]">Hist vol</SelectItem>
+                                  <SelectItem value="volume_spike" className="text-[10px]">Vol spike</SelectItem>
+                                  <SelectItem value="near_52w_low" className="text-[10px]">52w low</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input type="number" value={slot.threshold}
+                                onChange={e => {
+                                  const updated = [...indicatorSlots];
+                                  updated[realIdx].threshold = Number(e.target.value);
+                                  setIndicatorSlots(updated);
+                                }}
+                                className="h-7 text-[10px] bg-[#0a0e17] border-gray-700 text-gray-200 w-[56px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                              <Input type="number" value={slot.period}
+                                onChange={e => {
+                                  const updated = [...indicatorSlots];
+                                  updated[realIdx].period = Number(e.target.value);
+                                  setIndicatorSlots(updated);
+                                }}
+                                className="h-7 text-[10px] bg-[#0a0e17] border-gray-700 text-gray-200 w-[44px] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                              <button onClick={() => {
+                                setIndicatorSlots(prev => prev.filter((_, i) => i !== realIdx));
+                              }}
+                                className="text-gray-600 hover:text-red-400 text-[10px] px-1"
+                                title="Remove">✕</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Add indicator button */}
+                    {indicatorSlots.length < 3 && (
+                      <button onClick={() => {
+                        setIndicatorSlots(prev => [...prev, { type: "sma_below", threshold: 0, period: 50, period2: 50 }]);
+                        setIndicatorLogic("AND");
+                      }}
+                        className="text-[10px] text-amber-400/70 hover:text-amber-400 border border-dashed border-amber-400/30 hover:border-amber-400/50 rounded px-2 py-1 transition-colors"
+                      >
+                        ＋ Add indicator
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
