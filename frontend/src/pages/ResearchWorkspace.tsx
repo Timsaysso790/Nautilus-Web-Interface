@@ -39,8 +39,9 @@ import {
 import api from "@/lib/api";
 import { TickerSelect } from "@/components/backtest/TickerSelect";
 import OptionsConfigPanel from "@/components/backtest/OptionsConfigPanel";
+import PortfolioConfigPanelNew from "@/components/portfolio/PortfolioConfigPanel";
 import {
-  PortfolioConfigPanel, PortfolioMetricsBar, PortfolioChart, PortfolioLedger,
+  PortfolioConfigPanel as PortfolioConfigPanelLegacy, PortfolioMetricsBar, PortfolioChart, PortfolioLedger,
 } from "@/components/portfolio/PortfolioPanels";
 
 /* ════════════════════════════════════════════════ */
@@ -844,7 +845,32 @@ export default function ResearchWorkspace() {
                     </TabsList>
 
                     <TabsContent value="config" className="mt-0">
-                      <PortfolioConfigPanel onResult={(r) => { setPortfolioResult(r); setWorkspaceTab("backtest"); }} />
+                      <PortfolioConfigPanelNew
+                        onRun={async (cfg) => {
+                          if (running) return;
+                          setRunning(true);
+                          try {
+                            const result = await api.post("/api/portfolio/backtest", {
+                              assets: cfg.assets,
+                              initial_cash: cfg.initial_cash,
+                              margin_target: cfg.margin_target,
+                              margin_rate: cfg.margin_rate,
+                              drip_enabled: cfg.drip_enabled,
+                              start_date: `${cfg.start_year}-01-01`,
+                              end_date: `${cfg.end_year}-12-31`,
+                              deposits: cfg.deposits,
+                              withdrawals: cfg.withdrawals,
+                            });
+                            setPortfolioResult(result);
+                            setWorkspaceTab("backtest");
+                          } catch (e: any) {
+                            setAiMessages(prev => [...prev, { role: "assistant", content: `⚠️ Portfolio backtest failed: ${e?.detail || e}` }]);
+                          } finally {
+                            setRunning(false);
+                          }
+                        }}
+                        running={running}
+                      />
                     </TabsContent>
 
                     <TabsContent value="backtest" className="mt-0">
