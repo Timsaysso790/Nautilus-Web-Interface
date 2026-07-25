@@ -419,6 +419,35 @@ export default function ResearchWorkspace() {
   const [showDelete, setShowDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
+  /* ── Saved runs state ── */
+  const [savedRuns, setSavedRuns] = useState<any[]>([]);
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [selectedRunSeq, setSelectedRunSeq] = useState<number | null>(null);
+
+  const loadSavedRuns = useCallback(async () => {
+    if (!activeProjectId) return;
+    setRunsLoading(true);
+    try {
+      const data = await api.get<{ results: any[] }>(`/api/backtest/options/projects/${activeProjectId}/results`);
+      setSavedRuns(data.results || []);
+    } catch {
+      setSavedRuns([]);
+    }
+    setRunsLoading(false);
+  }, [activeProjectId]);
+
+  const loadRunResult = async (seq: number) => {
+    if (!activeProjectId) return;
+    try {
+      const result = await api.get<any>(`/api/backtest/options/projects/${activeProjectId}/results/${seq}`);
+      setBacktestResult(result);
+      setSelectedRunSeq(seq);
+      setWorkspaceTab("backtest");
+    } catch {}
+  };
+
+  useEffect(() => { if (activeProjectId) loadSavedRuns(); }, [activeProjectId, loadSavedRuns]);
+
   /* ── Config state ── */
   const [ticker, setTicker] = useState("SPY");
   const [legs, setLegs] = useState<StrategyLeg[]>([
@@ -541,9 +570,13 @@ export default function ResearchWorkspace() {
     setBacktestError(null);
     setBacktestResult(null);
     try {
-      const result = await api.post<BacktestResult>("/api/backtest/options/run", config);
+      const result = await api.post<BacktestResult>("/api/backtest/options/run", {
+        ...config,
+        project_id: activeProjectId || undefined,
+      });
       setBacktestResult(result);
       setWorkspaceTab("backtest");
+      if (activeProjectId) loadSavedRuns();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Backtest failed";
       setBacktestError(msg);
@@ -742,6 +775,54 @@ export default function ResearchWorkspace() {
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Saved runs for active project */}
+          {activeProject && (
+            <div className="px-2 pb-2">
+              <div className="flex items-center justify-between px-1 mb-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-gray-600 font-medium">Saved Runs</span>
+                <span className="text-[9px] text-gray-700">{savedRuns.length}</span>
+              </div>
+              {runsLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-3.5 w-3.5 text-gray-600 animate-spin" />
+                </div>
+              ) : savedRuns.length === 0 ? (
+                <p className="text-[10px] text-gray-700 text-center py-3 italic">No saved runs yet. Run a backtest to save it here.</p>
+              ) : (
+                <div className="space-y-0.5 max-h-[180px] overflow-y-auto">
+                  {savedRuns.map((run, i) => {
+                    const s = run.summary || {};
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => loadRunResult(run.seq)}
+                        className={[
+                          "w-full text-left rounded border px-2 py-1.5 transition-all duration-150 text-[10px]",
+                          selectedRunSeq === run.seq
+                            ? "border-amber-500/30 bg-amber-500/8"
+                            : "border-transparent hover:border-gray-700/40 hover:bg-gray-800/30",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-300 font-medium">Run #{run.seq}</span>
+                          <span className={`tabular-mono font-medium ${s.total_pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {s.total_pnl >= 0 ? "+" : ""}${s.total_pnl?.toFixed(0) || "0"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[9px] text-gray-600">
+                          <span>{s.total_trades} trades</span>
+                          <span>{s.win_rate?.toFixed(0)}% win</span>
+                          <span>Sharpe {s.sharpe?.toFixed(1) || "—"}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </ScrollArea>

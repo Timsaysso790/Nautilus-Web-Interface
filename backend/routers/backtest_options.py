@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from auth_jwt import get_current_user
 from options_backtest_engine import OptionsBacktestEngine, OptionLeg as EngineLeg, OptionStrategy
+import backtest_project_service as bps
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/backtest/options", tags=["backtest-options"])
@@ -46,6 +47,7 @@ class BacktestRequest(BaseModel):
     profit_target_pct: Optional[float] = Field(None, ge=0.0, le=1000.0)
     stop_loss_pct: Optional[float] = Field(None, ge=0.0, le=1000.0)
     max_days_in_trade: int = Field(60, ge=1, le=365)
+    project_id: Optional[str] = Field(None, description="Save result to this project if provided")
 
 
 @router.post("/run")
@@ -80,6 +82,18 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
             result_id = str(uuid.uuid4())[:8]
             _result_cache[result_id] = result
             result["id"] = result_id
+
+            # Save result to project if project_id provided
+            if req.project_id:
+                try:
+                    from routers.backtest_projects import _get_project_slug
+                    slug = await _get_project_slug(req.project_id)
+                    if slug:
+                        bps.save_result(slug, result)
+                        result["saved_to_project"] = True
+                except Exception as e:
+                    logger.warning(f"Failed to save result to project {req.project_id}: {e}")
+
             return result
 
         except FileNotFoundError as e:
@@ -97,6 +111,47 @@ async def get_backtest_result(result_id: str, user: dict = Depends(get_current_u
     result = _result_cache.get(result_id)
     if not result:
         raise HTTPException(404, f"Result {result_id} not found (cache may have expired)")
+    return result
+
+
+@router.get("/projects/{project_id}/results")
+async def list_project_results(project_id: str, user: dict = Depends(get_current_user)):
+    """List saved backtest results for a project."""
+    from routers.backtest_projects import _get_project_slug
+    try:
+        slug = await _get_project_slug(project_id)
+    except:
+        return {"results": [], "count": 0}
+    files = bps.list_project_files(slug)
+    results = [f for f in files if f.get("_file_type") == "result" or f.get("_file", "").startswith("result-")]
+    for r in results:
+        # Extract sequence and summary info
+        fname = r.get("_file", "")
+        try:
+            r["seq"] = int(fname.replace("result-", "").replace(".json", ""))
+        except:
+            r["seq"] = 0
+        metrics = r.get("metrics", {})
+        r["summary"] = {
+            "total_trades": metrics.get("total_trades", 0),
+            "total_pnl": metrics.get("total_pnl", 0),
+            "win_rate": metrics.get("win_rate", 0),
+            "sharpe": metrics.get("sharpe_ratio", 0),
+        }
+    return {"results": sorted(results, key=lambda x: x.get("seq", 0), reverse=True), "count": len(results)}
+
+
+@router.get("/projects/{project_id}/results/{seq}")
+async def get_project_result(project_id: str, seq: int, user: dict = Depends(get_current_user)):
+    """Load a specific saved backtest result."""
+    from routers.backtest_projects import _get_project_slug
+    try:
+        slug = await _get_project_slug(project_id)
+    except:
+        raise HTTPException(404, "Project not found")
+    result = bps.load_result(slug, seq)
+    if result is None:
+        raise HTTPException(404, f"Result {seq} not found")
     return result
 
 
