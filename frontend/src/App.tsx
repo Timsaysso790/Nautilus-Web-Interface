@@ -9,6 +9,7 @@ import { NotificationProvider } from "./contexts/NotificationContext";
 import { NotificationContainer } from "./components/NotificationContainer";
 import ResearchLayout from "./components/ResearchLayout";
 import LiveLayout from "./components/LiveLayout";
+import MainLayout from "./components/MainLayout";
 
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
@@ -69,7 +70,7 @@ function ResearchPages() {
       content = <NotFound />;
   }
 
-  return <ResearchLayout>{content}</ResearchLayout>;
+  return <MainLayout>{content}</MainLayout>;
 }
 
 // Live routes all wrapped in LiveLayout
@@ -102,7 +103,7 @@ function LivePages() {
       content = <NotFound />;
   }
 
-  return <LiveLayout>{content}</LiveLayout>;
+  return <MainLayout>{content}</MainLayout>;
 }
 
 function RouterOutlet() {
