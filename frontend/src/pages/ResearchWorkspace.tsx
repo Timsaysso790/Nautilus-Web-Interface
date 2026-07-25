@@ -34,6 +34,7 @@ import {
 import {
   LineChart as RechartLine, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer,
+  Area, AreaChart, BarChart, Bar, ReferenceLine, Cell,
 } from "recharts";
 import api from "@/lib/api";
 import { TickerSelect } from "@/components/backtest/TickerSelect";
@@ -1248,12 +1249,12 @@ export default function ResearchWorkspace() {
                 </TabsContent>
 
                 {/* ════ CHART TAB ════ */}
-                <TabsContent value="chart" className="mt-0">
+                <TabsContent value="chart" className="mt-0 space-y-4">
                   <Card className="bg-[#0d1321] border-gray-800/60">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
                         <LineChart className="h-4 w-4 text-amber-400/70" />
-                        Equity Curve
+                        Equity Curve & Drawdown
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -1261,89 +1262,129 @@ export default function ResearchWorkspace() {
                         <div className="text-center py-12">
                           <TrendingUp className="h-10 w-10 text-gray-700 mx-auto mb-3" />
                           <p className="text-sm text-gray-500">No equity curve data</p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Run a backtest to see the equity curve chart here.
-                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Run a backtest to see the equity curve chart here.</p>
                         </div>
                       ) : (
-                        <div className="h-[400px] w-full">
+                        <div className="h-[450px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
-                            <RechartLine
-                              data={backtestResult.equity_curve.map((p) => ({
-                                ...p,
-                                value: Number(p.equity.toFixed(2)),
-                              }))}
+                            <AreaChart
+                              data={(() => {
+                                const curve = backtestResult.equity_curve;
+                                const start = curve[0]?.equity || 0;
+                                return curve.map((p) => ({
+                                  date: p.date,
+                                  equity: Number(p.equity.toFixed(2)),
+                                  drawdown: start > 0 ? Number((((p.equity - start) / start) * 100).toFixed(2)) : 0,
+                                }));
+                              })()}
                               margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                              <XAxis
-                                dataKey="date"
-                                tick={{ fill: "#64748b", fontSize: 10 }}
-                                tickLine={false}
+                              <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
                                 axisLine={{ stroke: "#1e293b" }}
-                                tickFormatter={(v: string) => {
-                                  try {
-                                    const d = new Date(v);
-                                    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                                  } catch {
-                                    return v;
-                                  }
-                                }}
-                              />
-                              <YAxis
-                                tick={{ fill: "#64748b", fontSize: 10 }}
-                                tickLine={false}
+                                tickFormatter={(v: string) => { try { return new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return v; }}} />
+                              <YAxis yAxisId="equity" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
                                 axisLine={{ stroke: "#1e293b" }}
-                                tickFormatter={(v: number) => `$${v.toLocaleString()}`}
-                              />
-                              <RechartTooltip
-                                contentStyle={{
-                                  backgroundColor: "#0d1321",
-                                  border: "1px solid #1e293b",
-                                  borderRadius: "8px",
-                                  fontSize: "12px",
-                                }}
+                                tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} domain={['auto', 'auto']} />
+                              <YAxis yAxisId="dd" orientation="right" tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false}
+                                axisLine={{ stroke: "#1e293b" }}
+                                tickFormatter={(v: number) => `${v.toFixed(0)}%`} domain={['auto', 5]} reversed />
+                              <RechartTooltip contentStyle={{ backgroundColor: "#0d1321", border: "1px solid #1e293b", borderRadius: "8px", fontSize: "12px" }}
                                 labelStyle={{ color: "#94a3b8" }}
-                                formatter={(value: number) => [`$${value.toFixed(2)}`, "Equity"]}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke="#f59e0b"
-                                strokeWidth={2}
-                                dot={false}
-                                activeDot={{ r: 4, fill: "#f59e0b" }}
-                              />
-                            </RechartLine>
+                                formatter={(value: number, name: string) => [
+                                  name === "equity" ? `$${value.toFixed(2)}` : `${value.toFixed(2)}%`, name === "equity" ? "Equity" : "Drawdown"
+                                ]} />
+                              <Area yAxisId="equity" type="monotone" dataKey="equity" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.08} strokeWidth={2} dot={false} name="equity" />
+                              <Area yAxisId="dd" type="monotone" dataKey="drawdown" stroke="#ef4444" fill="#ef4444" fillOpacity={0.15} strokeWidth={1.5} dot={false} strokeDasharray="4 3" name="drawdown" />
+                              <ReferenceLine yAxisId="dd" y={0} stroke="#ef4444" strokeOpacity={0.3} strokeDasharray="2 2" />
+                            </AreaChart>
                           </ResponsiveContainer>
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  {/* Trade markers */}
+                  {/* Return Distribution Histogram */}
+                  <Card className="bg-[#0d1321] border-gray-800/60">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+                        <BarChart className="h-4 w-4 text-amber-400/70" />
+                        Return Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {!backtestResult || backtestResult.trades.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-xs text-gray-500">No trade data for distribution</p>
+                        </div>
+                      ) : (
+                        <div className="h-[200px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={(() => {
+                              const pnls = backtestResult.trades.map(t => t.pnl);
+                              const maxVal = Math.max(...pnls.map(Math.abs), 1);
+                              const binCount = 20;
+                              const binWidth = (maxVal * 2) / binCount;
+                              const bins = Array.from({ length: binCount }, (_, i) => ({
+                                binStart: -maxVal + i * binWidth,
+                                binEnd: -maxVal + (i + 1) * binWidth,
+                                count: 0,
+                                isPositive: -maxVal + (i + 0.5) * binWidth >= 0,
+                              }));
+                              for (const pnl of pnls) {
+                                const idx = Math.min(Math.floor((pnl + maxVal) / binWidth), binCount - 1);
+                                if (idx >= 0) bins[idx].count++;
+                              }
+                              return bins.map(b => ({
+                                range: `${b.binStart.toFixed(0)}`,
+                                count: b.count,
+                                fill: b.isPositive ? '#22c55e' : '#ef4444',
+                              }));
+                            })()}
+                            margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                              <XAxis dataKey="range" tick={{ fill: "#64748b", fontSize: 9 }} tickLine={false} axisLine={{ stroke: "#1e293b" }} />
+                              <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} axisLine={{ stroke: "#1e293b" }} allowDecimals={false} />
+                              <RechartTooltip contentStyle={{ backgroundColor: "#0d1321", border: "1px solid #1e293b", borderRadius: "8px", fontSize: "12px" }}
+                                formatter={(value: number) => [value, "Trades"]} />
+                              <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+                                {(() => {
+                                  const data = backtestResult.trades;
+                                  const maxVal = Math.max(...data.map(t => Math.abs(t.pnl)), 1);
+                                  const binCount = 20;
+                                  const binWidth = (maxVal * 2) / binCount;
+                                  const colors: string[] = [];
+                                  for (let i = 0; i < binCount; i++) {
+                                    colors.push((-maxVal + (i + 0.5) * binWidth) >= 0 ? '#22c55e' : '#ef4444');
+                                  }
+                                  return colors.map((c, i) => <Cell key={i} fill={c} fillOpacity={0.6} />);
+                                })()}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Trade summary badges */}
                   {backtestResult && backtestResult.trades.length > 0 && (
-                    <Card className="bg-[#0d1321] border-gray-800/60 mt-4">
+                    <Card className="bg-[#0d1321] border-gray-800/60">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
                           <Timer className="h-4 w-4 text-amber-400/70" />
-                          Trade Summary on Chart
+                          Trade Summary
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <div className="flex items-center gap-1.5">
-                            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                            <span>{backtestResult.trades.filter((t) => t.pnl > 0).length} Winners</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-                            <span>{backtestResult.trades.filter((t) => t.pnl < 0).length} Losers</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Minus className="h-3.5 w-3.5 text-gray-600" />
-                            <span>{backtestResult.trades.filter((t) => t.pnl === 0).length} Breakeven</span>
-                          </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" />{backtestResult.trades.filter((t) => t.pnl > 0).length} Winners</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400" />{backtestResult.trades.filter((t) => t.pnl < 0).length} Losers</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-gray-600" />{backtestResult.trades.filter((t) => t.pnl === 0).length} Breakeven</span>
+                          <span className="text-gray-700">|</span>
+                          <span>Avg Win: <span className="text-emerald-400 tabular-mono">${backtestResult.metrics.avg_win.toFixed(2)}</span></span>
+                          <span>Avg Loss: <span className="text-red-400 tabular-mono">-${backtestResult.metrics.avg_loss.toFixed(2)}</span></span>
+                          <span>Payoff: <span className="text-gray-300 tabular-mono">{backtestResult.metrics.payoff_ratio.toFixed(2)}</span></span>
                         </div>
                       </CardContent>
                     </Card>
@@ -1356,7 +1397,7 @@ export default function ResearchWorkspace() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold text-gray-100 flex items-center gap-2">
                         <History className="h-4 w-4 text-amber-400/70" />
-                        Trade Log
+                        Trade Log — {backtestResult?.trades?.length || 0} trades
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -1364,49 +1405,49 @@ export default function ResearchWorkspace() {
                         <div className="text-center py-12">
                           <History className="h-10 w-10 text-gray-700 mx-auto mb-3" />
                           <p className="text-sm text-gray-500">No trade history</p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Run a backtest to see the trade log here.
-                          </p>
+                          <p className="text-xs text-gray-600 mt-1">Run a backtest to see the trade log here.</p>
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
                           <Table>
                             <TableHeader>
                               <TableRow className="border-gray-800/60 hover:bg-transparent">
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8">#</TableHead>
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8">Entry Date</TableHead>
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8">Exit Date</TableHead>
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right">DTE</TableHead>
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right">Days Held</TableHead>
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right">PnL</TableHead>
-                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8">Exit Reason</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 sticky top-0 bg-[#0d1321]">#</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 sticky top-0 bg-[#0d1321]">Entry</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 sticky top-0 bg-[#0d1321]">Exit</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">DTE</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">Days</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">Underlying</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">Δ</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">Γ</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">Θ</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">ν</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">Margin</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 text-right sticky top-0 bg-[#0d1321]">P&L</TableHead>
+                                <TableHead className="text-[10px] text-gray-600 uppercase tracking-wider h-8 sticky top-0 bg-[#0d1321]">Reason</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {backtestResult.trades.map((trade) => (
-                                <TableRow
-                                  key={trade.id}
-                                  className="border-gray-800/40 hover:bg-white/[0.02]"
-                                >
-                                  <TableCell className="text-xs text-gray-500 h-8">{trade.id}</TableCell>
-                                  <TableCell className="text-xs text-gray-300 h-8 tabular-mono">
-                                    {formatDate(trade.entry_date)}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-gray-300 h-8 tabular-mono">
-                                    {formatDate(trade.exit_date)}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-gray-300 h-8 text-right tabular-mono">
-                                    {trade.dte_at_entry}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-gray-300 h-8 text-right tabular-mono">
-                                    {trade.days_held}
-                                  </TableCell>
-                                  <TableCell className={`text-xs h-8 text-right tabular-mono font-medium ${pnlColor(trade.pnl)}`}>
-                                    {pnlText(trade.pnl)}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-gray-400 h-8">{trade.exit_reason}</TableCell>
-                                </TableRow>
-                              ))}
+                              {backtestResult.trades.map((trade) => {
+                                const g = trade.greeks || {};
+                                return (
+                                  <TableRow key={trade.id} className="border-gray-800/40 hover:bg-white/[0.02]">
+                                    <TableCell className="text-xs text-gray-500 h-7">{trade.id}</TableCell>
+                                    <TableCell className="text-xs text-gray-300 h-7 tabular-mono">{formatDate(trade.entry_date)}</TableCell>
+                                    <TableCell className="text-xs text-gray-300 h-7 tabular-mono">{formatDate(trade.exit_date)}</TableCell>
+                                    <TableCell className="text-xs text-gray-300 h-7 text-right tabular-mono">{trade.dte_at_entry}</TableCell>
+                                    <TableCell className="text-xs text-gray-300 h-7 text-right tabular-mono">{trade.days_held}</TableCell>
+                                    <TableCell className="text-xs text-gray-300 h-7 text-right tabular-mono">${trade.underlying_entry?.toFixed(0) || "—"}</TableCell>
+                                    <TableCell className="text-xs text-right h-7 tabular-mono text-blue-300">{typeof g.delta === 'number' ? g.delta.toFixed(1) : "—"}</TableCell>
+                                    <TableCell className="text-xs text-right h-7 tabular-mono text-purple-300">{typeof g.gamma === 'number' ? g.gamma.toFixed(3) : "—"}</TableCell>
+                                    <TableCell className="text-xs text-right h-7 tabular-mono text-red-300">{typeof g.theta === 'number' ? g.theta.toFixed(2) : "—"}</TableCell>
+                                    <TableCell className="text-xs text-right h-7 tabular-mono text-emerald-300">{typeof g.vega === 'number' ? g.vega.toFixed(1) : "—"}</TableCell>
+                                    <TableCell className="text-xs text-right h-7 tabular-mono text-gray-400">{trade.margin_required ? `$${trade.margin_required.toFixed(0)}` : "—"}</TableCell>
+                                    <TableCell className={`text-xs h-7 text-right tabular-mono font-medium ${pnlColor(trade.pnl)}`}>{pnlText(trade.pnl)}</TableCell>
+                                    <TableCell className="text-xs text-gray-400 h-7">{trade.exit_reason?.replace(/_/g, " ")}</TableCell>
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>
