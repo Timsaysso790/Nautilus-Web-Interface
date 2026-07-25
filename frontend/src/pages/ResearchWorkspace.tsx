@@ -466,7 +466,7 @@ export default function ResearchWorkspace() {
   const [portfolioResult, setPortfolioResult] = useState<any>(null);
 
   /* ── Workspace tab ── */
-  const [workspaceTab, setWorkspaceTab] = useState("config");
+  const [workspaceTab, setWorkspaceTab] = useState("backtest");
 
   /* Auto-scroll AI chat */
   useEffect(() => {
@@ -517,8 +517,9 @@ export default function ResearchWorkspace() {
   /* ────────────── Run Backtest ────────────── */
 
   const runBacktest = async () => {
-    // Legacy runner — just switches to config tab so user can re-run from panel
-    setWorkspaceTab("config");
+    // Scroll to config panel so user can configure a new run
+    const panel = document.querySelector('.options-config-scroll');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth' });
   };
 
   /* Run with config from OptionsConfigPanel */
@@ -831,7 +832,10 @@ export default function ResearchWorkspace() {
                       size="sm"
                       variant="outline"
                       className="text-xs border-gray-700 text-gray-400 hover:text-amber-400"
-                      onClick={() => { setWorkspaceTab("config"); /* quick mode */ }}
+                      onClick={() => {
+                        const panel = document.querySelector('.options-config-scroll');
+                        if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+                      }}
                     >
                       ⚡ Quick Options Backtest
                     </Button>
@@ -839,7 +843,10 @@ export default function ResearchWorkspace() {
                       size="sm"
                       variant="outline"
                       className="text-xs border-gray-700 text-gray-400 hover:text-blue-400"
-                      onClick={() => { setWorkspaceTab("config"); /* quick portfolio mode */ }}
+                      onClick={() => {
+                        const panel = document.querySelector('.options-config-scroll');
+                        if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+                      }}
                     >
                       ⚡ Quick Portfolio Backtest
                     </Button>
@@ -861,21 +868,7 @@ export default function ResearchWorkspace() {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-[10px] text-amber-400 hover:text-amber-300"
-                    onClick={() => {
-                      setWorkspaceTab("config");
-                      // Scroll to top of content area
-                      const el = document.querySelector(".flex-1.overflow-y-auto");
-                      if (el) el.scrollTop = 0;
-                    }}
-                  >
-                    <Zap className="h-3 w-3 mr-1" />
-                    {workspaceTab === "config" ? "Configure" : "Config"}
-                  </Button>
-                  {workspaceTab !== "backtest" && workspaceTab !== "config" && (
+                  {workspaceTab !== "backtest" && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -986,31 +979,11 @@ export default function ResearchWorkspace() {
                 </>
               ) : (
               /* Original options strategy tabs */
-              <Tabs value={workspaceTab} onValueChange={setWorkspaceTab} className="w-full">
-                <TabsList className="h-8 bg-[#0d1321] border border-gray-800/60 mb-4">
-                  <TabsTrigger value="config" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
-                    <Settings2 className="h-3.5 w-3.5 mr-1.5" />
-                    Config
-                  </TabsTrigger>
-                  <TabsTrigger value="backtest" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
-                    <BarChart4 className="h-3.5 w-3.5 mr-1.5" />
-                    Backtest
-                  </TabsTrigger>
-                  <TabsTrigger value="chart" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
-                    <LineChart className="h-3.5 w-3.5 mr-1.5" />
-                    Chart
-                  </TabsTrigger>
-                  <TabsTrigger value="history" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
-                    <History className="h-3.5 w-3.5 mr-1.5" />
-                    History
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* ════ CONFIG TAB ════ */}
-                <TabsContent value="config" className="mt-0">
+              <div>
+                {/* Config panel always visible above tabs */}
+                <div className="mb-4">
                   <OptionsConfigPanel
                     onRun={(cfg) => {
-                      // Map config to API call — delta-based legs
                       const freqMap: Record<string, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
                       const entry_freq = freqMap[cfg.entry_frequency] || 7;
                       const legsApi = cfg.legs.map(l => ({
@@ -1041,7 +1014,24 @@ export default function ResearchWorkspace() {
                     }}
                     running={running}
                   />
-                </TabsContent>
+                </div>
+
+                {/* Results tabs */}
+                <Tabs value={workspaceTab} onValueChange={setWorkspaceTab} className="w-full">
+                <TabsList className="h-8 bg-[#0d1321] border border-gray-800/60 mb-4">
+                  <TabsTrigger value="backtest" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
+                    <BarChart4 className="h-3.5 w-3.5 mr-1.5" />
+                    Backtest
+                  </TabsTrigger>
+                  <TabsTrigger value="chart" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
+                    <LineChart className="h-3.5 w-3.5 mr-1.5" />
+                    Chart
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs px-4 h-7 data-[state=active]:text-amber-400">
+                    <History className="h-3.5 w-3.5 mr-1.5" />
+                    History
+                  </TabsTrigger>
+                </TabsList>
 
                 {/* ════ BACKTEST TAB ════ */}
                 <TabsContent value="backtest" className="mt-0">
@@ -1384,6 +1374,7 @@ export default function ResearchWorkspace() {
                   </Card>
                 </TabsContent>
               </Tabs>
+              </div>
               )}
             </>
           )}

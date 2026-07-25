@@ -173,7 +173,7 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
       {/* ── Left: Config Panel ── */}
       <div className="lg:col-span-2 space-y-4">
         {/* Ticker + Presets */}
-        <Card className="bg-[#0d1321] border-gray-800/60">
+        <Card className="bg-[#0d1321] border-gray-800/60 options-config-scroll">
           <CardContent className="p-3">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="space-y-1">
@@ -296,35 +296,35 @@ export default function OptionsConfigPanel({ onRun, running }: Props) {
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Min DTE</Label>
                   <Input type="number" value={dteMin} onChange={e => setDteMin(Number(e.target.value))}
-                    className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Max DTE</Label>
                   <Input type="number" value={dteMax} onChange={e => setDteMax(Number(e.target.value))}
-                    className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
+                    className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200" min={1} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Entry Freq</Label>
                   <Select value={entryFrequency} onValueChange={setEntryFrequency}>
-                    <SelectTrigger className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200">
+                    <SelectTrigger className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 min-w-[120px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-[#0d1321] border-gray-700 text-gray-200">
-                      <SelectItem value="daily" className="text-xs">Daily</SelectItem>
-                      <SelectItem value="weekly" className="text-xs">Weekly</SelectItem>
-                      <SelectItem value="biweekly" className="text-xs">Biweekly</SelectItem>
-                      <SelectItem value="monthly" className="text-xs">Monthly</SelectItem>
+                      <SelectItem value="daily" className="text-xs">Daily (1d)</SelectItem>
+                      <SelectItem value="weekly" className="text-xs">Weekly (7d)</SelectItem>
+                      <SelectItem value="biweekly" className="text-xs">Biweekly (14d)</SelectItem>
+                      <SelectItem value="monthly" className="text-xs">Monthly (30d)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[10px] text-gray-500">Year Range</Label>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <Input type="number" value={yearStart} onChange={e => setYearStart(Number(e.target.value))}
-                      className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-16" />
+                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px]" min={2018} max={2026} />
                     <span className="text-gray-600 text-xs">–</span>
                     <Input type="number" value={yearEnd} onChange={e => setYearEnd(Number(e.target.value))}
-                      className="h-7 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-16" />
+                      className="h-8 text-xs bg-[#0a0e17] border-gray-700 text-gray-200 w-[72px]" min={2018} max={2026} />
                   </div>
                 </div>
               </div>
