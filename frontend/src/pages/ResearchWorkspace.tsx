@@ -28,7 +28,7 @@ import {
 import {
   FolderKanban, Plus, Trash2, Loader2, Bot, Send, X,
   Activity, LineChart, BarChart4, History, Timer,
-  ChevronDown, ChevronUp, Play, Save, Settings2, Brain,
+  ChevronDown, ChevronUp, Play, Save, Brain,
   TrendingUp, TrendingDown, Minus, AlertCircle, Zap,
 } from "lucide-react";
 import {
@@ -884,13 +884,43 @@ export default function ResearchWorkspace() {
 
               {/* Tabs — different content based on project type */}
               {activeProject.project_type === "portfolio" ? (
-                <>
+                <div>
+                  {/* Portfolio config panel always visible above tabs */}
+                  <div className="mb-4">
+                    <PortfolioConfigPanelNew
+                      onRun={async (cfg) => {
+                        if (running) return;
+                        setRunning(true);
+                        setPortfolioResult(null);
+                        try {
+                          const result = await api.post("/api/portfolio/backtest", {
+                            assets: cfg.assets,
+                            initial_cash: cfg.initial_cash,
+                            margin_target: cfg.margin_target,
+                            margin_rate: cfg.margin_rate,
+                            drip_enabled: cfg.drip_enabled,
+                            start_date: `${cfg.start_year}-01-01`,
+                            end_date: `${cfg.end_year}-12-31`,
+                            deposits: cfg.deposits,
+                            withdrawals: cfg.withdrawals,
+                          });
+                          setPortfolioResult(result);
+                          setWorkspaceTab("backtest");
+                        } catch (e: any) {
+                          const msg = e?.detail || e?.message || "Portfolio backtest failed";
+                          setBacktestError(msg);
+                          setAiMessages(prev => [...prev, { role: "assistant", content: `⚠️ Portfolio backtest failed: ${msg}` }]);
+                        } finally {
+                          setRunning(false);
+                        }
+                      }}
+                      running={running}
+                    />
+                  </div>
+
+                  {/* Results tabs */}
                   <Tabs value={workspaceTab} onValueChange={setWorkspaceTab} className="w-full">
                     <TabsList className="h-8 bg-[#0d1321] border border-gray-800/60 mb-4">
-                      <TabsTrigger value="config" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
-                        <Settings2 className="h-3.5 w-3.5 mr-1.5" />
-                        Portfolio Config
-                      </TabsTrigger>
                       <TabsTrigger value="backtest" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
                         <BarChart4 className="h-3.5 w-3.5 mr-1.5" />
                         Results
@@ -899,48 +929,31 @@ export default function ResearchWorkspace() {
                         <LineChart className="h-3.5 w-3.5 mr-1.5" />
                         Chart
                       </TabsTrigger>
-                      <TabsTrigger value="history" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
+                      <TabsTrigger value="ledger" className="text-xs px-4 h-7 data-[state=active]:text-blue-400">
                         <History className="h-3.5 w-3.5 mr-1.5" />
                         Ledger
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="config" className="mt-0">
-                      <PortfolioConfigPanelNew
-                        onRun={async (cfg) => {
-                          if (running) return;
-                          setRunning(true);
-                          try {
-                            const result = await api.post("/api/portfolio/backtest", {
-                              assets: cfg.assets,
-                              initial_cash: cfg.initial_cash,
-                              margin_target: cfg.margin_target,
-                              margin_rate: cfg.margin_rate,
-                              drip_enabled: cfg.drip_enabled,
-                              start_date: `${cfg.start_year}-01-01`,
-                              end_date: `${cfg.end_year}-12-31`,
-                              deposits: cfg.deposits,
-                              withdrawals: cfg.withdrawals,
-                            });
-                            setPortfolioResult(result);
-                            setWorkspaceTab("backtest");
-                          } catch (e: any) {
-                            setAiMessages(prev => [...prev, { role: "assistant", content: `⚠️ Portfolio backtest failed: ${e?.detail || e}` }]);
-                          } finally {
-                            setRunning(false);
-                          }
-                        }}
-                        running={running}
-                      />
-                    </TabsContent>
-
                     <TabsContent value="backtest" className="mt-0">
+                      {backtestError && (
+                        <Card className="bg-[#0d1321] border-red-500/30 mb-4">
+                          <CardContent className="py-4 text-center">
+                            <AlertCircle className="h-6 w-6 text-red-400 mx-auto mb-1" />
+                            <p className="text-sm text-red-400">{backtestError}</p>
+                            <Button size="sm" variant="outline" className="mt-2 text-xs border-gray-700 text-gray-400 hover:text-blue-400"
+                              onClick={() => setBacktestError(null)}>
+                              Dismiss
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
                       {!portfolioResult ? (
                         <Card className="bg-[#0d1321] border-gray-800/60">
                           <CardContent className="py-12 text-center">
                             <BarChart4 className="h-10 w-10 text-gray-700 mx-auto mb-3" />
                             <p className="text-sm text-gray-500">No portfolio results yet</p>
-                            <p className="text-xs text-gray-600 mt-1">Configure your portfolio and click "Run Portfolio Backtest" above.</p>
+                            <p className="text-xs text-gray-600 mt-1">Configure your portfolio above and click Run.</p>
                           </CardContent>
                         </Card>
                       ) : (
@@ -963,7 +976,7 @@ export default function ResearchWorkspace() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="history" className="mt-0">
+                    <TabsContent value="ledger" className="mt-0">
                       {portfolioResult ? (
                         <PortfolioLedger ledger={portfolioResult.ledger} />
                       ) : (
@@ -976,7 +989,7 @@ export default function ResearchWorkspace() {
                       )}
                     </TabsContent>
                   </Tabs>
-                </>
+                </div>
               ) : (
               /* Original options strategy tabs */
               <div>
