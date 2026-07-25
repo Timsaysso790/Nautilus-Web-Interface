@@ -101,6 +101,10 @@ interface BacktestMetrics {
 interface BacktestResult {
   ticker: string;
   strategy: string;
+  metadata?: {
+    run_name?: string;
+    run_seq?: number;
+  };
   metrics: BacktestMetrics;
   equity_curve: { date: string; equity: number; underlying: number; open_positions: number; margin_used: number }[];
   trades: TradeRecord[];
@@ -423,6 +427,9 @@ export default function ResearchWorkspace() {
   const [savedRuns, setSavedRuns] = useState<any[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
   const [selectedRunSeq, setSelectedRunSeq] = useState<number | null>(null);
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [pendingRunName, setPendingRunName] = useState("");
+  const [pendingRunSeq, setPendingRunSeq] = useState<number | null>(null);
 
   const loadSavedRuns = useCallback(async () => {
     if (!activeProjectId) return;
@@ -576,7 +583,14 @@ export default function ResearchWorkspace() {
       });
       setBacktestResult(result);
       setWorkspaceTab("backtest");
-      if (activeProjectId) loadSavedRuns();
+      if (activeProjectId) {
+        await loadSavedRuns();
+        // Show naming dialog for the latest run
+        const seq = result?.metadata?.run_seq || savedRuns?.[0]?.seq || 1;
+        setPendingRunSeq(seq);
+        setPendingRunName(`SPY ${config.delta_min?.toFixed(2) || ""}Δ PCS`);
+        setShowNameDialog(true);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Backtest failed";
       setBacktestError(msg);
@@ -1540,6 +1554,56 @@ export default function ResearchWorkspace() {
           loadProjects();
         }}
       />
+      {/* Naming dialog for saved runs */}
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogContent className="sm:max-w-sm bg-[#0d1321] border-gray-700 text-gray-200">
+          <DialogHeader>
+            <DialogTitle className="text-sm text-gray-100 flex items-center gap-2">
+              <FolderKanban className="h-4 w-4 text-amber-400" />
+              Name Your Backtest Run
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-500">
+              Give this run a descriptive name so you can find it later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              value={pendingRunName}
+              onChange={(e) => setPendingRunName(e.target.value)}
+              placeholder="e.g. SPY 0.16Δ PCS 2024-2025"
+              className="bg-[#0a0e17] border-gray-700 text-gray-200 text-sm"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setShowNameDialog(false);
+                  if (pendingRunSeq && activeProjectId && pendingRunName.trim()) {
+                    api.post(`/api/backtest/options/projects/${activeProjectId}/results/${pendingRunSeq}/rename`, {
+                      name: pendingRunName.trim(),
+                    }).then(() => loadSavedRuns()).catch(() => {});
+                  }
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNameDialog(false)}
+              className="border-gray-700 text-gray-400 text-xs h-8">
+              Skip
+            </Button>
+            <Button onClick={() => {
+              setShowNameDialog(false);
+              if (pendingRunSeq && activeProjectId && pendingRunName.trim()) {
+                api.post(`/api/backtest/options/projects/${activeProjectId}/results/${pendingRunSeq}/rename`, {
+                  name: pendingRunName.trim(),
+                }).then(() => loadSavedRuns()).catch(() => {});
+              }
+            }}
+              className="bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 text-xs h-8">
+              Save Name
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

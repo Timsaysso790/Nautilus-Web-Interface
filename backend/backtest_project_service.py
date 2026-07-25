@@ -143,25 +143,34 @@ def list_project_configs(slug: str) -> list[Dict[str, Any]]:
 
 # ── Results ────────────────────────────────────────────────────────────────────
 
-def save_result(slug: str, result: Dict[str, Any]) -> Path:
+def save_result(slug: str, result: Dict[str, Any], name: Optional[str] = None, overwrite_seq: Optional[int] = None) -> Path:
     """Save a backtest result into the results/ sub-directory as a sequenced JSON file."""
     _sanitize_slug(slug, "project_slug")
     pdir = _ensure_project_dir(slug)
     results_dir = pdir / "results"
 
-    # Determine next sequence number
-    existing = sorted(results_dir.glob("result-*.json"))
-    seq = 1
-    if existing:
-        last_seq = 0
-        for f in existing:
-            try:
-                num = int(f.stem.split("-")[-1])
-                if num > last_seq:
-                    last_seq = num
-            except (ValueError, IndexError):
-                continue
-        seq = last_seq + 1
+    # Determine next sequence number or use overwrite_seq
+    if overwrite_seq is not None:
+        seq = overwrite_seq
+    else:
+        existing = sorted(results_dir.glob("result-*.json"))
+        seq = 1
+        if existing:
+            last_seq = 0
+            for f in existing:
+                try:
+                    num = int(f.stem.split("-")[-1])
+                    if num > last_seq:
+                        last_seq = num
+                except (ValueError, IndexError):
+                    continue
+            seq = last_seq + 1
+
+    # Add name and sequence to result metadata
+    if "metadata" not in result:
+        result["metadata"] = {}
+    result["metadata"]["run_name"] = name or f"Run #{seq}"
+    result["metadata"]["run_seq"] = seq
 
     fpath = results_dir / f"result-{seq:04d}.json"
     try:

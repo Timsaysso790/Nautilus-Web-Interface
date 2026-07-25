@@ -48,6 +48,7 @@ class BacktestRequest(BaseModel):
     stop_loss_pct: Optional[float] = Field(None, ge=0.0, le=1000.0)
     max_days_in_trade: int = Field(60, ge=1, le=365)
     project_id: Optional[str] = Field(None, description="Save result to this project if provided")
+    run_name: Optional[str] = Field(None, description="Optional name for the saved run")
 
 
 @router.post("/run")
@@ -89,7 +90,7 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                     from routers.backtest_projects import _get_project_slug
                     slug = await _get_project_slug(req.project_id)
                     if slug:
-                        bps.save_result(slug, result)
+                        bps.save_result(slug, result, name=req.run_name)
                         result["saved_to_project"] = True
                 except Exception as e:
                     logger.warning(f"Failed to save result to project {req.project_id}: {e}")
@@ -132,11 +133,13 @@ async def list_project_results(project_id: str, user: dict = Depends(get_current
         except:
             r["seq"] = 0
         metrics = r.get("metrics", {})
+        meta = r.get("metadata", {})
         r["summary"] = {
             "total_trades": metrics.get("total_trades", 0),
             "total_pnl": metrics.get("total_pnl", 0),
             "win_rate": metrics.get("win_rate", 0),
             "sharpe": metrics.get("sharpe_ratio", 0),
+            "run_name": meta.get("run_name", f"Run #{r.get('seq', 0)}"),
         }
     return {"results": sorted(results, key=lambda x: x.get("seq", 0), reverse=True), "count": len(results)}
 
@@ -153,6 +156,27 @@ async def get_project_result(project_id: str, seq: int, user: dict = Depends(get
     if result is None:
         raise HTTPException(404, f"Result {seq} not found")
     return result
+
+
+@router.post("/projects/{project_id}/results/{seq}/rename")
+async def rename_project_result(project_id: str, seq: int, body: dict, user: dict = Depends(get_current_user)):
+    """Rename a saved backtest result."""
+    from routers.backtest_projects import _get_project_slug
+    try:
+        slug = await _get_project_slug(project_id)
+    except:
+        raise HTTPException(404, "Project not found")
+    result = bps.load_result(slug, seq)
+    if result is None:
+        raise HTTPException(404, f"Result {seq} not found")
+    new_name = body.get("name", "").strip()
+    if not new_name:
+        raise HTTPException(400, "Name is required")
+    if "metadata" not in result:
+        result["metadata"] = {}
+    result["metadata"]["run_name"] = new_name
+    bps.save_result(slug, result, name=new_name, overwrite_seq=seq)
+    return {"success": True, "name": new_name}
 
 
 @router.get("/tickers")
