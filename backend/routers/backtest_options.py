@@ -3,9 +3,12 @@ Options backtest API router.
 Runs bar-by-bar backtests using the local parquet archive.
 """
 import asyncio
+import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,9 +21,62 @@ import backtest_project_service as bps
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/backtest/options", tags=["backtest-options"])
 
-_backtest_lock = asyncio.Lock()
-_result_cache: Dict[str, Any] = {}
-_jobs: Dict[str, Dict[str, Any]] = {}  # job_id → { status, result?, error?, created_at }
+# Filesystem-based state (survives worker restarts, shared across gunicorn workers)
+_STATE_DIR = Path(os.getenv("PROJECTS_ROOT", "/opt/data/nautilus_projects")) / "_backtest_state"
+_JOBS_DIR = _STATE_DIR / "jobs"
+_RESULTS_DIR = _STATE_DIR / "results"
+_LOCK_FILE = _STATE_DIR / "backtest.lock"
+_JOBS_DIR.mkdir(parents=True, exist_ok=True)
+_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+async def _acquire_lock(timeout: float = 300) -> bool:
+    """File-based lock shared across gunicorn workers. Returns True if acquired."""
+    deadline = asyncio.get_event_loop().time() + timeout
+    while True:
+        try:
+            fd = os.open(str(_LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            return True
+        except FileExistsError:
+            if asyncio.get_event_loop().time() > deadline:
+                return False
+            await asyncio.sleep(0.5)
+
+
+def _release_lock() -> None:
+    try:
+        os.unlink(str(_LOCK_FILE))
+    except FileNotFoundError:
+        pass
+
+
+def _read_job(job_id: str) -> Optional[Dict[str, Any]]:
+    f = _JOBS_DIR / f"{job_id}.json"
+    if f.exists():
+        try:
+            return json.loads(f.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+    return None
+
+
+def _write_job(job_id: str, data: Dict[str, Any]) -> None:
+    (_JOBS_DIR / f"{job_id}.json").write_text(json.dumps(data))
+
+
+def _read_result(result_id: str) -> Optional[Dict[str, Any]]:
+    f = _RESULTS_DIR / f"{result_id}.json"
+    if f.exists():
+        try:
+            return json.loads(f.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+    return None
+
+
+def _write_result(result_id: str, data: Dict[str, Any]) -> None:
+    (_RESULTS_DIR / f"{result_id}.json").write_text(json.dumps(data, default=str))
 
 
 class BacktestLeg(BaseModel):
@@ -71,13 +127,15 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
     years = req.end_year - req.start_year + 1
     logger.info(f"Backtest queued [{job_id}]: {req.ticker} {strategy.description} ({req.start_year}-{req.end_year}, {years}yr)")
 
-    _jobs[job_id] = {"status": "running", "created_at": datetime.now(timezone.utc).isoformat()}
+    _write_job(job_id, {"status": "running", "created_at": datetime.now(timezone.utc).isoformat()})
 
     # Launch backtest in background — does NOT block the HTTP response
     async def _run():
         try:
-            async with _backtest_lock:
-                engine = OptionsBacktestEngine(
+            if not await _acquire_lock():
+                _write_job(job_id, {"status": "error", "error": "Another backtest is already running. Please wait."})
+                return
+            engine = OptionsBacktestEngine(
                     ticker=req.ticker,
                     strategy=strategy,
                     entry_dte_range=(req.entry_dte_min, req.entry_dte_max),
@@ -100,22 +158,22 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                     indicator_period2=req.indicator_period2,
                     indicator_slots=req.indicator_slots,
                     indicator_logic=req.indicator_logic,
+            )
+            loop = asyncio.get_event_loop()
+            try:
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(None, engine.run),
+                    timeout=300,
                 )
-                loop = asyncio.get_event_loop()
-                try:
-                    result = await asyncio.wait_for(
-                        loop.run_in_executor(None, engine.run),
-                        timeout=300,
-                    )
-                except asyncio.TimeoutError:
-                    _jobs[job_id] = {"status": "error", "error": "Backtest timed out after 5 minutes."}
+            except asyncio.TimeoutError:
+                    _write_job(job_id, {"status": "error", "error": "Backtest timed out after 5 minutes."})
                     return
 
             trades = len(result.get("trades", []))
             logger.info(f"Backtest complete [{job_id}]: {req.ticker} → {trades} trades, PnL ${result.get('metrics', {}).get('total_pnl', 0):.0f}")
 
             result_id = str(uuid.uuid4())[:8]
-            _result_cache[result_id] = result
+            _write_result(result_id, result)
             result["id"] = result_id
 
             # Save result to project if project_id provided
@@ -132,20 +190,22 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
                 except Exception as e:
                     logger.warning(f"Failed to save result [{job_id}] to project {req.project_id}: {e}")
 
-            _jobs[job_id] = {
+            _write_job(job_id, {
                 "status": "complete",
                 "result_id": result_id,
                 "saved_seq": saved_seq,
                 "trades": trades,
                 "pnl": result.get("metrics", {}).get("total_pnl", 0),
-            }
+            })
         except FileNotFoundError as e:
-            _jobs[job_id] = {"status": "error", "error": str(e)}
+            _write_job(job_id, {"status": "error", "error": str(e)})
         except ValueError as e:
-            _jobs[job_id] = {"status": "error", "error": str(e)}
+            _write_job(job_id, {"status": "error", "error": str(e)})
         except Exception as e:
             logger.exception(f"Backtest failed [{job_id}]")
-            _jobs[job_id] = {"status": "error", "error": str(e)[:200]}
+            _write_job(job_id, {"status": "error", "error": str(e)[:200]})
+        finally:
+            _release_lock()
 
     asyncio.create_task(_run())
     return {"job_id": job_id, "status": "running"}
@@ -154,7 +214,7 @@ async def run_backtest(req: BacktestRequest, user: dict = Depends(get_current_us
 @router.get("/status/{job_id}")
 async def get_backtest_status(job_id: str, user: dict = Depends(get_current_user)):
     """Poll for backtest completion. Returns {status, result_id?, saved_seq?, trades?, pnl?, error?}."""
-    job = _jobs.get(job_id)
+    job = _read_job(job_id)
     if not job:
         raise HTTPException(404, f"Job {job_id} not found")
     return {"job_id": job_id, **job}
@@ -163,7 +223,7 @@ async def get_backtest_status(job_id: str, user: dict = Depends(get_current_user
 @router.get("/result/{result_id}")
 async def get_backtest_result(result_id: str, user: dict = Depends(get_current_user)):
     """Retrieve a cached backtest result."""
-    result = _result_cache.get(result_id)
+    result = _read_result(result_id)
     if not result:
         raise HTTPException(404, f"Result {result_id} not found (cache may have expired)")
     return result
@@ -295,7 +355,9 @@ async def get_ticker_years(ticker: str, user: dict = Depends(get_current_user)):
 @router.post("/walk-forward")
 async def walk_forward(req: BacktestRequest, user: dict = Depends(get_current_user)):
     """Run backtest on each year independently."""
-    async with _backtest_lock:
+    if not await _acquire_lock():
+        raise HTTPException(503, "Another backtest is already running. Please wait.")
+    try:
         results = []
         for year in range(req.start_year, req.end_year + 1):
             try:
@@ -320,9 +382,12 @@ async def walk_forward(req: BacktestRequest, user: dict = Depends(get_current_us
             except Exception as e:
                 results.append({"year": year, "error": str(e)[:100]})
 
-        return {
+        response = {
             "ticker": req.ticker,
             "strategy": f"{len(req.legs)}-leg strategy",
             "walk_forward_results": results,
             "years_tested": len(results),
         }
+        return response
+    finally:
+        _release_lock()
